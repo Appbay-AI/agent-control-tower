@@ -1,0 +1,48 @@
+name: Database migrations
+
+# Development gets every migration merged to main automatically.
+# The demo database changes only when someone runs this workflow by hand,
+# so a half-finished change never reaches a client meeting.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which database to update
+        type: choice
+        options: [dev, demo]
+        default: dev
+
+concurrency:
+  group: db-migrate-${{ github.event.inputs.target || 'dev' }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ github.event.inputs.target || 'dev' }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Check configuration
+        run: |
+          missing=0
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_REF; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set for this environment"; missing=1; fi
+          done
+          exit $missing
+      - name: Link project
+        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Show pending migrations
+        run: supabase migration list --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply migrations
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"

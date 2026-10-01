@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Appbay brand: charcoal #20242c, yellow #fad31a, white */
+:root {
+  --radius: 0.625rem;
+  --background: #ffffff;
+  --foreground: #20242c;
+  --card: #ffffff;
+  --card-foreground: #20242c;
+  --popover: #ffffff;
+  --popover-foreground: #20242c;
+  --primary: #20242c;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #20242c;
+  --muted: #f3f4f6;
+  --muted-foreground: #5b6270;
+  --accent: #fad31a;
+  --accent-foreground: #20242c;
+  --destructive: #c62828;
+  --border: #e3e5e8;
+  --input: #e3e5e8;
+  --ring: #fad31a;
+  --brand-yellow: #fad31a;
+  --brand-charcoal: #20242c;
+}
+
+.dark {
+  --background: #16191f;
+  --foreground: #f5f6f7;
+  --card: #20242c;
+  --card-foreground: #f5f6f7;
+  --popover: #20242c;
+  --popover-foreground: #f5f6f7;
+  --primary: #fad31a;
+  --primary-foreground: #20242c;
+  --secondary: #2b303a;
+  --secondary-foreground: #f5f6f7;
+  --muted: #2b303a;
+  --muted-foreground: #a3a9b4;
+  --accent: #fad31a;
+  --accent-foreground: #20242c;
+  --destructive: #ef5350;
+  --border: #343a45;
+  --input: #343a45;
+  --ring: #fad31a;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-charcoal: var(--brand-charcoal);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
