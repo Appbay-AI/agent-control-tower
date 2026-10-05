@@ -35,8 +35,10 @@ Secret keys and passwords go only into GitHub secrets, never into code or chat.
 
 Workers & Pages → Create → Pages → Connect to Git → pick this repo.
 
+- Production branch: `demo` (the client-facing link only changes when `main` is merged into `demo`)
 - Build command: `npm run build`
 - Output directory: `dist`
+- Environment variables, both environments: `NODE_VERSION=22`
 - Environment variables (Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` from **act-demo**, `VITE_APP_ENV=demo`
 - Environment variables (Preview): the same three from **act-dev**, `VITE_APP_ENV=dev`
 
