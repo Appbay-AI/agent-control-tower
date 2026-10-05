@@ -10,8 +10,8 @@ TypeScript · React + Vite · Tailwind + shadcn/ui · Supabase (Postgres, Auth, 
 
 | Name | Supabase project | Updated by |
 |---|---|---|
-| `dev` | `act-dev` | Automatically, on every merge to `main` |
-| `demo` | `act-demo` | By hand: Actions → *Database migrations* → Run workflow → `demo` |
+| `dev` | `act-dev` (`gprwtthwvmmmbslccxpf`) | Automatically, on every merge to `main` |
+| `demo` | `act-demo` (`ekowumwkevkzwvkiljvf`) | By hand: Actions → *Database migrations* → Run workflow → `demo` |
 
 ## One-time setup
 
