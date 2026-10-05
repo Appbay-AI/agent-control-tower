@@ -30,4 +30,7 @@ jobs:
             "$URL/rest/v1/system_heartbeat?select=checked_at&limit=1" \
             -H "apikey: $KEY")
           echo "HTTP $code: $(cat body.json)"
-          test "$code" = "200"
+          if [ "$code" != "200" ]; then
+            echo "::error::${{ matrix.target }} heartbeat returned HTTP $code: $(head -c 300 body.json)"
+            exit 1
+          fi
