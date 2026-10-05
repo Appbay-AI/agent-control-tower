@@ -33,14 +33,22 @@ Secret keys and passwords go only into GitHub secrets, never into code or chat.
 
 ### 2. Cloudflare Pages
 
-Workers & Pages → Create → Pages → Connect to Git → pick this repo.
+GitHub builds the app and uploads it to Cloudflare (`.github/workflows/deploy.yml`), using the
+Supabase variables of the matching GitHub environment. Nothing is configured inside Cloudflare
+except the project itself.
 
-- Production branch: `demo` (the client-facing link only changes when `main` is merged into `demo`)
-- Build command: `npm run build`
-- Output directory: `dist`
-- Environment variables, both environments: `NODE_VERSION=22`
-- Environment variables (Production): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` from **act-demo**, `VITE_APP_ENV=demo`
-- Environment variables (Preview): the same three from **act-dev**, `VITE_APP_ENV=dev`
+| Branch | Link | Database |
+|---|---|---|
+| `demo` | https://agent-control-tower-56p.pages.dev (production, shown to clients) | act-demo |
+| `main` | https://main.agent-control-tower-56p.pages.dev (preview, work in progress) | act-dev |
+
+Repository secrets needed: `CLOUDFLARE_API_TOKEN` (Cloudflare → My Profile → API Tokens →
+Create token, permission *Account · Cloudflare Pages · Edit*) and `CLOUDFLARE_ACCOUNT_ID`
+(Cloudflare → Workers & Pages, right-hand side). The Pages project's production branch must be `demo`.
+If the project is not named `agent-control-tower`, set a repository variable `CLOUDFLARE_PROJECT_NAME`.
+
+To update the client demo: merge `main` into `demo`, then run *Database migrations* for `demo` if the
+release includes database changes.
 
 ## Commands
 
