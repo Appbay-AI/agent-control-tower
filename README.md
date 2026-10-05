@@ -55,4 +55,4 @@ npm run build
 
 ## Database changes
 
-Every change is a new file in `supabase/migrations/`. Never edit the database by hand in the dashboard; the migration files are the record.
+Every change is a new file in `supabase/migrations/`. Each new table needs both an RLS policy and an explicit `GRANT` to `anon`/`authenticated`; new Supabase projects grant nothing by default. Never edit the database by hand in the dashboard; the migration files are the record.
