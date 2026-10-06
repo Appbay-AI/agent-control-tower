@@ -37,7 +37,7 @@ export function AgentsPage() {
     return data.agents.filter((a) => {
       if (status && a.status !== status) return false
       if (risk && a.risk_tier !== risk) return false
-      if (flag === 'no_owner' && a.business_owner_id) return false
+      if (flag === 'no_owner' && (a.business_owner_id || !['approved', 'live', 'suspended'].includes(a.status))) return false
       if (flag === 'overdue' && !isReviewOverdue(a.next_review_date, a.status)) return false
       if (flag === 'pending' && !data.pending.has(a.id)) return false
       if (!q) return true
@@ -50,7 +50,9 @@ export function AgentsPage() {
     const agents = data?.agents ?? []
     return {
       total: agents.filter((a) => a.status !== 'retired').length,
-      noOwner: agents.filter((a) => !a.business_owner_id && a.status !== 'retired').length,
+      // Same rule as the database's owner_missing alert: registered agents only. Unregistered (Proposed) ones
+      // such as a discovered shadow agent are a different problem and stay visible in the list.
+      noOwner: agents.filter((a) => !a.business_owner_id && ['approved', 'live', 'suspended'].includes(a.status)).length,
       overdue: agents.filter((a) => isReviewOverdue(a.next_review_date, a.status)).length,
       pending: data?.pending.size ?? 0,
     }
