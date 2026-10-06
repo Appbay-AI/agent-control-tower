@@ -30,6 +30,15 @@ jobs:
       PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v5
+      - name: Check access token
+        run: |
+          all=$(curl -s -o projects.json -w '%{http_code}' https://api.supabase.com/v1/projects \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          one=$(curl -s -o project.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          visible=$(python3 -c "import json;d=json.load(open('projects.json'));print(','.join(p.get('ref','?') for p in d) if isinstance(d,list) else d)" 2>/dev/null)
+          echo "::notice title=Access token::token prefix ${SUPABASE_ACCESS_TOKEN:0:4}, length ${#SUPABASE_ACCESS_TOKEN}; list projects HTTP $all, sees [$visible]; this project HTTP $one"
+          test "$one" = "200" || { echo "::error title=Access token::Supabase refused the token for $PROJECT_REF (HTTP $one): $(head -c 200 project.json)"; exit 1; }
       - uses: supabase/setup-cli@v1
         with:
           version: latest
