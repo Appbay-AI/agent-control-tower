@@ -21,5 +21,7 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
+      - name: Database tests
+        run: npm run test:db
       - name: Build
         run: npm run build

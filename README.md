@@ -64,3 +64,7 @@ npm run build
 ## Database changes
 
 Every change is a new file in `supabase/migrations/`. Each new table needs both an RLS policy and an explicit `GRANT` to `anon`/`authenticated`; new Supabase projects grant nothing by default. Never edit the database by hand in the dashboard; the migration files are the record.
+
+Supabase grants `execute` on new functions to everyone by default, so every migration that adds a function ends with an explicit `revoke ... from public, anon, authenticated` and grants only what is needed.
+
+`npm run test:db` loads every migration into an in-memory Postgres (PGlite) with stand-ins for Supabase's `auth` schema and API roles, then tests the business rules, security policies and audit log.
