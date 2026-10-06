@@ -27,39 +27,49 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      # Preferred: the Session pooler connection string (Supabase → Connect). Needs no access token.
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v5
-      - name: Check access token
-        run: |
-          all=$(curl -s -o projects.json -w '%{http_code}' https://api.supabase.com/v1/projects \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
-          one=$(curl -s -o project.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
-          visible=$(python3 -c "import json;d=json.load(open('projects.json'));print(','.join(p.get('ref','?') for p in d) if isinstance(d,list) else d)" 2>/dev/null)
-          echo "::notice title=Access token::token prefix ${SUPABASE_ACCESS_TOKEN:0:4}, length ${#SUPABASE_ACCESS_TOKEN}; list projects HTTP $all, sees [$visible]; this project HTTP $one"
-          test "$one" = "200" || { echo "::error title=Access token::Supabase refused the token for $PROJECT_REF (HTTP $one): $(head -c 200 project.json)"; exit 1; }
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
       - name: Check configuration
         run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            case "$SUPABASE_DB_URL" in
+              postgres://*|postgresql://*) echo "Using the database connection string" ;;
+              *) echo "::error::SUPABASE_DB_URL must start with postgresql://"; exit 1 ;;
+            esac
+            exit 0
+          fi
           missing=0
           for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_REF; do
             if [ -z "${!v}" ]; then echo "::error::$v is not set for this environment"; missing=1; fi
           done
           exit $missing
+      - name: Check access token
+        if: env.SUPABASE_DB_URL == ''
+        run: |
+          one=$(curl -s -o project.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          test "$one" = "200" || { echo "::error title=Access token::Supabase refused the token for $PROJECT_REF (HTTP $one): $(head -c 200 project.json)"; exit 1; }
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       # Each step reports its last lines as an annotation on failure, so the cause is visible
       # without opening the raw log.
       - name: Link project
+        if: env.SUPABASE_DB_URL == ''
         run: |
           supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" > out.log 2>&1 \
             || { cat out.log; echo "::error title=Link failed::$(tail -n 5 out.log | tr '\n' ' ')"; exit 1; }
           cat out.log
       - name: Show pending migrations
-        run: supabase migration list --password "$SUPABASE_DB_PASSWORD"
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then supabase migration list --db-url "$SUPABASE_DB_URL"
+          else supabase migration list --password "$SUPABASE_DB_PASSWORD"; fi
       - name: Apply migrations
         run: |
-          supabase db push --password "$SUPABASE_DB_PASSWORD" > out.log 2>&1 \
-            || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | tr '\n' ' ')"; exit 1; }
+          if [ -n "$SUPABASE_DB_URL" ]; then target=(--db-url "$SUPABASE_DB_URL"); else target=(--password "$SUPABASE_DB_PASSWORD"); fi
+          supabase db push "${target[@]}" > out.log 2>&1 \
+            || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | sed 's#postgres[^ ]*@#postgresql://***@#g' | tr '\n' ' ')"; exit 1; }
           cat out.log
