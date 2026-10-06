@@ -140,3 +140,12 @@ export interface AgentApiKey {
   revoked_at: string | null
   last_used_at: string | null
 }
+
+export interface IntegrationKey {
+  id: string
+  name: string
+  key_prefix: string
+  created_at: string
+  revoked_at: string | null
+  last_used_at: string | null
+}

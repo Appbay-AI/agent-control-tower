@@ -1,0 +1,55 @@
+name: API smoke test
+
+# Proves the register and status endpoints work end to end on the work-in-progress site:
+# creates a temporary integration key, registers an agent with scripts/register-agent.mjs,
+# then retires the agent and revokes the key so the registry stays tidy.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ACT_URL: https://main.agent-control-tower-56p.pages.dev
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Health
+        run: |
+          curl -sS --retry 5 --retry-delay 5 --retry-all-errors "$ACT_URL/api/v1/health" | tee health.json
+          grep -q '"ok": true' health.json
+      - name: Temporary integration key
+        run: |
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          admin=$(psql "$SUPABASE_DB_URL" -tA -c "select id from public.profiles where email = 'admin@northbridge.demo'")
+          [ -n "$admin" ] || { echo "::error::Demo admin not found; run Seed demo data for dev first"; exit 1; }
+          key=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "begin;
+            select set_config('request.jwt.claims', json_build_object('sub', '$admin', 'role', 'authenticated')::text, true);
+            select public.create_integration_key('API smoke test $GITHUB_RUN_ID');
+            commit;" | grep '^act_int_')
+          echo "::add-mask::$key"
+          echo "ACT_INTEGRATION_KEY=$key" >> "$GITHUB_ENV"
+          echo "ADMIN_ID=$admin" >> "$GITHUB_ENV"
+      - name: Register an agent through the API
+        run: node scripts/register-agent.mjs | tee out.txt
+      - name: Clean up
+        if: always()
+        run: |
+          agent=$(grep -o 'AGENT_ID=.*' out.txt 2>/dev/null | cut -d= -f2)
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<SQL
+          begin;
+          select set_config('request.jwt.claims', json_build_object('sub', '$ADMIN_ID', 'role', 'authenticated')::text, true);
+          select public.retire_agent('$agent', 'API smoke test agent') where '$agent' <> '';
+          select public.revoke_api_key(id) from public.integration_keys where name = 'API smoke test $GITHUB_RUN_ID' and revoked_at is null;
+          commit;
+          SQL

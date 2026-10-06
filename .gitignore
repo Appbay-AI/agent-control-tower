@@ -35,3 +35,6 @@ supabase/.temp
 # Test output
 test-results
 playwright-report
+
+# Written by the deploy workflow
+functions-lib/config.js

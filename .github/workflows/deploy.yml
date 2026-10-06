@@ -40,5 +40,13 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           VITE_APP_ENV: ${{ github.ref_name == 'demo' && 'demo' || 'dev' }}
+      - name: API config
+        env:
+          URL: ${{ vars.SUPABASE_URL }}
+          KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          ENV_NAME: ${{ github.ref_name == 'demo' && 'demo' || 'dev' }}
+        run: |
+          node -e "const e=process.env; require('fs').writeFileSync('functions-lib/config.js',
+            'export const SUPABASE_URL = '+JSON.stringify(e.URL)+'\nexport const SUPABASE_PUBLISHABLE_KEY = '+JSON.stringify(e.KEY)+'\nexport const APP_ENV = '+JSON.stringify(e.ENV_NAME)+'\n')"
       - name: Upload to Cloudflare Pages
         run: npx --yes wrangler@4 pages deploy dist --project-name="$PROJECT_NAME" --branch="${{ github.ref_name }}" --commit-dirty=true

@@ -8,6 +8,7 @@ import { AgentDetailPage } from '@/pages/AgentDetailPage'
 import { AgentFormPage } from '@/pages/AgentFormPage'
 import { AgentsPage } from '@/pages/AgentsPage'
 import { ApprovalsPage } from '@/pages/ApprovalsPage'
+import { IntegrationsPage } from '@/pages/IntegrationsPage'
 import { LoginPage } from '@/pages/LoginPage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -38,6 +39,7 @@ export function AppRoutes() {
         <Route path="/agents/:id" element={<AgentDetailPage />} />
         <Route path="/agents/:id/edit" element={<AgentFormPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="*" element={<div className="py-10 text-center">Page not found. <Link className="underline" to="/agents">Go to agents</Link></div>} />
       </Route>
     </Routes>

@@ -1,4 +1,4 @@
-import { Activity, ClipboardCheck, LogOut, Users } from 'lucide-react'
+import { Activity, ClipboardCheck, KeyRound, LogOut, Users } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -11,6 +11,7 @@ export function Layout() {
   const links = [
     { to: '/agents', label: 'Agents', icon: Users, show: true },
     { to: '/approvals', label: 'Approvals', icon: ClipboardCheck, show: hasRole('approver', 'admin') },
+    { to: '/integrations', label: 'Integrations', icon: KeyRound, show: hasRole('admin') },
   ].filter((l) => l.show)
 
   return (

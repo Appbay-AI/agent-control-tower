@@ -116,6 +116,15 @@ describe('registration approval (task 1.5)', () => {
     await expect(submit(u.owner, agent)).rejects.toThrow(/Only Proposed|already waiting/)
   })
 
+  it('retiring an agent withdraws its pending approval', async () => {
+    const agent = await proposeAgent(db, u.owner, { department_id: dept })
+    const reg = await submit(u.owner, agent)
+    await asUser(db, u.owner, (tx) => tx.query(`select public.retire_agent($1, 'No longer needed')`, [agent]))
+    const r = await db.query<{ status: string; decision_reason: string }>(
+      `select status, decision_reason from public.agent_registrations where id = $1`, [reg])
+    expect(r.rows[0]).toEqual({ status: 'rejected', decision_reason: 'Withdrawn: the agent was retired' })
+  })
+
   it('Level 3 agents must have a value or volume limit', async () => {
     await expect(proposeAgent(db, u.owner, { autonomy_level: 3 })).rejects.toThrow(/level3_needs_threshold/)
     await proposeAgent(db, u.owner, { autonomy_level: 3, value_threshold: 10000 })
@@ -219,9 +228,16 @@ describe('register API and keys (task 1.7)', () => {
     await expect(register(key, { name: 'x' })).rejects.toThrow(/Invalid or revoked/)
   })
 
-  it('cannot be called by signed-in users or anonymous visitors directly', async () => {
+  it('is reachable with the public key, but only a valid key gets through; signed-in users cannot call it', async () => {
+    await expect(asRole(db, 'anon', (tx) => tx.query(`select public.api_register_agent('act_int_guess', '{"name":"x"}')`)))
+      .rejects.toThrow(/Invalid or revoked/)
+    await expect(asRole(db, 'anon', (tx) => tx.query(`select public.api_agent_status('act_agt_guess')`)))
+      .rejects.toThrow(/Invalid or revoked/)
+    const key = await integrationKey()
+    const res = await asRole(db, 'anon', async (tx) =>
+      (await tx.query<{ r: { status: string } }>(`select public.api_register_agent($1, '{"name":"Via anon"}') r`, [key])).rows[0].r)
+    expect(res.status).toBe('proposed')
     await expect(asUser(db, u.admin, (tx) => tx.query(`select public.api_register_agent('k', '{}')`))).rejects.toThrow(/permission denied/)
-    await expect(asRole(db, 'anon', (tx) => tx.query(`select public.api_register_agent('k', '{}')`))).rejects.toThrow(/permission denied/)
   })
 
   it('never exposes key hashes to users', async () => {

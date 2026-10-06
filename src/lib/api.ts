@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  Agent, AgentApiKey, AgentDraft, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
+  Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome,
 } from '@/lib/types'
 
@@ -61,5 +61,9 @@ export const api = {
     check(await db().from('agent_api_keys').select('id, agent_id, key_prefix, created_at, revoked_at, last_used_at')
       .eq('agent_id', agentId).order('created_at', { ascending: false })) as AgentApiKey[],
   createApiKey: async (agentId: string) => check(await db().rpc('create_agent_api_key', { p_agent_id: agentId })) as string,
+  integrationKeys: async () =>
+    check(await db().from('integration_keys').select('id, name, key_prefix, created_at, revoked_at, last_used_at')
+      .order('created_at', { ascending: false })) as IntegrationKey[],
+  createIntegrationKey: async (name: string) => check(await db().rpc('create_integration_key', { p_name: name })) as string,
   revokeKey: async (keyId: string) => check(await db().rpc('revoke_api_key', { p_key_id: keyId })),
 }
