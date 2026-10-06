@@ -19,7 +19,7 @@ test('the Chief Risk Officer sees the whole registry and the problems in it @pho
   await expect(page.getByRole('button', { name: /No owner/ })).toContainText('6')
   await expect(page.getByRole('button', { name: /Review overdue/ })).toContainText('4')
   await page.getByRole('button', { name: /No owner/ }).click()
-  await expect(page.getByText('Credit Memo Drafter').first()).toBeVisible()
+  await expect(page.getByText('Credit Memo Drafter').filter({ visible: true }).first()).toBeVisible()
 })
 
 test('a wrong password is refused', async ({ page }) => {
@@ -32,7 +32,7 @@ test('a wrong password is refused', async ({ page }) => {
 
 test('owners see only their own agents', async ({ page }) => {
   await signIn(page, 'lucy.grant')
-  await expect(page.getByText('Chat Refund Agent').first()).toBeVisible()
+  await expect(page.getByText('Chat Refund Agent').filter({ visible: true }).first()).toBeVisible()
   await expect(page.getByText('Payment Release Assistant')).toHaveCount(0)
 })
 
@@ -49,7 +49,7 @@ test('register → submit → approve → live, with segregation of duties and a
   await page.getByRole('button', { name: 'Save as Proposed' }).click()
   await expect(page.getByRole('heading', { name })).toBeVisible()
   await page.getByRole('button', { name: 'Submit for approval' }).click()
-  await expect(page.getByText('Waiting for approval')).toBeVisible()
+  await expect(page.getByText('Waiting for approval').first()).toBeVisible()
   // He cannot approve his own agent: no decision buttons for him.
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0)
   const agentUrl = page.url()
