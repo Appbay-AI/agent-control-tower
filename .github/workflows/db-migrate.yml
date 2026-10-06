@@ -40,9 +40,17 @@ jobs:
             if [ -z "${!v}" ]; then echo "::error::$v is not set for this environment"; missing=1; fi
           done
           exit $missing
+      # Each step reports its last lines as an annotation on failure, so the cause is visible
+      # without opening the raw log.
       - name: Link project
-        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        run: |
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" > out.log 2>&1 \
+            || { cat out.log; echo "::error title=Link failed::$(tail -n 5 out.log | tr '\n' ' ')"; exit 1; }
+          cat out.log
       - name: Show pending migrations
         run: supabase migration list --password "$SUPABASE_DB_PASSWORD"
       - name: Apply migrations
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: |
+          supabase db push --password "$SUPABASE_DB_PASSWORD" > out.log 2>&1 \
+            || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | tr '\n' ' ')"; exit 1; }
+          cat out.log
