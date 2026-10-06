@@ -46,6 +46,19 @@ jobs:
             if [ -z "${!v}" ]; then echo "::error::$v is not set for this environment"; missing=1; fi
           done
           exit $missing
+      - name: Check connection string (no secrets shown)
+        if: env.SUPABASE_DB_URL != ''
+        run: |
+          python3 - <<'PY'
+          import os, hashlib, urllib.parse as u
+          url = u.urlparse(os.environ['SUPABASE_DB_URL'])
+          pw_url = u.unquote(url.password or '')
+          pw = os.environ.get('SUPABASE_DB_PASSWORD', '')
+          fp = lambda s: hashlib.sha256(s.encode()).hexdigest()[:8]
+          print(f"::notice title=Connection string::user={url.username} host={url.hostname} port={url.port} "
+                f"password length={len(pw_url)} fingerprint={fp(pw_url)}; SUPABASE_DB_PASSWORD length={len(pw)} "
+                f"fingerprint={fp(pw)}; match={pw_url == pw}; placeholder left={'YOUR-PASSWORD' in os.environ['SUPABASE_DB_URL']}")
+          PY
       - name: Check access token
         if: env.SUPABASE_DB_URL == ''
         run: |
