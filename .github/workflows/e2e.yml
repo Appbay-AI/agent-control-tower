@@ -1,0 +1,37 @@
+name: End-to-end
+
+# Signs in as the demo personas on the work-in-progress site and walks the registration flow.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  e2e:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      ACT_URL: https://main.agent-control-tower-56p.pages.dev
+      DEMO_USER_PASSWORD: ${{ secrets.DEMO_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run
+        run: npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect' out.log | head -n 8 | tr '\n' ' ')"; exit 1; }
+      - run: cat out.log
+        if: success()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

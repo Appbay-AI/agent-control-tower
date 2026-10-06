@@ -1,0 +1,91 @@
+import { expect, test, type Page } from '@playwright/test'
+
+const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
+const as = (who: string) => `${who}@northbridge.demo`
+
+async function signIn(page: Page, who: string) {
+  await page.goto('/login')
+  await page.getByLabel('Email').fill(as(who))
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByRole('heading', { name: 'Agent registry' })).toBeVisible()
+}
+
+test.describe.configure({ mode: 'serial' })
+
+test('the Chief Risk Officer sees the whole registry and the problems in it @phone', async ({ page }) => {
+  await signIn(page, 'priya.sharma')
+  // The story the demo opens with: owners missing, reviews overdue, approvals waiting.
+  await expect(page.getByRole('button', { name: /No owner/ })).toContainText('6')
+  await expect(page.getByRole('button', { name: /Review overdue/ })).toContainText('4')
+  await page.getByRole('button', { name: /No owner/ }).click()
+  await expect(page.getByText('Credit Memo Drafter').first()).toBeVisible()
+})
+
+test('a wrong password is refused', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByLabel('Email').fill(as('priya.sharma'))
+  await page.getByLabel('Password').fill('definitely-wrong-password')
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByText('Email or password is wrong.')).toBeVisible()
+})
+
+test('owners see only their own agents', async ({ page }) => {
+  await signIn(page, 'lucy.grant')
+  await expect(page.getByText('Chat Refund Agent').first()).toBeVisible()
+  await expect(page.getByText('Payment Release Assistant')).toHaveCount(0)
+})
+
+test('register → submit → approve → live, with segregation of duties and an audit trail', async ({ page }) => {
+  const name = `E2E agent ${Date.now()}`
+
+  // James proposes an agent and submits it.
+  await signIn(page, 'james.whitfield')
+  await page.getByRole('link', { name: 'Register agent' }).click()
+  await page.getByLabel('Name').fill(name)
+  await page.getByLabel('Department').selectOption({ label: 'Payments' })
+  await page.getByLabel('Purpose statement').fill('End-to-end test agent. Reads test data only.')
+  await page.getByLabel('Systems it touches').fill('Test harness')
+  await page.getByRole('button', { name: 'Save as Proposed' }).click()
+  await expect(page.getByRole('heading', { name })).toBeVisible()
+  await page.getByRole('button', { name: 'Submit for approval' }).click()
+  await expect(page.getByText('Waiting for approval')).toBeVisible()
+  // He cannot approve his own agent: no decision buttons for him.
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0)
+  const agentUrl = page.url()
+  await page.getByRole('button', { name: /sign out/i }).click()
+
+  // Daniel approves it from his queue.
+  await signIn(page, 'daniel.okafor')
+  await page.getByRole('link', { name: 'Approvals' }).first().click()
+  const card = page.locator('li').filter({ hasText: name })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: 'Approve' }).click()
+  await expect(card).toHaveCount(0)
+  await page.getByRole('button', { name: /sign out/i }).click()
+
+  // James puts it live; the audit trail shows each step and who did it.
+  await signIn(page, 'james.whitfield')
+  await page.goto(agentUrl)
+  await page.getByRole('button', { name: 'Put live' }).click()
+  await expect(page.getByText('Live', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText(/proposed → approved/)).toBeVisible()
+  await expect(page.getByText(/approved → live/)).toBeVisible()
+  await expect(page.getByText(/Daniel Okafor/).first()).toBeVisible()
+
+  // Tidy up: retire it so the demo registry stays as seeded.
+  await page.getByRole('button', { name: 'Retire' }).click()
+  await page.getByLabel('Reason').fill('End-to-end test finished')
+  await page.getByRole('button', { name: 'Retire agent' }).click()
+  await expect(page.getByText('Retired', { exact: true }).first()).toBeVisible()
+})
+
+test('sending back needs a reason', async ({ page }) => {
+  await signIn(page, 'daniel.okafor')
+  await page.getByRole('link', { name: 'Approvals' }).first().click()
+  const card = page.locator('li').filter({ hasText: 'Supplier Onboarding Bot' })
+  await card.getByRole('button', { name: 'Send back' }).click()
+  await card.getByRole('button', { name: 'Send back to owner' }).click()
+  await expect(card.getByText('Say what needs to change.')).toBeVisible()
+  await card.getByRole('button', { name: 'Cancel' }).click()
+})
