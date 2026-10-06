@@ -65,11 +65,13 @@ jobs:
           cat out.log
       - name: Show pending migrations
         run: |
-          if [ -n "$SUPABASE_DB_URL" ]; then supabase migration list --db-url "$SUPABASE_DB_URL"
-          else supabase migration list --password "$SUPABASE_DB_PASSWORD"; fi
+          if [ -n "$SUPABASE_DB_URL" ]; then target=(--db-url "$SUPABASE_DB_URL"); else target=(--password "$SUPABASE_DB_PASSWORD"); fi
+          supabase migration list "${target[@]}" > out.log 2>&1 \
+            || { cat out.log; echo "::error title=Connect failed::$(tail -n 6 out.log | sed -E 's#postgres(ql)?://[^ ]*#postgresql://***#g' | tr '\n' ' ')"; exit 1; }
+          cat out.log
       - name: Apply migrations
         run: |
           if [ -n "$SUPABASE_DB_URL" ]; then target=(--db-url "$SUPABASE_DB_URL"); else target=(--password "$SUPABASE_DB_PASSWORD"); fi
           supabase db push "${target[@]}" > out.log 2>&1 \
-            || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | sed 's#postgres[^ ]*@#postgresql://***@#g' | tr '\n' ' ')"; exit 1; }
+            || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | sed -E 's#postgres(ql)?://[^ ]*#postgresql://***#g' | tr '\n' ' ')"; exit 1; }
           cat out.log
