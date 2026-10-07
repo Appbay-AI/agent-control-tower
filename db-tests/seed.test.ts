@@ -4,7 +4,9 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import type { PGlite } from '@electric-sql/pglite'
 import { createDb, createUser } from './harness'
 
-const SEED = readFileSync(path.resolve(__dirname, '../supabase/seed/02_demo_bank.sql'), 'utf8')
+const seedFile = (f: string) => readFileSync(path.resolve(__dirname, '../supabase/seed', f), 'utf8')
+// psql runs these in one session; so does the test.
+const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql'].map(seedFile).join('\n')
 const PERSONAS = ['admin', 'priya.sharma', 'ravi.menon', 'daniel.okafor', 'sara.haddad', 'omar.farouk',
   'james.whitfield', 'aisha.rahman', 'tom.becker', 'lucy.grant', 'mei.lin']
 
@@ -21,7 +23,7 @@ describe('Northbridge demo bank seed', () => {
 
   it('creates the registry with every lifecycle state', async () => {
     const rows = await q<{ status: string; n: number }>(`select status::text, count(*)::int n from public.agents group by 1 order by 1`)
-    expect(Object.fromEntries(rows.map((r) => [r.status, r.n]))).toEqual({ live: 16, proposed: 4, retired: 1 })
+    expect(Object.fromEntries(rows.map((r) => [r.status, r.n]))).toEqual({ live: 33, proposed: 6, retired: 1 })
   })
 
   it('tells the story: six live agents without owners, four overdue reviews, one shadow agent', async () => {
@@ -41,6 +43,7 @@ describe('Northbridge demo bank seed', () => {
       from public.agent_registrations r join public.agents a on a.id = r.agent_id
       where r.status = 'pending' order by a.name`)
     expect(pending).toEqual([
+      { name: 'Cloud Cost Optimiser', required_approvals: 1, approvals: 0 },
       { name: 'FX Payment Router', required_approvals: 2, approvals: 1 },
       { name: 'Supplier Onboarding Bot', required_approvals: 1, approvals: 0 },
     ])
@@ -58,10 +61,18 @@ describe('Northbridge demo bank seed', () => {
     expect(await q(`select * from public.audit_verify_chain()`)).toEqual([])
   })
 
+  it('spreads history over the past year, with completed reviews', async () => {
+    const span = await q<{ oldest: number; reviews: number }>(`
+      select (current_date - min(created_at)::date) oldest, (select count(*)::int from public.agent_reviews) reviews
+      from public.agents`)
+    expect(span[0].oldest).toBeGreaterThan(365)
+    expect(span[0].reviews).toBe(10)
+  })
+
   it('can be run again without duplicating anything', async () => {
     const before = (await q<{ n: number }>(`select count(*)::int n from public.audit_events`))[0].n
     await db.exec(SEED)
-    expect((await q<{ n: number }>(`select count(*)::int n from public.agents`))[0].n).toBe(21)
+    expect((await q<{ n: number }>(`select count(*)::int n from public.agents`))[0].n).toBe(40)
     // Only the alert refresh may run again, and it raises nothing new.
     expect((await q<{ n: number }>(`select count(*)::int n from public.audit_events`))[0].n).toBe(before)
   })
