@@ -9,9 +9,16 @@ function db() {
   return supabase
 }
 
+const NOT_VISIBLE = "This record doesn't exist, or you don't have access to it."
+
 /** Throws the database's own message (our SQL raises plain-English errors). */
-function check<T>(res: { data: T | null; error: { message: string } | null }): T {
-  if (res.error) throw new Error(res.error.message)
+function check<T>(res: { data: T | null; error: { message: string; code?: string } | null }): T {
+  if (res.error) {
+    // PGRST116: a single row was expected but none (or several) came back, usually because row-level
+    // security hides it from this person. Never show the raw API wording.
+    if (res.error.code === 'PGRST116') throw new Error(NOT_VISIBLE)
+    throw new Error(res.error.message)
+  }
   return res.data as T
 }
 
@@ -28,10 +35,17 @@ export const api = {
   approversFor: async (agentId: string) =>
     check(await db().rpc('approvers_for', { p_agent_id: agentId })) as { id: string; full_name: string; job_title: string | null }[],
 
-  createAgent: async (draft: AgentDraft, userId: string) =>
-    check(await db().from('agents').insert({ ...draft, created_by: userId }).select('id').single()) as { id: string },
-  updateAgent: async (id: string, draft: Partial<AgentDraft>) =>
-    check(await db().from('agents').update(draft).eq('id', id).select('id').single()) as { id: string },
+  createAgent: async (draft: AgentDraft, userId: string) => {
+    const row = check(await db().from('agents').insert({ ...draft, created_by: userId }).select('id').maybeSingle()) as { id: string } | null
+    if (!row) throw new Error('The agent could not be saved. Check you have the Agent owner role.')
+    return row
+  },
+  updateAgent: async (id: string, draft: Partial<AgentDraft>) => {
+    const row = check(await db().from('agents').update(draft).eq('id', id).select('id').maybeSingle()) as { id: string } | null
+    // No row back: either it wasn't yours to edit, or your change removed you from it so you can no longer see it.
+    if (!row) throw new Error("The change was not saved, or you removed yourself from this agent and can no longer see it. Only the agent's owners and creator can edit it.")
+    return row
+  },
 
   submit: async (agentId: string) => check(await db().rpc('submit_agent_for_approval', { p_agent_id: agentId })) as string,
   decide: async (registrationId: string, decision: RegistrationDecision, reason?: string) =>

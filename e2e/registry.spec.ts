@@ -93,3 +93,14 @@ test('sending back needs a reason', async ({ page }) => {
   await expect(card.getByText('Say what needs to change.')).toBeVisible()
   await card.getByRole('button', { name: 'Cancel' }).click()
 })
+
+test("opening someone else's agent shows a plain message, never a raw error", async ({ page }) => {
+  await signIn(page, 'lucy.grant')
+  const href = await page.getByRole('link', { name: 'Chat Refund Agent' }).first().getAttribute('href')
+  await page.getByRole('button', { name: /sign out/i }).click()
+  // Daniel approves Payments and Treasury only, so he cannot see Lucy's Customer Service agent.
+  await signIn(page, 'daniel.okafor', { goto: false })
+  await page.goto(href!)
+  await expect(page.getByText("This agent doesn't exist, or you don't have access to it.")).toBeVisible()
+  await expect(page.getByText(/Cannot coerce/)).toHaveCount(0)
+})

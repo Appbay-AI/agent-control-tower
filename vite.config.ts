@@ -11,6 +11,8 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered in main.tsx so a new release replaces the cached app and reloads automatically.
+      injectRegister: false,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Agent Control Tower',
