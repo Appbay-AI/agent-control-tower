@@ -3,8 +3,9 @@ import { expect, test, type Page } from '@playwright/test'
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 const as = (who: string) => `${who}@northbridge.demo`
 
-async function signIn(page: Page, who: string) {
-  await page.goto('/login')
+async function signIn(page: Page, who: string, { goto = true } = {}) {
+  if (goto) await page.goto('/login')
+  await expect(page.getByLabel('Email')).toBeVisible()
   await page.getByLabel('Email').fill(as(who))
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in' }).click()
@@ -50,13 +51,16 @@ test('register → submit → approve → live, with segregation of duties and a
   await expect(page.getByRole('heading', { name })).toBeVisible()
   await page.getByRole('button', { name: 'Submit for approval' }).click()
   await expect(page.getByText('Waiting for approval').first()).toBeVisible()
+  // The owner is told whose queue it is in (Payments approvers, never the owner himself).
+  await expect(page.getByText(/Can be approved by/)).toContainText('Daniel Okafor')
+  await expect(page.getByText(/Can be approved by/)).toContainText('Ravi Menon')
   // He cannot approve his own agent: no decision buttons for him.
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0)
   const agentUrl = page.url()
   await page.getByRole('button', { name: /sign out/i }).click()
 
-  // Daniel approves it from his queue.
-  await signIn(page, 'daniel.okafor')
+  // Daniel signs in on the same browser straight after: he lands on the registry, not on James's page.
+  await signIn(page, 'daniel.okafor', { goto: false })
   await page.getByRole('link', { name: 'Approvals' }).first().click()
   const card = page.locator('li').filter({ hasText: name })
   await expect(card).toBeVisible()

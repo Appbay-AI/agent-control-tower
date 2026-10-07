@@ -34,18 +34,29 @@ export function AgentDetailPage() {
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
     const keys = canSeeKeys ? await api.apiKeys(id!) : []
+    const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
-      agent, people, registrations, decisions, reviews, activity, keys,
+      agent, people, registrations, decisions, reviews, activity, keys, approvers,
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
     }
   }, [id])
 
-  if (error) return <ErrorBox message={error} />
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <ErrorBox message={error} />
+        <Link to="/agents" className="inline-flex items-center gap-1 text-sm hover:underline"><ArrowLeft className="size-4" /> All agents</Link>
+      </div>
+    )
+  }
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers } = data
+  const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
+  const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
+  const orList = (names: string[]) => names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
   const pending = registrations.find((r) => r.status === 'pending') ?? null
   const latest = registrations[0] ?? null
   const perms = agentPermissions({ agent: a, userId, roles, scopeDepartmentIds, pending, decisions })
@@ -113,6 +124,11 @@ export function AgentDetailPage() {
             <p>
               Submitted {formatDateTime(pending.submitted_at)}{pending.submitted_by ? ` by ${name(pending.submitted_by)}` : ' through the API'}.
               {pending.required_approvals > 1 && ` Critical agent: needs ${pending.required_approvals} approvers (${perms.approvalsSoFar} so far).`}
+            </p>
+            <p>
+              {stillToDecide.length > 0
+                ? <>Can be approved by <strong>{orList(stillToDecide)}</strong>{department ? `, the ${department.name} approvers` : ''}.</>
+                : <>No approver covers {department?.name ?? 'this department'} yet. Ask an admin to assign one.</>}
             </p>
             {perms.canDecide && <DecisionPanel registrationId={pending.id} onDone={() => reload()} />}
             {perms.alreadyDecided && <p className="font-medium">You have approved. A second approver is needed.</p>}

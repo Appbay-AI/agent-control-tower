@@ -152,7 +152,7 @@ export function AgentFormPage() {
               {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
             </select>
           </Row>
-          <Row label="Department" htmlFor="dept" required>
+          <Row label="Department" htmlFor="dept" required hint="The department decides who approves this agent.">
             <select id="dept" className={selectClass} value={draft.department_id ?? ''} onChange={(e) => set('department_id', e.target.value || null)}>
               <option value="">— Choose —</option>
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}

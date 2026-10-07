@@ -1,5 +1,5 @@
 import { Activity, ClipboardCheck, KeyRound, LogOut, Users } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { ROLE_LABEL } from '@/lib/format'
@@ -8,6 +8,12 @@ import { cn } from '@/lib/utils'
 
 export function Layout() {
   const { profile, roles, hasRole, signOut } = useAuth()
+  const navigate = useNavigate()
+  // Start the next person fresh: never send them back to the page the previous person had open.
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login', { replace: true, state: null })
+  }
   const links = [
     { to: '/agents', label: 'Agents', icon: Users, show: true },
     { to: '/approvals', label: 'Approvals', icon: ClipboardCheck, show: hasRole('approver', 'admin') },
@@ -41,7 +47,7 @@ export function Layout() {
               <div className="font-medium">{profile?.full_name}</div>
               <div className="text-white/60">{roles.map((r) => ROLE_LABEL[r]).join(' · ') || 'No role yet'}</div>
             </div>
-            <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={signOut}>
+            <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={handleSignOut}>
               <LogOut className="size-4" /> <span className="sr-only sm:not-sr-only">Sign out</span>
             </Button>
           </div>

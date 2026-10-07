@@ -125,6 +125,17 @@ describe('registration approval (task 1.5)', () => {
     expect(r.rows[0]).toEqual({ status: 'rejected', decision_reason: 'Withdrawn: the agent was retired' })
   })
 
+  it("tells the owner who can approve, without revealing anyone else's permissions", async () => {
+    const agent = await proposeAgent(db, u.owner, { department_id: dept })
+    const names = await asUser(db, u.owner, async (tx) =>
+      (await tx.query<{ full_name: string }>(`select full_name from public.approvers_for($1)`, [agent])).rows.map((r) => r.full_name))
+    expect(names).toEqual(['approver', 'approver2'])
+    // Someone who cannot see the agent learns nothing.
+    const hidden = await asUser(db, u.outsider, async (tx) =>
+      (await tx.query(`select * from public.approvers_for($1)`, [agent])).rows)
+    expect(hidden).toEqual([])
+  })
+
   it('Level 3 agents must have a value or volume limit', async () => {
     await expect(proposeAgent(db, u.owner, { autonomy_level: 3 })).rejects.toThrow(/level3_needs_threshold/)
     await proposeAgent(db, u.owner, { autonomy_level: 3, value_threshold: 10000 })

@@ -20,7 +20,13 @@ export const api = {
   profiles: async () => check(await db().from('profiles').select('*').eq('is_active', true).order('full_name')) as Profile[],
 
   agents: async () => check(await db().from('agents').select('*').order('agent_code')) as Agent[],
-  agent: async (id: string) => check(await db().from('agents').select('*').eq('id', id).single()) as Agent,
+  agent: async (id: string) => {
+    const row = check(await db().from('agents').select('*').eq('id', id).maybeSingle()) as Agent | null
+    if (!row) throw new Error("This agent doesn't exist, or you don't have access to it.")
+    return row
+  },
+  approversFor: async (agentId: string) =>
+    check(await db().rpc('approvers_for', { p_agent_id: agentId })) as { id: string; full_name: string; job_title: string | null }[],
 
   createAgent: async (draft: AgentDraft, userId: string) =>
     check(await db().from('agents').insert({ ...draft, created_by: userId }).select('id').single()) as { id: string },
