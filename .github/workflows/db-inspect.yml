@@ -1,0 +1,33 @@
+name: Inspect database (read-only)
+
+# Runs one query inside a READ ONLY transaction that is always rolled back, and shows the result
+# as an annotation. Used to diagnose issues without changing anything.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which database
+        type: choice
+        options: [dev, demo]
+        default: demo
+      sql:
+        description: A single SELECT query
+        required: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ github.event.inputs.target }}
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      QUERY: ${{ github.event.inputs.sql }}
+    steps:
+      - name: Query
+        run: |
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          printf 'begin read only;\n%s;\nrollback;\n' "$QUERY" > q.sql
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -P pager=off -P footer=off -A -F ' | ' -f q.sql > out.txt 2>&1 || true
+          cat out.txt
+          body=$(grep -v -E '^(BEGIN|ROLLBACK)$' out.txt | head -n 60 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::notice title=Result::$body"
