@@ -17,6 +17,7 @@ jobs:
     env:
       ACT_URL: https://main.agent-control-tower-56p.pages.dev
       DEMO_USER_PASSWORD: ${{ secrets.DEMO_USER_PASSWORD }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -29,6 +30,18 @@ jobs:
         run: npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect' out.log | head -n 8 | tr '\n' ' ')"; exit 1; }
       - run: cat out.log
         if: success()
+      - name: Retire leftover test agents
+        if: always()
+        run: |
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+          from public.profiles where email = 'admin@northbridge.demo';
+          select public.retire_agent(id, 'Test agent left by an interrupted test run')
+          from public.agents where status <> 'retired' and (name like 'E2E agent %' or name like 'API test agent %');
+          commit;
+          SQL
       - uses: actions/upload-artifact@v4
         if: always()
         with:
