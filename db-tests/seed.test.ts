@@ -76,4 +76,16 @@ describe('Northbridge demo bank seed', () => {
     // Only the alert refresh may run again, and it raises nothing new.
     expect((await q<{ n: number }>(`select count(*)::int n from public.audit_events`))[0].n).toBe(before)
   })
+
+  it('can be reset and reloaded to exactly the same story, with a fresh audit chain', async () => {
+    await db.exec(seedFile('90_reset.sql'))
+    expect((await q<{ n: number }>(`select count(*)::int n from public.agents`))[0].n).toBe(0)
+    expect((await q<{ n: number }>(`select count(*)::int n from public.audit_events`))[0].n).toBe(0)
+    await db.exec(SEED)
+    expect((await q<{ n: number }>(`select count(*)::int n from public.agents`))[0].n).toBe(40)
+    expect((await q<{ c: string }>(`select agent_code c from public.agents where name = 'Payment Release Assistant'`))[0].c).toBe('AGT-0001')
+    expect(await q(`select * from public.audit_verify_chain()`)).toEqual([])
+    // The guards are back on after the reset.
+    await expect(db.query(`delete from public.audit_events where seq = 1`)).rejects.toThrow(/insert-only/)
+  })
 })

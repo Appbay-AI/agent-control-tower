@@ -10,6 +10,10 @@ on:
         type: choice
         options: [dev, demo]
         default: dev
+      reset:
+        description: Clear all agents and history first, then reload (demo data only; logins and roles are kept)
+        type: boolean
+        default: false
 
 jobs:
   seed:
@@ -31,6 +35,12 @@ jobs:
         run: |
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -v demo_password="$DEMO_USER_PASSWORD" -f supabase/seed/01_users.sql > out.log 2>&1 \
             || { cat out.log; echo "::error title=Personas failed::$(tail -n 6 out.log | tr '\n' ' ')"; exit 1; }
+          cat out.log
+      - name: Reset demo data
+        if: github.event.inputs.reset == 'true'
+        run: |
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed/90_reset.sql > out.log 2>&1 \
+            || { cat out.log; echo "::error title=Reset failed::$(tail -n 6 out.log | tr '\n' ' ')"; exit 1; }
           cat out.log
       - name: Northbridge Bank
         run: |
