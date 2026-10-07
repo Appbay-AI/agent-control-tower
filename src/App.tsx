@@ -12,10 +12,11 @@ import { IntegrationsPage } from '@/pages/IntegrationsPage'
 import { LoginPage } from '@/pages/LoginPage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, signedOut } = useAuth()
   const location = useLocation()
   if (loading) return <div className="mx-auto max-w-6xl p-6"><LoadingRows /></div>
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  // Remember the page only for deep links (e.g. a link in an email), never after someone signs out.
+  if (!session) return <Navigate to="/login" replace state={signedOut ? null : { from: location.pathname }} />
   return <>{children}</>
 }
 

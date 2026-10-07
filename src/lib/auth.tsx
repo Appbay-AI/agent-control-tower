@@ -9,6 +9,8 @@ interface AuthState {
   roles: AppRole[]
   scopeDepartmentIds: string[]
   loading: boolean
+  /** True after a deliberate sign-out, so the next person is not sent to the previous person's page. */
+  signedOut: boolean
   hasRole: (...roles: AppRole[]) => boolean
   signIn: (email: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
@@ -22,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([])
   const [scopeDepartmentIds, setScopes] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [signedOut, setSignedOut] = useState(false)
 
   const loadIdentity = useCallback(async (s: Session | null) => {
     if (!supabase || !s) {
@@ -61,17 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadIdentity])
 
   const value = useMemo<AuthState>(() => ({
-    session, profile, roles, scopeDepartmentIds, loading,
+    session, profile, roles, scopeDepartmentIds, loading, signedOut,
     hasRole: (...wanted) => wanted.some((r) => roles.includes(r)),
     signIn: async (email, password) => {
       if (!supabase) return 'The app is not connected to a database yet.'
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (!error) setSignedOut(false)
       return error ? (error.message === 'Invalid login credentials' ? 'Email or password is wrong.' : error.message) : null
     },
     signOut: async () => {
+      setSignedOut(true)
       await supabase?.auth.signOut()
     },
-  }), [session, profile, roles, scopeDepartmentIds, loading])
+  }), [session, profile, roles, scopeDepartmentIds, loading, signedOut])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
