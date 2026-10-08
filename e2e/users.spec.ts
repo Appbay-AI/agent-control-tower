@@ -65,7 +65,7 @@ test('an admin adds a person, they choose their own password, and deactivation l
   await page.getByRole('link', { name: 'Users' }).first().click()
   await page.getByLabel('Search users').fill(email)
   await page.getByRole('link', { name }).filter({ visible: true }).first().click()
-  await expect(page.getByText('Active', { exact: true })).toBeVisible()
+  await expect(page.getByRole('complementary').getByText('Active', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Deactivate' }).click()
   await page.getByLabel(/Reason/).fill('End-to-end test finished')
   await page.getByRole('dialog').getByRole('button', { name: 'Deactivate' }).click()
