@@ -24,6 +24,32 @@ export interface Profile {
   job_title: string | null
   department_id: string | null
   is_active: boolean
+  must_change_password: boolean
+}
+
+/** One row of the admin Users screen (admin_list_users). */
+export interface UserRow {
+  id: string
+  full_name: string
+  email: string | null
+  job_title: string | null
+  department_id: string | null
+  is_active: boolean
+  must_change_password: boolean
+  roles: AppRole[]
+  scope_department_ids: string[]
+  last_sign_in_at: string | null
+  created_at: string
+  owned_agents: number
+}
+
+export interface UserDraft {
+  full_name: string
+  email: string
+  job_title: string
+  department_id: string | null
+  roles: AppRole[]
+  scope_department_ids: string[]
 }
 
 export interface Agent {

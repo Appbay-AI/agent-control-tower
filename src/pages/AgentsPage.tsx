@@ -21,15 +21,20 @@ export function AgentsPage() {
 
   const { data, error, loading } = useAsync(async () => {
     const [agents, departments, profiles, pending] = await Promise.all([
-      api.agents(), api.departments(), api.profiles(), api.pendingRegistrations(),
+      api.agents(), api.departments(), api.allProfiles(), api.pendingRegistrations(),
     ])
     return {
       agents,
       dept: new Map(departments.map((d) => [d.id, d.name])),
       people: new Map(profiles.map((p) => [p.id, p.full_name])),
+      // Owners whose account was deactivated (e.g. left the bank): their agents count as having no owner.
+      gone: new Set(profiles.filter((p) => !p.is_active).map((p) => p.id)),
       pending: new Set(pending.map((r) => r.agent_id)),
     }
   })
+
+  const ownerMissing = (a: { business_owner_id: string | null }) =>
+    !a.business_owner_id || (data?.gone.has(a.business_owner_id) ?? false)
 
   const rows = useMemo(() => {
     if (!data) return []
@@ -37,7 +42,7 @@ export function AgentsPage() {
     return data.agents.filter((a) => {
       if (status && a.status !== status) return false
       if (risk && a.risk_tier !== risk) return false
-      if (flag === 'no_owner' && (a.business_owner_id || !['approved', 'live', 'suspended'].includes(a.status))) return false
+      if (flag === 'no_owner' && !(ownerMissing(a) && ['approved', 'live', 'suspended'].includes(a.status))) return false
       if (flag === 'overdue' && !isReviewOverdue(a.next_review_date, a.status)) return false
       if (flag === 'pending' && !data.pending.has(a.id)) return false
       if (!q) return true
@@ -52,7 +57,7 @@ export function AgentsPage() {
       total: agents.filter((a) => a.status !== 'retired').length,
       // Same rule as the database's owner_missing alert: registered agents only. Unregistered (Proposed) ones
       // such as a discovered shadow agent are a different problem and stay visible in the list.
-      noOwner: agents.filter((a) => !a.business_owner_id && ['approved', 'live', 'suspended'].includes(a.status)).length,
+      noOwner: agents.filter((a) => ownerMissing(a) && ['approved', 'live', 'suspended'].includes(a.status)).length,
       overdue: agents.filter((a) => isReviewOverdue(a.next_review_date, a.status)).length,
       pending: data?.pending.size ?? 0,
     }
@@ -134,7 +139,11 @@ export function AgentsPage() {
                         <div className="text-muted-foreground text-xs">{a.agent_code}{a.vendor_name ? ` · ${a.vendor_name}` : ''}</div>
                       </td>
                       <td className="px-3 py-2.5">
-                        {a.business_owner_id ? data.people.get(a.business_owner_id) ?? 'Unknown' : <WarningBadge>No owner</WarningBadge>}
+                        {!a.business_owner_id ? <WarningBadge>No owner</WarningBadge> : (
+                          <span className="inline-flex flex-wrap items-center gap-1">
+                            {data.people.get(a.business_owner_id) ?? 'Unknown'}
+                            {data.gone.has(a.business_owner_id) && <WarningBadge>Deactivated</WarningBadge>}
+                          </span>)}
                       </td>
                       <td className="px-3 py-2.5">{data.dept.get(a.department_id ?? '') ?? '—'}</td>
                       <td className="px-3 py-2.5">{a.autonomy_level} · {AUTONOMY[a.autonomy_level].name}</td>
@@ -170,7 +179,7 @@ export function AgentsPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                     <RiskBadge tier={a.risk_tier} />
                     <span className="text-muted-foreground">Level {a.autonomy_level}</span>
-                    {!a.business_owner_id && <WarningBadge>No owner</WarningBadge>}
+                    {ownerMissing(a) && <WarningBadge>No owner</WarningBadge>}
                     {isReviewOverdue(a.next_review_date, a.status) && <WarningBadge>Review overdue</WarningBadge>}
                     {data.pending.has(a.id) && <span className="text-muted-foreground">· awaiting approval</span>}
                   </div>

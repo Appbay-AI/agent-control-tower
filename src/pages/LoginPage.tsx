@@ -52,6 +52,9 @@ export function LoginPage() {
           <ErrorBox message={error} />
           <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
         </form>
+        <p className="text-muted-foreground mt-4 text-center text-xs">
+          New here, or forgot your password? Your administrator can give you a temporary one.
+        </p>
       </div>
     </div>
   )

@@ -70,6 +70,14 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   auditor: 'Auditor',
 }
 
+export const ROLE_HELP: Record<AppRole, string> = {
+  owner: 'Proposes agents and keeps their records up to date.',
+  approver: 'Approves or rejects agents for the departments chosen below.',
+  executive: 'Sees every agent and the overall picture. Read only.',
+  auditor: 'Sees every agent and the full audit trail. Read only.',
+  admin: 'Manages users, departments and integration keys. Sees everything.',
+}
+
 export const REGULATORY_FLAGS = ['EU AI Act', 'DORA', 'GDPR', 'SOX', 'GxP', 'PCI DSS', 'Model risk (SR 11-7)']
 
 /** Dates come from Postgres as YYYY-MM-DD or ISO timestamps. Shown as "6 Oct 2026". */

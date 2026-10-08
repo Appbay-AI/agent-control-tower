@@ -28,7 +28,7 @@ export function AgentDetailPage() {
 
   const { data, error, loading, reload } = useAsync(async () => {
     const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts] = await Promise.all([
-      api.agent(id!), api.departments(), api.profiles(), api.registrations(id!), api.decisions(id!),
+      api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
       api.reviews(id!), api.activity(id!), api.openAlerts(),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
@@ -91,7 +91,7 @@ export function AgentDetailPage() {
             <StatusBadge status={a.status} />
             <RiskBadge tier={a.risk_tier} />
             <span className="text-muted-foreground text-xs">Level {a.autonomy_level} · {AUTONOMY[a.autonomy_level].name}</span>
-            {!a.business_owner_id && <WarningBadge>No business owner</WarningBadge>}
+            {(!a.business_owner_id || people.get(a.business_owner_id)?.is_active === false) && <WarningBadge>No business owner</WarningBadge>}
             {overdue && <WarningBadge>Review overdue</WarningBadge>}
           </div>
         </div>
@@ -183,8 +183,12 @@ export function AgentDetailPage() {
         <div className="space-y-4">
           <Card title="Ownership">
             <dl className="space-y-3">
-              <Field label="Business owner">{name(a.business_owner_id) ?? <WarningBadge>Not assigned</WarningBadge>}</Field>
-              <Field label="Technical owner">{name(a.technical_owner_id) ?? '—'}</Field>
+              <Field label="Business owner">{a.business_owner_id
+                ? <>{name(a.business_owner_id)} {people.get(a.business_owner_id)?.is_active === false && <WarningBadge>Deactivated</WarningBadge>}</>
+                : <WarningBadge>Not assigned</WarningBadge>}</Field>
+              <Field label="Technical owner">{a.technical_owner_id
+                ? <>{name(a.technical_owner_id)} {people.get(a.technical_owner_id)?.is_active === false && <WarningBadge>Deactivated</WarningBadge>}</>
+                : '—'}</Field>
               <Field label="Department">{department?.name ?? '—'}</Field>
               <Field label="Cost centre">{a.cost_centre ?? department?.cost_centre ?? '—'}</Field>
             </dl>

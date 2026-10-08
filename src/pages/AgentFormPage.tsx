@@ -61,7 +61,7 @@ export function AgentFormPage() {
   const [busy, setBusy] = useState(false)
 
   const lookups = useAsync(async () => {
-    const [departments, profiles, agent] = await Promise.all([api.departments(), api.profiles(), id ? api.agent(id) : null])
+    const [departments, profiles, agent] = await Promise.all([api.departments(), api.allProfiles(), id ? api.agent(id) : null])
     if (agent) {
       setDraft(draftFromAgent(agent))
       setLists({ inScope: agent.in_scope_actions.join('\n'), outScope: agent.out_of_scope_actions.join('\n'), systems: agent.systems_accessed.join('\n') })
@@ -71,7 +71,10 @@ export function AgentFormPage() {
 
   if (lookups.error) return <ErrorBox message={lookups.error} />
   if (!draft || !lookups.data) return <LoadingRows rows={6} />
-  const { departments, profiles, agent } = lookups.data
+  const { departments, agent } = lookups.data
+  // Active people, plus a deactivated owner already on this record so the choice stays visible until it is changed.
+  const profiles = lookups.data.profiles.filter((p) => p.is_active || p.id === draft.business_owner_id || p.id === draft.technical_owner_id)
+  const label = (p: { full_name: string; is_active: boolean }) => `${p.full_name}${p.is_active ? '' : ' (deactivated)'}`
   if (agent && agent.status !== 'proposed') {
     return <ErrorBox message={`${agent.agent_code} is ${agent.status}. Only Proposed agents can be edited; changes to approved agents go through review.`} />
   }
@@ -143,13 +146,13 @@ export function AgentFormPage() {
           <Row label="Business owner" htmlFor="bo" required>
             <select id="bo" className={selectClass} value={draft.business_owner_id ?? ''} onChange={(e) => set('business_owner_id', e.target.value || null)}>
               <option value="">— Not assigned —</option>
-              {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}{p.job_title ? ` · ${p.job_title}` : ''}</option>)}
+              {profiles.map((p) => <option key={p.id} value={p.id}>{label(p)}{p.job_title ? ` · ${p.job_title}` : ''}</option>)}
             </select>
           </Row>
           <Row label="Technical owner" htmlFor="to">
             <select id="to" className={selectClass} value={draft.technical_owner_id ?? ''} onChange={(e) => set('technical_owner_id', e.target.value || null)}>
               <option value="">— Not assigned —</option>
-              {profiles.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              {profiles.map((p) => <option key={p.id} value={p.id}>{label(p)}</option>)}
             </select>
           </Row>
           <Row label="Department" htmlFor="dept" required hint="The department decides who approves this agent.">

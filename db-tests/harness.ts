@@ -9,10 +9,38 @@ const SUPABASE_STUB = `
   create role service_role nologin bypassrls;
   create schema auth;
   create table auth.users (
+    instance_id uuid,
     id uuid primary key default gen_random_uuid(),
+    aud text,
+    role text,
     email text unique,
-    raw_user_meta_data jsonb not null default '{}'
+    encrypted_password text,
+    email_confirmed_at timestamptz,
+    raw_app_meta_data jsonb,
+    raw_user_meta_data jsonb not null default '{}',
+    created_at timestamptz,
+    updated_at timestamptz,
+    last_sign_in_at timestamptz,
+    banned_until timestamptz,
+    confirmation_token text,
+    email_change text,
+    email_change_token_new text,
+    recovery_token text
   );
+  create table auth.identities (
+    provider_id text not null,
+    user_id uuid not null references auth.users (id) on delete cascade,
+    identity_data jsonb not null,
+    provider text not null,
+    last_sign_in_at timestamptz,
+    created_at timestamptz,
+    updated_at timestamptz,
+    primary key (provider, provider_id)
+  );
+  -- Stand-ins for pgcrypto, which Supabase installs in the extensions schema.
+  create schema extensions;
+  create function extensions.gen_salt(text) returns text language sql as $$ select 'salt' $$;
+  create function extensions.crypt(pw text, salt text) returns text language sql as $$ select 'hash:' || md5(pw) $$;
   create function auth.uid() returns uuid language sql stable as $$
     select coalesce(
       nullif(current_setting('request.jwt.claim.sub', true), ''),

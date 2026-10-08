@@ -1,4 +1,4 @@
-import { Activity, ClipboardCheck, KeyRound, LogOut, Users } from 'lucide-react'
+import { Activity, Bot, ClipboardCheck, KeyRound, Lock, LogOut, UserCog } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -10,9 +10,10 @@ export function Layout() {
   const { profile, roles, hasRole, signOut } = useAuth()
 
   const links = [
-    { to: '/agents', label: 'Agents', icon: Users, show: true },
+    { to: '/agents', label: 'Agents', icon: Bot, show: true },
     { to: '/approvals', label: 'Approvals', icon: ClipboardCheck, show: hasRole('approver', 'admin') },
     { to: '/integrations', label: 'Integrations', icon: KeyRound, show: hasRole('admin') },
+    { to: '/users', label: 'Users', icon: UserCog, show: hasRole('admin') },
   ].filter((l) => l.show)
 
   return (
@@ -42,6 +43,9 @@ export function Layout() {
               <div className="font-medium">{profile?.full_name}</div>
               <div className="text-white/60">{roles.map((r) => ROLE_LABEL[r]).join(' · ') || 'No role yet'}</div>
             </div>
+            <Button asChild size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white">
+              <NavLink to="/account/password" title="Change password"><Lock className="size-4" /><span className="sr-only">Change password</span></NavLink>
+            </Button>
             <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={signOut}>
               <LogOut className="size-4" /> <span className="sr-only sm:not-sr-only">Sign out</span>
             </Button>

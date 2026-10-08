@@ -9,14 +9,25 @@ import { AgentFormPage } from '@/pages/AgentFormPage'
 import { AgentsPage } from '@/pages/AgentsPage'
 import { ApprovalsPage } from '@/pages/ApprovalsPage'
 import { IntegrationsPage } from '@/pages/IntegrationsPage'
+import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { UserFormPage } from '@/pages/UserFormPage'
+import { UsersPage } from '@/pages/UsersPage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { session, loading, signedOut } = useAuth()
+  const { session, profile, loading, signedOut } = useAuth()
   const location = useLocation()
   if (loading) return <div className="mx-auto max-w-6xl p-6"><LoadingRows /></div>
   // Remember the page only for deep links (e.g. a link in an email), never after someone signs out.
   if (!session) return <Navigate to="/login" replace state={signedOut ? null : { from: location.pathname }} />
+  // Signed in with a temporary password: choose a real one before anything else.
+  if (profile?.must_change_password) return <ChangePasswordPage forced />
+  return <>{children}</>
+}
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { hasRole } = useAuth()
+  if (!hasRole('admin')) return <div className="py-10 text-center text-sm">Only admins can open this page. <Link className="underline" to="/agents">Go to agents</Link></div>
   return <>{children}</>
 }
 
@@ -41,6 +52,10 @@ export function AppRoutes() {
         <Route path="/agents/:id/edit" element={<AgentFormPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
+        <Route path="/users/new" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
+        <Route path="/users/:id" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
+        <Route path="/account/password" element={<ChangePasswordPage />} />
         <Route path="*" element={<div className="py-10 text-center">Page not found. <Link className="underline" to="/agents">Go to agents</Link></div>} />
       </Route>
     </Routes>

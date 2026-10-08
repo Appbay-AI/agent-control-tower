@@ -15,7 +15,7 @@ export function ApprovalsPage() {
 
   const { data, error, loading, reload } = useAsync(async () => {
     const [pending, agents, decisions, departments, profiles] = await Promise.all([
-      api.pendingRegistrations(), api.agents(), api.decisions(), api.departments(), api.profiles(),
+      api.pendingRegistrations(), api.agents(), api.decisions(), api.departments(), api.allProfiles(),
     ])
     const byId = new Map(agents.map((a) => [a.id, a]))
     const items = pending

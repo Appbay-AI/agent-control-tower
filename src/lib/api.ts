@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type {
   Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
-  RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome,
+  RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -24,7 +24,10 @@ function check<T>(res: { data: T | null; error: { message: string; code?: string
 
 export const api = {
   departments: async () => check(await db().from('departments').select('*').order('name')) as Department[],
+  /** Active people, for owner pickers. */
   profiles: async () => check(await db().from('profiles').select('*').eq('is_active', true).order('full_name')) as Profile[],
+  /** Everyone, including deactivated people, for showing names on existing records. */
+  allProfiles: async () => check(await db().from('profiles').select('*').order('full_name')) as Profile[],
 
   agents: async () => check(await db().from('agents').select('*').order('agent_code')) as Agent[],
   agent: async (id: string) => {
@@ -85,5 +88,21 @@ export const api = {
     check(await db().from('integration_keys').select('id, name, key_prefix, created_at, revoked_at, last_used_at')
       .order('created_at', { ascending: false })) as IntegrationKey[],
   createIntegrationKey: async (name: string) => check(await db().rpc('create_integration_key', { p_name: name })) as string,
+  users: async () => check(await db().rpc('admin_list_users')) as UserRow[],
+  createUser: async (d: UserDraft) =>
+    check(await db().rpc('admin_create_user', {
+      p_email: d.email, p_full_name: d.full_name, p_job_title: d.job_title, p_department_id: d.department_id,
+      p_roles: d.roles, p_scope_department_ids: d.scope_department_ids,
+    })) as { id: string; temporary_password: string },
+  updateUser: async (id: string, d: UserDraft) =>
+    check(await db().rpc('admin_update_user', {
+      p_user_id: id, p_full_name: d.full_name, p_job_title: d.job_title, p_department_id: d.department_id,
+      p_roles: d.roles, p_scope_department_ids: d.scope_department_ids,
+    })),
+  resetPassword: async (id: string) => check(await db().rpc('admin_reset_password', { p_user_id: id })) as string,
+  setUserActive: async (id: string, active: boolean, reason: string | null) =>
+    check(await db().rpc('admin_set_user_active', { p_user_id: id, p_active: active, p_reason: reason })),
+  passwordChanged: async () => check(await db().rpc('password_changed')),
+
   revokeKey: async (keyId: string) => check(await db().rpc('revoke_api_key', { p_key_id: keyId })),
 }

@@ -59,6 +59,11 @@ describe('Northbridge demo bank seed', () => {
       where e.action = 'agents.status_changed' and e.summary like 'AGT-0001: proposed → approved'`)
     expect(who[0].full_name).toBe('ravi.menon')
     expect(await q(`select * from public.audit_verify_chain()`)).toEqual([])
+    const daniel = await q<{ is_active: boolean; roles: string; scopes: number }>(`
+      select p.is_active, (select string_agg(role::text, ',') from public.user_roles where user_id = p.id) roles,
+             (select count(*)::int from public.approver_scopes where user_id = p.id) scopes
+      from public.profiles p where email = 'daniel.okafor@northbridge.demo'`)
+    expect(daniel[0]).toEqual({ is_active: true, roles: 'approver', scopes: 2 })
   })
 
   it('spreads history over the past year, with completed reviews', async () => {
@@ -78,6 +83,11 @@ describe('Northbridge demo bank seed', () => {
   })
 
   it('can be reset and reloaded to exactly the same story, with a fresh audit chain', async () => {
+    // Something done to a persona during a demo: Daniel deactivated and stripped of his roles.
+    await db.exec(`
+      update public.profiles set is_active = false where email = 'daniel.okafor@northbridge.demo';
+      delete from public.user_roles where user_id = (select id from public.profiles where email = 'daniel.okafor@northbridge.demo');
+      delete from public.approver_scopes where user_id = (select id from public.profiles where email = 'daniel.okafor@northbridge.demo');`)
     await db.exec(seedFile('90_reset.sql'))
     expect((await q<{ n: number }>(`select count(*)::int n from public.agents`))[0].n).toBe(0)
     expect((await q<{ n: number }>(`select count(*)::int n from public.audit_events`))[0].n).toBe(0)
@@ -85,6 +95,11 @@ describe('Northbridge demo bank seed', () => {
     expect((await q<{ n: number }>(`select count(*)::int n from public.agents`))[0].n).toBe(40)
     expect((await q<{ c: string }>(`select agent_code c from public.agents where name = 'Payment Release Assistant'`))[0].c).toBe('AGT-0001')
     expect(await q(`select * from public.audit_verify_chain()`)).toEqual([])
+    const daniel = await q<{ is_active: boolean; roles: string; scopes: number }>(`
+      select p.is_active, (select string_agg(role::text, ',') from public.user_roles where user_id = p.id) roles,
+             (select count(*)::int from public.approver_scopes where user_id = p.id) scopes
+      from public.profiles p where email = 'daniel.okafor@northbridge.demo'`)
+    expect(daniel[0]).toEqual({ is_active: true, roles: 'approver', scopes: 2 })
     // The guards are back on after the reset.
     await expect(db.query(`delete from public.audit_events where seq = 1`)).rejects.toThrow(/insert-only/)
   })
