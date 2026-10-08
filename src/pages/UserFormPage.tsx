@@ -17,6 +17,11 @@ import { draftFromUser, emptyUserDraft, ROLE_ORDER, toggle, userDraftProblem, us
 
 export function UserFormPage() {
   const { id } = useParams()
+  // A fresh form per person, so data loaded for one page never shows on another (e.g. after "Add person").
+  return <UserForm key={id ?? 'new'} id={id} />
+}
+
+function UserForm({ id }: { id: string | undefined }) {
   const isNew = !id
   const navigate = useNavigate()
   const { session } = useAuth()
@@ -52,7 +57,7 @@ export function UserFormPage() {
       </div>
     )
   }
-  if (!lookups.data) return <LoadingRows />
+  if (!lookups.data || (!isNew && !lookups.data.user)) return <LoadingRows />
   const { departments, user } = lookups.data
 
   const set = <K extends keyof UserDraft>(key: K, value: UserDraft[K]) => { setDraft((d) => ({ ...d, [key]: value })); setSaved(false) }
