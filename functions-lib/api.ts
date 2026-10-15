@@ -29,6 +29,7 @@ const STATUS_FOR_CODE: Record<string, [number, string]> = {
   '42501': [403, 'forbidden'],             // insufficient_privilege
   '23514': [422, 'invalid_request'],       // check_violation: our validation messages
   '22P02': [422, 'invalid_request'],       // invalid_text_representation
+  '23505': [409, 'conflict'],              // unique_violation: idempotency key reused for a different request
   P0002: [404, 'not_found'],               // no_data_found
 }
 

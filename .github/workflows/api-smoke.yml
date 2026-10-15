@@ -1,6 +1,6 @@
 name: API smoke test
 
-# Proves the register and status endpoints work end to end on the work-in-progress site:
+# Proves the register, status and action-request endpoints work end to end on the work-in-progress site:
 # creates a temporary integration key, registers an agent with scripts/register-agent.mjs,
 # then retires the agent and revokes the key so the registry stays tidy.
 on:

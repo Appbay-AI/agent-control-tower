@@ -50,3 +50,33 @@ if (status.may_act) {
 }
 // For callers that want to clean up afterwards.
 console.log(`AGENT_ID=${body.agent_id}`)
+
+// Action request: a new (not yet Live) agent must be refused, a retry must return the same answer once.
+const ask = {
+  idempotency_key: `smoke-${Date.now()}`, action: 'payment.release', amount: 250, currency: 'GBP',
+  target_system: 'Test harness', reasoning: 'API smoke test',
+}
+const post = () => fetch(`${base}/api/v1/actions/request`, {
+  method: 'POST', headers: { authorization: `Bearer ${body.api_key}`, 'content-type': 'application/json' }, body: JSON.stringify(ask),
+})
+const first = await post()
+const decision = await first.json()
+if (first.status !== 201 || decision.status !== 'refused' || decision.may_proceed !== false) {
+  console.error(`Action request: expected 201 refused, got HTTP ${first.status}`, decision)
+  process.exit(1)
+}
+console.log(`Action request ${decision.request_code}: ${decision.status} (${decision.reason})`)
+const retry = await post()
+const again = await retry.json()
+if (retry.status !== 200 || again.request_id !== decision.request_id || again.duplicate !== true) {
+  console.error(`Retry: expected 200 with the same request, got HTTP ${retry.status}`, again)
+  process.exit(1)
+}
+console.log('Retry returned the same request, processed once')
+const read = await fetch(`${base}/api/v1/actions/${decision.request_code}`, { headers: { authorization: `Bearer ${body.api_key}` } })
+const current = await read.json()
+if (read.status !== 200 || current.status !== 'refused') {
+  console.error(`Read back: expected 200 refused, got HTTP ${read.status}`, current)
+  process.exit(1)
+}
+console.log('Read back the decision by request code')
