@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "appian": {
+      "command": "uv",
+      "args": ["run", "--directory", "/ABSOLUTE/PATH/TO/appian-dev-mcp-server", "python", "-m", "lcp_mcp_server"],
+      "env": { "LCP_URL": "https://your-site.appiancloud.com" }
+    }
+  }
+}

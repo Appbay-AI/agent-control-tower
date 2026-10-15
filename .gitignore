@@ -39,3 +39,4 @@ playwright-report
 # Written by the deploy workflow
 functions-lib/config.js
 playwright-report
+.mcp.json
