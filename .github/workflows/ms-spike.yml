@@ -1,0 +1,38 @@
+name: Microsoft spike
+
+# Build plan task 3.1. Checks the Phase 2 requirements against a real Microsoft tenant.
+# Run it, open the run, and sign in at microsoft.com/devicelogin with the code shown (15 minutes).
+on:
+  workflow_dispatch:
+    inputs:
+      tenant_id:
+        description: Directory (tenant) ID from the app registration
+        required: true
+      client_id:
+        description: Application (client) ID from the app registration
+        required: true
+      test_agent:
+        description: Optional. Exact name of a TEST agent that may be blocked and unblocked
+        required: false
+        default: ''
+      audit_query_id:
+        description: Optional. Audit search ID from a previous run, to read its results
+        required: false
+        default: ''
+
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Run checks (sign in when the code appears)
+        env:
+          MS_TENANT_ID: ${{ github.event.inputs.tenant_id }}
+          MS_CLIENT_ID: ${{ github.event.inputs.client_id }}
+          TEST_AGENT: ${{ github.event.inputs.test_agent }}
+          AUDIT_QUERY_ID: ${{ github.event.inputs.audit_query_id }}
+        run: node scripts/ms-spike.mjs
