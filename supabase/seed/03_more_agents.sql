@@ -127,15 +127,15 @@ end $$;
 -- Spread registrations and approvals over the past year; every new agent is within its review date.
 do $$ begin
   if (select created_at from public.agents where name = 'Direct Debit Mandate Checker') < now() - interval '30 days' then return; end if;
-  perform pg_temp.backdate('Direct Debit Mandate Checker', 340, 170, current_date + 12);
+  perform pg_temp.backdate('Direct Debit Mandate Checker', 340, 170, current_date + 52);
   perform pg_temp.backdate('Payment Repair Bot', 300, 120, current_date + 62);
   perform pg_temp.backdate('Liquidity Buffer Monitor', 280, 95, current_date + 87);
   perform pg_temp.backdate('Hedge Accounting Assistant', 230, 75, current_date + 107);
-  perform pg_temp.backdate('Credit Card Limit Advisor', 320, 160, current_date + 22);
+  perform pg_temp.backdate('Credit Card Limit Advisor', 320, 160, current_date + 62);
   perform pg_temp.backdate('Arrears Hardship Classifier', 190, 50, current_date + 132);
   perform pg_temp.backdate('Trade Finance Document Checker', 260, 115, current_date + 67);
-  perform pg_temp.backdate('Commercial Credit Spreader', 365, 175, current_date + 7);
-  perform pg_temp.backdate('Statement Generation Agent', 420, 140, current_date + 42);
+  perform pg_temp.backdate('Commercial Credit Spreader', 365, 175, current_date + 47);
+  perform pg_temp.backdate('Statement Generation Agent', 420, 140, current_date + 82);
   perform pg_temp.backdate('Mail Room Router', 250, 65, current_date + 117);
   perform pg_temp.backdate('Cheque Exception Handler', 210, 55, current_date + 127);
   perform pg_temp.backdate('Transaction Monitoring Triage', 290, 135, current_date + 47);
