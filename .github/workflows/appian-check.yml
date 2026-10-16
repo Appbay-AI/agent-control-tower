@@ -1,0 +1,25 @@
+name: Appian simulator check
+
+# Runs the acceptance checks in appian/SIMULATOR_SPEC.md against the Appian agent-platform simulator.
+# Needs the repository secret APPIAN_API_KEY. Briefly quarantines NAP-001 and sets it back to active.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: Appian site address
+        default: https://appbay-demo.appiancloud.com
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Acceptance checks
+        env:
+          APPIAN_BASE: ${{ github.event.inputs.site }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: node scripts/appian-check.mjs
