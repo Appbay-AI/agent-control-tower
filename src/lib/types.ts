@@ -175,3 +175,29 @@ export interface IntegrationKey {
   revoked_at: string | null
   last_used_at: string | null
 }
+
+export interface RoutingRule {
+  id: string
+  name: string
+  priority: number
+  is_active: boolean
+  agent_id: string | null
+  department_id: string | null
+  min_amount: number | null
+  max_amount: number | null
+  currency: string | null
+  data_classification: DataClassification | null
+  min_risk_tier: RiskTier | null
+  approver_id: string
+}
+
+export type RoutingRuleDraft = Omit<RoutingRule, 'id'>
+
+export interface RoutingPreview {
+  rule_id: string | null
+  rule_name: string | null
+  approver_id: string | null
+  approver_name: string | null
+  note: string
+  department_approvers: string[]
+}

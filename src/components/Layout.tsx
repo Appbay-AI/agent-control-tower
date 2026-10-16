@@ -1,4 +1,4 @@
-import { Activity, Bot, ClipboardCheck, KeyRound, Lock, LogOut, UserCog } from 'lucide-react'
+import { Activity, Bot, ClipboardCheck, KeyRound, Lock, LogOut, Route as RouteIcon, UserCog } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -13,6 +13,7 @@ export function Layout() {
     { to: '/agents', label: 'Agents', icon: Bot, show: true },
     { to: '/approvals', label: 'Approvals', icon: ClipboardCheck, show: hasRole('approver', 'admin') },
     { to: '/integrations', label: 'Integrations', icon: KeyRound, show: hasRole('admin') },
+    { to: '/routing', label: 'Routing', icon: RouteIcon, show: hasRole('admin') },
     { to: '/users', label: 'Users', icon: UserCog, show: hasRole('admin') },
   ].filter((l) => l.show)
 

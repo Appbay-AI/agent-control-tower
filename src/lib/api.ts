@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import type {
   Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
-  RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, UserDraft, UserRow,
+  RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
+  UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -103,6 +104,31 @@ export const api = {
   setUserActive: async (id: string, active: boolean, reason: string | null) =>
     check(await db().rpc('admin_set_user_active', { p_user_id: id, p_active: active, p_reason: reason })),
   passwordChanged: async () => check(await db().rpc('password_changed')),
+
+  routingRules: async () =>
+    check(await db().from('routing_rules')
+      .select('id, name, priority, is_active, agent_id, department_id, min_amount, max_amount, currency, data_classification, min_risk_tier, approver_id')
+      .order('priority').order('created_at')) as RoutingRule[],
+  /** Active people with the Approver role, for the routing screen. */
+  approvers: async () => {
+    const roles = check(await db().from('user_roles').select('user_id').eq('role', 'approver')) as { user_id: string }[]
+    const ids = roles.map((r) => r.user_id)
+    if (!ids.length) return [] as Profile[]
+    return check(await db().from('profiles').select('*').in('id', ids).eq('is_active', true).order('full_name')) as Profile[]
+  },
+  saveRoutingRule: async (id: string | null, draft: RoutingRuleDraft) => {
+    const q = id ? db().from('routing_rules').update(draft).eq('id', id) : db().from('routing_rules').insert(draft)
+    const row = check(await q.select('id').maybeSingle()) as { id: string } | null
+    if (!row) throw new Error('The rule was not saved. Only admins can change routing.')
+    return row
+  },
+  setRulePriorities: async (order: { id: string; priority: number }[]) => {
+    for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
+  },
+  deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  previewRouting: async (agentId: string, amount: number | null, currency: string | null) =>
+    check(await db().rpc('preview_routing', { p_agent_id: agentId, p_amount: amount, p_currency: currency })) as RoutingPreview,
+  reroutePending: async () => check(await db().rpc('reroute_pending_requests')) as number,
 
   revokeKey: async (keyId: string) => check(await db().rpc('revoke_api_key', { p_key_id: keyId })),
 }

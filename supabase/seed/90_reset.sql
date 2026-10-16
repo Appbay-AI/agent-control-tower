@@ -1,5 +1,5 @@
 -- DEMO DATA ONLY. Clears every agent and its history so the demo bank can be reloaded from scratch.
--- Keeps logins, departments and integration keys. Demo personas get back their original roles, departments
+-- Keeps logins, departments and integration keys; routing rules go back to the two demo rules (04_routing.sql). Demo personas get back their original roles, departments
 -- and active status (02_demo_bank.sql re-grants them); people added through the Users screen are kept.
 -- This is the only place the audit log is ever cleared: its guards are switched off, the synthetic
 -- history removed, and the guards switched back on, all in one transaction. Never run on real data.
@@ -16,7 +16,7 @@ delete from public.user_roles r using public.profiles p
 alter table public.audit_events disable trigger audit_events_no_update;
 alter table public.audit_events disable trigger audit_events_no_truncate;
 
-truncate public.action_requests, public.alerts, public.agent_reviews, public.registration_decisions,
+truncate public.routing_rules, public.action_requests, public.alerts, public.agent_reviews, public.registration_decisions,
          public.agent_registrations, public.agent_api_keys, public.agents, public.audit_events
   restart identity;
 alter sequence public.agent_code_seq restart;

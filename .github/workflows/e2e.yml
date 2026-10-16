@@ -41,6 +41,7 @@ jobs:
           select public.retire_agent(id, 'Test agent left by an interrupted test run')
           from public.agents where status <> 'retired' and (name like 'E2E agent %' or name like 'API test agent %');
           commit;
+          delete from public.routing_rules where name like 'E2E rule %';
           -- Test people exist only on the work-in-progress database; remove them entirely.
           delete from auth.users where email like 'e2e.user.%@northbridge.demo';
           SQL

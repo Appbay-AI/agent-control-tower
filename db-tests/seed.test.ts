@@ -6,7 +6,7 @@ import { createDb, createUser } from './harness'
 
 const seedFile = (f: string) => readFileSync(path.resolve(__dirname, '../supabase/seed', f), 'utf8')
 // psql runs these in one session; so does the test.
-const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql'].map(seedFile).join('\n')
+const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql'].map(seedFile).join('\n')
 const PERSONAS = ['admin', 'priya.sharma', 'ravi.menon', 'daniel.okafor', 'sara.haddad', 'omar.farouk',
   'james.whitfield', 'aisha.rahman', 'tom.becker', 'lucy.grant', 'mei.lin']
 
@@ -24,6 +24,16 @@ describe('Northbridge demo bank seed', () => {
   it('creates the registry with every lifecycle state', async () => {
     const rows = await q<{ status: string; n: number }>(`select status::text, count(*)::int n from public.agents group by 1 order by 1`)
     expect(Object.fromEntries(rows.map((r) => [r.status, r.n]))).toEqual({ live: 33, proposed: 6, retired: 1 })
+  })
+
+  it('loads the demo routing rules once, however often it runs', async () => {
+    await db.exec(seedFile('04_routing.sql'))
+    const rules = await q<{ name: string; approver: string }>(
+      `select r.name, p.email approver from public.routing_rules r join public.profiles p on p.id = r.approver_id order by r.priority`)
+    expect(rules).toEqual([
+      { name: 'Large payments (£1m and above)', approver: 'ravi.menon@northbridge.demo' },
+      { name: 'Agents that touch personal data', approver: 'omar.farouk@northbridge.demo' },
+    ])
   })
 
   it('tells the story: six live agents without owners, four overdue reviews, one shadow agent', async () => {

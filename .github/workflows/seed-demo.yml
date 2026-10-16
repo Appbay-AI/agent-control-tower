@@ -46,7 +46,7 @@ jobs:
         run: |
           # One session, so the helpers in 00_helpers.sql are visible to the data files.
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed/00_helpers.sql -f supabase/seed/02_demo_bank.sql \
-            -f supabase/seed/03_more_agents.sql > out.log 2>&1 \
+            -f supabase/seed/03_more_agents.sql -f supabase/seed/04_routing.sql > out.log 2>&1 \
             || { cat out.log; echo "::error title=Demo bank failed::$(tail -n 8 out.log | tr '\n' ' ')"; exit 1; }
           cat out.log
           echo "::notice title=Agents by status::$(tail -n 8 out.log | tr '\n' ' ')"

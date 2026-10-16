@@ -11,6 +11,7 @@ import { ApprovalsPage } from '@/pages/ApprovalsPage'
 import { IntegrationsPage } from '@/pages/IntegrationsPage'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { RoutingPage } from '@/pages/RoutingPage'
 import { UserFormPage } from '@/pages/UserFormPage'
 import { UsersPage } from '@/pages/UsersPage'
 
@@ -52,6 +53,7 @@ export function AppRoutes() {
         <Route path="/agents/:id/edit" element={<AgentFormPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/routing" element={<RequireAdmin><RoutingPage /></RequireAdmin>} />
         <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="/users/new" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
         <Route path="/users/:id" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
