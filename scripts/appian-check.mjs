@@ -12,7 +12,9 @@ async function call(path, { method = 'GET', body, apiKey = key } = {}) {
   const headers = { accept: 'application/json' }
   if (apiKey !== null) headers['Appian-API-Key'] = apiKey
   if (body) headers['content-type'] = 'application/json'
-  const res = await fetch(`${base}/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined })
+  const init = { method, headers }
+  if (body) init.body = JSON.stringify(body)
+  const res = await fetch(`${base}/${path}`, init)
   const text = await res.text()
   let json = null
   try { json = JSON.parse(text) } catch { /* not JSON */ }
