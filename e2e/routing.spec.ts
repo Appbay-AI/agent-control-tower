@@ -38,12 +38,12 @@ test('an admin changes who approves a request, with no code and no release', asy
   await dialog.getByLabel('Priority (lower is checked first)').fill('1')
   await dialog.getByLabel('Approved by').selectOption({ label: 'Daniel Okafor · Payments Risk Lead' })
   await dialog.getByRole('button', { name: 'Save rule' }).click()
-  await expect(page.getByText(name)).toBeVisible()
+  await expect(page.getByRole('button', { name: `Delete ${name}` })).toBeVisible()
   await expect(await testRoute(page, '2000000')).toContainText('Daniel Okafor approves')
 
   // Removing it restores the previous routing.
   await page.getByRole('button', { name: `Delete ${name}` }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
-  await expect(page.getByText(name)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: `Delete ${name}` })).toHaveCount(0)
   await expect(await testRoute(page, '2000000')).toContainText('Ravi Menon approves')
 })
