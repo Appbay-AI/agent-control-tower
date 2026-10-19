@@ -40,3 +40,4 @@ playwright-report
 functions-lib/config.js
 playwright-report
 .mcp.json
+docs/build-plan/plan.html
