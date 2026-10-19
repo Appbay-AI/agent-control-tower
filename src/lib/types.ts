@@ -201,3 +201,39 @@ export interface RoutingPreview {
   note: string
   department_approvers: string[]
 }
+
+export type ActionRequestStatus = 'pending' | 'approved' | 'rejected' | 'refused' | 'expired' | 'cancelled'
+export type ActionUrgency = 'low' | 'normal' | 'high' | 'critical'
+export type ActionDecision = 'approve' | 'reject'
+
+/** An action an agent asked to take (tasks 2.1 to 2.4). */
+export interface ActionRequest {
+  id: string
+  request_code: string
+  agent_id: string
+  action: string
+  description: string | null
+  target_system: string | null
+  reasoning: string | null
+  amount: number | null
+  currency: string | null
+  volume: number
+  urgency: ActionUrgency
+  details: Record<string, unknown>
+  autonomy_level: 1 | 2 | 3 | 4
+  value_threshold: number | null
+  threshold_currency: string | null
+  volume_threshold: number | null
+  status: ActionRequestStatus
+  decision_source: 'policy' | 'human' | 'timeout' | null
+  decision_reason: string
+  decided_by: string | null
+  decided_at: string | null
+  requested_at: string
+  assigned_to: string | null
+  routing_note: string | null
+  hold_reason: string | null
+  escalated_by: string | null
+  escalated_at: string | null
+  escalation_reason: string | null
+}

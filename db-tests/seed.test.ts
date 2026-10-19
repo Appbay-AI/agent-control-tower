@@ -6,7 +6,7 @@ import { createDb, createUser } from './harness'
 
 const seedFile = (f: string) => readFileSync(path.resolve(__dirname, '../supabase/seed', f), 'utf8')
 // psql runs these in one session; so does the test.
-const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql'].map(seedFile).join('\n')
+const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql', '05_action_requests.sql'].map(seedFile).join('\n')
 const PERSONAS = ['admin', 'priya.sharma', 'ravi.menon', 'daniel.okafor', 'sara.haddad', 'omar.farouk',
   'james.whitfield', 'aisha.rahman', 'tom.becker', 'lucy.grant', 'mei.lin']
 
@@ -34,6 +34,16 @@ describe('Northbridge demo bank seed', () => {
       { name: 'Large payments (£1m and above)', approver: 'ravi.menon@northbridge.demo' },
       { name: 'Agents that touch personal data', approver: 'omar.farouk@northbridge.demo' },
     ])
+  })
+
+  it('leaves the £2m payment waiting in Ravi\'s queue, once however often it runs', async () => {
+    await db.exec(seedFile('00_helpers.sql') + seedFile('05_action_requests.sql'))
+    const rows = await q<{ status: string; amount: string; assignee: string; hold_reason: string; live_keys: number }>(`
+      select r.status::text, r.amount::text, p.email assignee, r.hold_reason,
+             (select count(*)::int from public.agent_api_keys k where k.agent_id = r.agent_id and k.revoked_at is null) live_keys
+      from public.action_requests r join public.profiles p on p.id = r.assigned_to`)
+    expect(rows).toEqual([{ status: 'pending', amount: '2000000.00', assignee: 'ravi.menon@northbridge.demo',
+      hold_reason: expect.stringMatching(/outside its limits/), live_keys: 0 }])
   })
 
   it('tells the story: six live agents without owners, four overdue reviews, one shadow agent', async () => {

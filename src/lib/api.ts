@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
+  ActionDecision, ActionRequest, ActionRequestStatus, Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
   UserDraft, UserRow,
 } from '@/lib/types'
@@ -9,6 +9,10 @@ function db() {
   if (!supabase) throw new Error('The app is not connected to a database yet.')
   return supabase
 }
+
+const REQUEST_COLUMNS = 'id, request_code, agent_id, action, description, target_system, reasoning, amount, currency, volume, urgency, '
+  + 'details, autonomy_level, value_threshold, threshold_currency, volume_threshold, status, decision_source, decision_reason, '
+  + 'decided_by, decided_at, requested_at, assigned_to, routing_note, hold_reason, escalated_by, escalated_at, escalation_reason'
 
 const NOT_VISIBLE = "This record doesn't exist, or you don't have access to it."
 
@@ -129,6 +133,23 @@ export const api = {
   previewRouting: async (agentId: string, amount: number | null, currency: string | null) =>
     check(await db().rpc('preview_routing', { p_agent_id: agentId, p_amount: amount, p_currency: currency })) as RoutingPreview,
   reroutePending: async () => check(await db().rpc('reroute_pending_requests')) as number,
+
+  actionRequests: async (status?: ActionRequestStatus) => {
+    let q = db().from('action_requests').select(REQUEST_COLUMNS).order('requested_at', { ascending: false }).limit(200)
+    if (status) q = q.eq('status', status)
+    return check(await q) as unknown as ActionRequest[]
+  },
+  actionRequest: async (id: string) => {
+    const row = check(await db().from('action_requests').select(REQUEST_COLUMNS).eq('id', id).maybeSingle()) as unknown as ActionRequest | null
+    if (!row) throw new Error("This request doesn't exist, or you don't have access to it.")
+    return row
+  },
+  decideRequest: async (id: string, decision: ActionDecision, reason: string | null) =>
+    check(await db().rpc('decide_action_request', { p_request_id: id, p_decision: decision, p_reason: reason })) as ActionRequestStatus,
+  escalateRequest: async (id: string, to: string, reason: string) =>
+    check(await db().rpc('escalate_action_request', { p_request_id: id, p_to: to, p_reason: reason })),
+  escalationTargets: async (id: string) =>
+    check(await db().rpc('escalation_targets', { p_request_id: id })) as { id: string; full_name: string; job_title: string | null }[],
 
   revokeKey: async (keyId: string) => check(await db().rpc('revoke_api_key', { p_key_id: keyId })),
 }
