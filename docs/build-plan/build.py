@@ -7,8 +7,8 @@ from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 
-UPDATED = 'Oct 19, 2026'
-TODAY = date(2026, 10, 19)
+UPDATED = 'Oct 22, 2026'
+TODAY = date(2026, 10, 22)
 OUT = Path(__file__).with_name('plan.html')
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ PHASES = [
     },
     {
         'title': 'Phase 2 — Approval engine', 'dates': '15–28 Oct (10 days)', 'badge': ('In progress · 5 of 13 done', 'now'),
-        'intro': 'The heart of the product: an agent above its threshold waits for a named human. Unchanged, except that the Appian agent-platform simulator is built alongside it. Tasks 2.1 to 2.4 run on the work-in-progress site; they reach the client demo only when released.',
+        'intro': 'The heart of the product: an agent above its threshold waits for a named human. Unchanged, except that the Appian agent-platform simulator is built alongside it. Tasks 2.1 to 2.4 were released to the client demo on 22 Oct; later tasks reach it only when released.',
         'cols': ['#', 'Task', 'Tech', 'Dates', 'Done when', 'Status'],
         'rows': [
             ('2.1', 'Action request API with duplicate protection (idempotency keys)', 'Cloudflare Functions, Postgres', '15–16 Oct', 'Same request twice is processed once', 'Done'),
@@ -174,7 +174,7 @@ PROGRESS = [
     ('Phase 1 — Registry', '5–9 Oct', ('Done', 'done'), 'Plus a Users screen (1.9), not in the original plan.'),
     ('Go/no-go gate', '12–14 Oct', ('Go', 'done'), 'Microsoft Copilot scope added.'),
     ('Phase 2 — Approval engine', '15–28 Oct', ('In progress', 'now'),
-     '2.1 to 2.4 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 are on the work-in-progress site and not yet released to the client demo. Next: 2.5, live update of the approvals list.'),
+     '2.1 to 2.4 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon. Next: 2.5, live update of the approvals list.'),
     ('Phases 3–7', '29 Oct – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 
@@ -235,7 +235,8 @@ def table(cols, rows, widths=None):
         cells = []
         for i, c in enumerate(r):
             if cols[i] == 'Status':
-                cells.append(f'<td>{pill(c, STATUS_KIND.get(c, "plan"))}</td>')
+                # A (text, kind) pair sets the colour itself; plain text takes it from STATUS_KIND.
+                cells.append(f'<td>{pill(*c) if isinstance(c, tuple) else pill(c, STATUS_KIND.get(c, "plan"))}</td>')
             else:
                 cells.append(f'<td>{c}</td>')
         body.append('<tr>' + ''.join(cells) + '</tr>')
@@ -284,7 +285,7 @@ def phase(p):
 
 def build():
     progress = table(['Phase', 'Dates', 'Status', 'Note'],
-                     [(a, b, pill(*c), d) for a, b, c, d in PROGRESS], ['26%', '14%', '18%', '42%'])
+                     PROGRESS, ['26%', '14%', '18%', '42%'])
     changes = table(['Phase', 'Change', 'Effect'], CHANGES, ['40%', '42%', '18%'])
     reqs = table(['Requirement', 'Change, and why'], REQ_CHANGES, ['26%', '74%'])
     feas = ''.join(f'<li><b>{escape(a)}</b> {escape(b)}</li>' for a, b in FEASIBILITY)

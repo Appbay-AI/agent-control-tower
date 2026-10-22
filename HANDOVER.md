@@ -131,10 +131,9 @@ Local commands (from the repo root, after `npm install`):
 - `npm run dev`: optional; needs `.env.local` (see `.env.example`)
 
 Git: branches `main` (work in progress, auto-deploys to dev) and `demo` (client demo). Claude Code sessions work on a `claude/...` branch the session names, and merge to `main` only when the user asks.
-- `main` is at `c259d55` (E2E: check the rule row). Below it: `ba05d55` routing (2.3), `fd7b87e`/`a7a2d1c`/`3e6b048` Appian, `bef46bc` seed review dates, `dfec9dd` action requests (2.1, 2.2).
-- Task 2.4 (approver task screen) is on branch `claude/quirky-planck-d1h2jp`, **not yet merged to `main`**. Its migration has already been applied to the dev database (by running *Database migrations* → dev from that branch), and the £2m demo request was seeded on dev. Merging the branch into `main` is safe: the migration is recorded as applied on dev, so it will not run twice.
-- `demo` is at `643d840` (Users screen). It is 8 commits behind `main`: it has **none** of 2.1, 2.2, 2.3, 2.4, the seed review-date fix, or the Appian/Microsoft workflows. The user said "not yet" to releasing routing on 19 Oct.
-- An earlier copy of this file was pushed to branch `handover-for-new-session` (commit 05166ab); this version, in the 2.4 branch, replaces it.
+- `main`: task 2.4 (`086ee38`, `588e09a`) was fast-forwarded onto `main` on 22 Oct with the user's go-ahead; checks, dev deploy, e2e (desktop and phone) and api-smoke all passed. The commit after that updates this file and the build plan. Below 2.4: `c259d55`/`ba05d55` routing (2.3), `fd7b87e`/`a7a2d1c`/`3e6b048` Appian, `bef46bc` seed review dates, `dfec9dd` action requests (2.1, 2.2).
+- `demo`: **released 22 Oct** at `588e09a` (2.1 to 2.4, the seed date fix, Appian workflows), on the user's go-ahead. Order used: *Database migrations* → demo (from `main`), then fast-forward `demo` to `main` (deploy succeeded, `/api/v1/health` says `env: demo`), then *Seed demo data* → demo with reset. Checked afterwards on demo: 40 agents, 4 overdue reviews, no test agents, both routing rules, and `REQ-000001` (£2,000,000 GBP, pending, with Ravi Menon). The reset removed three hand-made test agents ("Test Agent", "Test Agent 2", "test agent 3") from 7–9 Oct. Later commits on `main` that only touch docs do not need releasing.
+- Old branches: `claude/quirky-planck-d1h2jp` is fully merged and `handover-for-new-session` (05166ab) holds an outdated copy of this file. Both can be deleted when the user agrees.
 
 Preview a branch: run *Deploy* on the branch (workflow_dispatch). It deploys to `https://<branch-with-dashes>.agent-control-tower-56p.pages.dev` using the dev database. Then run *End-to-end* on the branch with input `url` set to that address.
 
@@ -219,7 +218,7 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
   - Reset (`90_reset.sql`) truncates `routing_rules` and restores these two via the seed.
 - Tests: `db-tests/routing.test.ts` (10 tests), `src/lib/routing.test.ts` (3), `e2e/routing.spec.ts` (adds a rule, checks Daniel gets the £2m payment, deletes it, checks Ravi again). Browser test passes on dev.
 
-### Approver task screen (task 2.4, done on branch, not yet on main)
+### Approver task screen (task 2.4, done, on main and demo)
 - Migration `20261019000100_approver_tasks.sql`. New columns on `action_requests`: `hold_reason` (why it waited, the policy's words, set by the routing trigger), `escalated_by`, `escalated_at`, `escalation_reason`.
 - Who decides (`can_decide_request`): an active user with the Approver role who does not own or create the agent, and who is the assigned approver; if nobody is assigned, any approver whose scope covers the agent's department. **Admins do not decide agent actions** (they manage routing and can re-apply rules).
 - `decide_action_request(id, 'approve' | 'reject', reason)`: reject needs a reason; approve fails if the agent is no longer Live ("cannot be approved. Reject it instead."). Sets `decision_source = 'human'`, `decided_by`, `decided_at`, and `decision_reason` = "Approved by Ravi Menon: <note>" / "Rejected by …: <reason>". The agent sees this text through `GET /api/v1/actions/{id}`.
@@ -236,7 +235,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - The e2e test reads the demo password from the env var `DEMO_USER_PASSWORD` (a GitHub secret).
 
 ### Seeds
-- Load via `seed-demo.yml` (runs 00, 02, 03, 04, 05 in one psql session; 01 first for personas). `reset: true` restores personas (active, must change password, not banned, approver scopes, roles except admin's admin role), truncates routing, action requests and the registry tables, and restarts the request code sequence.
+- Load via `seed-demo.yml` (runs 00, 02, 03, 04, 05 in one psql session; 01 first for personas). `reset: true` restores personas (active, `must_change_password` false, not banned, approver scopes, roles except admin's admin role), truncates routing, action requests and the registry tables, and restarts the request code sequence. It also deletes every agent API key on that database.
+- **Every seed run (with or without reset) sets every `@northbridge.demo` password, including `admin@northbridge.demo`, to the `DEMO_USER_PASSWORD` secret.** A password changed by hand on demo is lost at the next seed.
 
 ---
 
@@ -244,10 +244,10 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 
 | Task | What | Status |
 |---|---|---|
-| 2.1 | Action request API with idempotency | Done on main, not on demo |
-| 2.2 | Autonomy and threshold decision | Done on main, not on demo |
-| 2.3 | Routing matrix (rules, screen, reroute, preview) | Done on main, not on demo |
-| 2.4 | Approver task screen: what the agent wants and why; approve, reject with reason, escalate | **Done** on branch `claude/quirky-planck-d1h2jp` (dev database migrated), not yet merged to main |
+| 2.1 | Action request API with idempotency | Done, on demo (22 Oct) |
+| 2.2 | Autonomy and threshold decision | Done, on demo (22 Oct) |
+| 2.3 | Routing matrix (rules, screen, reroute, preview) | Done, on demo (22 Oct) |
+| 2.4 | Approver task screen: what the agent wants and why; approve, reject with reason, escalate | **Done**, on main and demo (22 Oct) |
 | 2.5 | Live update of the approvals list | **Next** |
 | 2.6 | Phone install and push notifications | Planned |
 | 2.7 | Approval emails | Planned; needs task 0.6 (DNS) |
@@ -261,9 +261,7 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 Example for 2.4 (from the user's own wording): "FX agent wants to release £2m to supplier X, because…" with approve, reject with reason, and escalate.
 
 Next steps, in order:
-1. With the user's go-ahead, merge the 2.4 branch into `main` (deploys to dev, runs e2e and api-smoke).
-2. Ask the user when to **release 2.1–2.4 to demo** (they said "not yet" on 19 Oct). Then: merge `main` into `demo`, run *Database migrations* for `demo`, then *Seed demo data* for `demo` (reset as the user decides). Confirm the two routing rules and the £2m Hartwell request (with Ravi) are there.
-3. Build **task 2.5**: live update of the approvals list (Supabase Realtime on `action_requests`; check the free-tier limits in Supabase's docs first). Then 2.6 to 2.12.
+1. Build **task 2.5**: live update of the approvals list (Supabase Realtime on `action_requests`; check the free-tier limits in Supabase's docs first). Then 2.6 to 2.12.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbay.ai` at Porkbun (needs Porkbun access or a screenshot of the Resend records from the user).
@@ -276,7 +274,7 @@ Earlier, not yet done:
 
 ## 9. Build plan (PDF)
 
-- Latest PDF: `docs/build-plan/Agent_Control_Tower_Build_Plan.pdf` (updated 19 Oct 2026). The source now lives in the repo so it cannot be lost with a session: `docs/build-plan/build.py` holds all content and statuses (edit `UPDATED`, `TODAY` and the task rows), then run `python3 docs/build-plan/build.py && CHROMIUM_PATH=/opt/pw-browsers/chromium node docs/build-plan/print.mjs`. The earlier scratch-folder source (`parts_*.py`) was lost with its session; the 19 Oct version was rebuilt from the 15 Oct PDF's text.
+- Latest PDF: `docs/build-plan/Agent_Control_Tower_Build_Plan.pdf` (updated 22 Oct 2026). The source now lives in the repo so it cannot be lost with a session: `docs/build-plan/build.py` holds all content and statuses (edit `UPDATED`, `TODAY` and the task rows), then run `python3 docs/build-plan/build.py && CHROMIUM_PATH=/opt/pw-browsers/chromium node docs/build-plan/print.mjs`. The earlier scratch-folder source (`parts_*.py`) was lost with its session; the 19 Oct version was rebuilt from the 15 Oct PDF's text. 22 Oct: fixed a bug where the Progress table printed raw badge HTML instead of a coloured status badge (it escaped an already-built badge); `table()` now accepts a `(text, kind)` pair in the Status column.
 - Key dates in the plan: single release; **credible demo 20 Nov 2026**; **demo ready 15 Dec 2026**. Phases: 2 (15–28 Oct, incl. 2.13 simulator), 3 (platform connection and auto-discovery, 29 Oct–9 Nov), 4 (kill switch, enforcement and incidents, 10–20 Nov), 5 (alerts and routing, 23–26 Nov), 6 (evidence and dashboards, 27 Nov–7 Dec), 7 (demo data and rehearsal, 8–15 Dec).
 - The plan has a feasibility section and a "two findings" callout. Keep both.
 - Update the plan when tasks complete, and send the updated PDF to the user.
@@ -306,6 +304,8 @@ Pitfalls seen so far:
 - The PGlite auth stub needs the extra `auth.users` columns (`banned_until` etc.) and `auth.identities`.
 - Deleting a user in tests can fail if agents reference them; the reset truncates action requests first.
 - `functions/api.test.ts` fails locally with "Cannot find module './config.js'" until you copy `functions-lib/config.example.js` to `functions-lib/config.js` (CI does this).
+- The sandbox clone is shallow (`--depth 1`). Before pushing one branch onto another (e.g. `main` → `demo`), run `git fetch --depth=30 origin main:refs/remotes/origin/main demo:refs/remotes/origin/demo`, or `git merge-base --is-ancestor` wrongly says it is not a fast-forward. `gh api repos/.../compare/demo...main` gives the true ahead/behind count.
+- From the sandbox, GitHub API writes to refs (`PATCH git/refs`) are refused by the proxy; use `git push`. Workflow job logs return 403, so read results from check-run annotations (`gh api repos/.../check-runs/<job id>/annotations`); `db-inspect.yml` puts its query result there. The sandbox cannot reach the Pages sites with curl (proxy 403); WebFetch works for `/api/v1/health`.
 - An approver who escalates a request may lose sight of it (visibility comes from being assigned), so the screen returns to the list rather than reloading.
 
 ---
@@ -317,4 +317,4 @@ Pitfalls seen so far:
 - Appian: https://appbay-demo.appiancloud.com
 - Repo: github.com/Appbay-AI/agent-control-tower (branches `main`, `demo`)
 - Supabase: `act-dev` (gprwtthwvmmmbslccxpf), `act-demo` (ekowumwkevkzwvkiljvf)
-- This file: `HANDOVER.md` at the repo root (committed on the 2.4 branch on 19 Oct)
+- This file: `HANDOVER.md` at the repo root (on `main`; last updated 22 Oct)
