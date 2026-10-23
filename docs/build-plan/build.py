@@ -174,7 +174,7 @@ PROGRESS = [
     ('Phase 1 — Registry', '5–9 Oct', ('Done', 'done'), 'Plus a Users screen (1.9), not in the original plan.'),
     ('Go/no-go gate', '12–14 Oct', ('Go', 'done'), 'Microsoft Copilot scope added.'),
     ('Phase 2 — Approval engine', '15–28 Oct', ('In progress', 'now'),
-     '2.1 to 2.5 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon; 2.5 (live approvals list) is on the work-in-progress site. Next: 2.6, phone install and push alerts.'),
+     '2.1 to 2.5 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon; 2.5 (live approvals list) is on the work-in-progress site, not yet on the client demo. Next: 2.6, phone install and push alerts.'),
     ('Phases 3–7', '29 Oct – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 

@@ -131,7 +131,7 @@ Local commands (from the repo root, after `npm install`):
 - `npm run dev`: optional; needs `.env.local` (see `.env.example`)
 
 Git: branches `main` (work in progress, auto-deploys to dev) and `demo` (client demo). Claude Code sessions work on a `claude/...` branch the session names, and merge to `main` only when the user asks.
-- Task 2.5 (live approvals list) is on branch `claude/task-2.5-live-approvals` (`05ef120`, `50317b8`, `d5fb23b`, then the docs commit), **not yet merged to `main`**. Its migration `20261023000100_realtime_approvals.sql` was applied to the **dev** database from that branch (verified: the three tables are in the `supabase_realtime` publication on dev). Preview: https://claude-task-2-5-live-approva.agent-control-tower-56p.pages.dev; e2e passed twice there (desktop and phone). Merging is a fast-forward; the migration will not run twice on dev.
+- Task 2.5 (live approvals list) was built on branch `claude/task-2.5-live-approvals` (`05ef120`, `50317b8`, `d5fb23b`, `074ca6c`) and fast-forwarded onto `main` on 23 Oct with the user's go-ahead; checks, dev deploy, e2e and api-smoke passed. **Not yet on demo.** Its migration `20261023000100_realtime_approvals.sql` was applied to the **dev** database from that branch (verified: the three tables are in the `supabase_realtime` publication on dev). Preview: https://claude-task-2-5-live-approva.agent-control-tower-56p.pages.dev; e2e passed twice there (desktop and phone). Merging is a fast-forward; the migration will not run twice on dev.
 - `main`: task 2.4 (`086ee38`, `588e09a`) was fast-forwarded onto `main` on 22 Oct with the user's go-ahead; checks, dev deploy, e2e (desktop and phone) and api-smoke all passed. The commit after that updates this file and the build plan. Below 2.4: `c259d55`/`ba05d55` routing (2.3), `fd7b87e`/`a7a2d1c`/`3e6b048` Appian, `bef46bc` seed review dates, `dfec9dd` action requests (2.1, 2.2).
 - `demo`: **released 22 Oct** at `588e09a` (2.1 to 2.4, the seed date fix, Appian workflows), on the user's go-ahead. Order used: *Database migrations* → demo (from `main`), then fast-forward `demo` to `main` (deploy succeeded, `/api/v1/health` says `env: demo`), then *Seed demo data* → demo with reset. Checked afterwards on demo: 40 agents, 4 overdue reviews, no test agents, both routing rules, and `REQ-000001` (£2,000,000 GBP, pending, with Ravi Menon). The reset removed three hand-made test agents ("Test Agent", "Test Agent 2", "test agent 3") from 7–9 Oct. Later commits on `main` that only touch docs do not need releasing.
 - Old branches: `claude/quirky-planck-d1h2jp` is fully merged and `handover-for-new-session` (05166ab) holds an outdated copy of this file. Both can be deleted when the user agrees.
@@ -230,14 +230,14 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - Demo data `05_action_requests.sql`: the Payment Release Assistant asks to release £2,000,000 to Hartwell Steel Ltd (above its £250k limit) → waits with Ravi Menon. Made through `api_request_action` with a temporary key that is revoked straight after. Idempotent.
 - Tests: `db-tests/tasks.test.ts` (10), seed test (+1), `src/lib/requests.test.ts` (7), `src/components/RequestDecisionPanel.test.tsx` (4), `e2e/requests.spec.ts` (desktop and phone: agent asks via the API, Ravi escalates to Daniel, Daniel approves, API says may_proceed).
 
-### Live approvals list (task 2.5, done on branch, not yet on main)
+### Live approvals list (task 2.5, done, on main; not on demo)
 - Supabase Realtime **Postgres Changes** (free plan: 200 concurrent connections, 100 messages/s, 2 million messages/month; checked 23 Oct at supabase.com/docs/guides/realtime/limits and supabase.com/pricing).
 - Migration `20261023000100_realtime_approvals.sql` adds `action_requests`, `agent_registrations`, `registration_decisions` to the `supabase_realtime` publication (idempotent; creates the publication if missing). Realtime applies each subscriber's RLS, so the existing select policies decide who hears about what. DELETE events are not RLS-filtered, but these tables are never deleted from (reset uses truncate, which sends nothing).
 - App: `src/lib/live.tsx` `LiveProvider` (inside `Layout`) opens one channel per signed-in person. **Any change only triggers a re-read** of the list (`src/lib/approvals.ts` `loadApprovals`); event contents are not used. Debounced 150 ms.
 - "Live" is shown only after Realtime's `system` message (`extension: 'postgres_changes', status: 'ok'`). Supabase's troubleshooting guide says `SUBSCRIBED` alone only means the socket is open and a change made in the gap can be missed. This caused the first e2e failure. If no system message arrives within 5 s, it is treated as live (Supabase's "weaker fallback").
 - Safety nets: re-read every 30 s while not live, every 2 min while live, on return to the foreground (`visibilitychange`) and on `online`. Re-read once on becoming live.
 - Screen: "Live" / "Connecting…" / "Live updates paused · checking every 30 seconds" indicator (`data-testid="live-status"`); new items marked **New** with a yellow ring for 60 s; `aria-live="polite"` on the list; waiting count (`data-testid="waiting-count"`) on the Approvals link (desktop and phone nav) and in the tab title, e.g. "(2) Agent Control Tower". The list loads for approvers and admins, or anyone on `/approvals`. The request page (`/approvals/requests/:id`) also re-reads on any change, so a decision by someone else shows without a reload.
-- Tests: `db-tests/realtime.test.ts` (3), `src/lib/live.test.tsx` (5), `e2e/live.spec.ts` (desktop and phone: Ravi has Approvals open, the agent raises a £2m request through the API, the card must appear within 2 s without a page load, marked New, then Ravi rejects it to tidy up). Measured 23 Oct: 0.8 s desktop, 0.3 s phone (time from the API reply to the card on screen).
+- Tests: `db-tests/realtime.test.ts` (3), `src/lib/live.test.tsx` (5), `e2e/live.spec.ts` (desktop and phone: Ravi has Approvals open, the agent raises a £2m request through the API, the card must appear within 2 s without a page load, marked New, then Ravi rejects it to tidy up). Measured 23 Oct (time from the API reply to the card on screen): preview 0.8 s desktop / 0.3 s phone; dev site after the merge 1.3 s / 1.3 s. Under the 2 s target but with less headroom than the preview runs; if the e2e starts failing on time alone, look at network latency before the code.
 
 ### Demo personas (seed data; passwords are not recorded here)
 - Admin: `admin@northbridge.demo` (the user signs in as this).
@@ -258,7 +258,7 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 | 2.2 | Autonomy and threshold decision | Done, on demo (22 Oct) |
 | 2.3 | Routing matrix (rules, screen, reroute, preview) | Done, on demo (22 Oct) |
 | 2.4 | Approver task screen: what the agent wants and why; approve, reject with reason, escalate | **Done**, on main and demo (22 Oct) |
-| 2.5 | Live update of the approvals list | **Done** on branch `claude/task-2.5-live-approvals` (dev database migrated), not yet merged to main |
+| 2.5 | Live update of the approvals list | **Done**, on main (23 Oct); not on demo |
 | 2.6 | Phone install and push notifications | **Next** |
 | 2.7 | Approval emails | Planned; needs task 0.6 (DNS) |
 | 2.8 | Decision callback to the agent | Planned |
@@ -271,9 +271,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 Example for 2.4 (from the user's own wording): "FX agent wants to release £2m to supplier X, because…" with approve, reject with reason, and escalate.
 
 Next steps, in order:
-1. With the user's go-ahead, merge `claude/task-2.5-live-approvals` into `main` (fast-forward; deploys to dev, runs e2e and api-smoke).
-2. Release 2.5 to demo only when the user says so: *Database migrations* → demo, then fast-forward `demo` to `main`. No reseed needed (2.5 adds no data).
-3. Build **task 2.6**: phone install and push notifications (Web Push; check free limits and iOS support in official docs first). Then 2.7 to 2.12.
+1. Release 2.5 to demo only when the user says so: *Database migrations* → demo, then fast-forward `demo` to `main`. No reseed needed (2.5 adds no data).
+2. Build **task 2.6**: phone install and push notifications (Web Push; check free limits and iOS support in official docs first). Then 2.7 to 2.12.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbay.ai` at Porkbun (needs Porkbun access or a screenshot of the Resend records from the user).
@@ -332,4 +331,4 @@ Pitfalls seen so far:
 - Appian: https://appbay-demo.appiancloud.com
 - Repo: github.com/Appbay-AI/agent-control-tower (branches `main`, `demo`)
 - Supabase: `act-dev` (gprwtthwvmmmbslccxpf), `act-demo` (ekowumwkevkzwvkiljvf)
-- This file: `HANDOVER.md` at the repo root (on `main`; last updated 23 Oct, on the 2.5 branch)
+- This file: `HANDOVER.md` at the repo root (on `main`; last updated 23 Oct)
