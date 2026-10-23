@@ -46,7 +46,8 @@ jobs:
           echo "::add-mask::$key"
           echo "ACT_AGENT_KEY=$key" >> "$GITHUB_ENV"
       - name: Run
-        run: npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect' out.log | head -n 8 | tr '\n' ' ')"; exit 1; }
+        # xvfb-run gives the phone-alert test's Chrome window a virtual screen.
+        run: xvfb-run --auto-servernum npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect' out.log | head -n 8 | tr '\n' ' ')"; exit 1; }
       - name: Results
         if: success()
         run: |
