@@ -104,7 +104,7 @@ src/                       React app
   components/              shared UI: DecisionPanel (registrations), RequestDecisionPanel (action requests),
                            badges, requestBadges, ui-bits, TempPasswordDialog, ui/ (shadcn)
   lib/                     types.ts, api.ts (all DB/API calls), auth.tsx (session, loadSeq guard),
-                           permissions.ts, requests.ts, users.ts, routing.ts, format.ts (+ unit tests)
+                           permissions.ts, requests.ts, users.ts, routing.ts, format.ts, approvals.ts (list loader), live.tsx (task 2.5) (+ unit tests)
   App.tsx                  routes; admin-only routes wrapped in RequireAdmin
   components/Layout.tsx    navigation (Routing is admin-only)
 functions/api/v1/          Cloudflare Pages Functions (public API): health.ts, agents/register.ts,
@@ -116,8 +116,8 @@ functions/api.test.ts      API unit tests
 supabase/migrations/       every schema change, in order (the record of the database)
 supabase/seed/             demo data: 00_helpers, 01_users, 02_demo_bank, 03_more_agents,
                            04_routing, 05_action_requests, 90_reset
-db-tests/                  PGlite tests: harness.ts + users, actions, routing, tasks, seed, audit, security, workflow
-e2e/                       Playwright tests: registry, users, routing, requests
+db-tests/                  PGlite tests: harness.ts + users, actions, routing, tasks, realtime, seed, audit, security, workflow
+e2e/                       Playwright tests: registry, users, routing, requests, live
 docs/build-plan/           build plan source (build.py → plan.html, print.mjs → PDF) and the latest PDF
 scripts/                   register-agent.mjs, ms-spike.mjs, appian-check.mjs
 appian/                    simulator spec, DevMCP guide, mcp.json.example
@@ -131,11 +131,12 @@ Local commands (from the repo root, after `npm install`):
 - `npm run dev`: optional; needs `.env.local` (see `.env.example`)
 
 Git: branches `main` (work in progress, auto-deploys to dev) and `demo` (client demo). Claude Code sessions work on a `claude/...` branch the session names, and merge to `main` only when the user asks.
+- Task 2.5 (live approvals list) is on branch `claude/task-2.5-live-approvals` (`05ef120`, `50317b8`, `d5fb23b`, then the docs commit), **not yet merged to `main`**. Its migration `20261023000100_realtime_approvals.sql` was applied to the **dev** database from that branch (verified: the three tables are in the `supabase_realtime` publication on dev). Preview: https://claude-task-2-5-live-approva.agent-control-tower-56p.pages.dev; e2e passed twice there (desktop and phone). Merging is a fast-forward; the migration will not run twice on dev.
 - `main`: task 2.4 (`086ee38`, `588e09a`) was fast-forwarded onto `main` on 22 Oct with the user's go-ahead; checks, dev deploy, e2e (desktop and phone) and api-smoke all passed. The commit after that updates this file and the build plan. Below 2.4: `c259d55`/`ba05d55` routing (2.3), `fd7b87e`/`a7a2d1c`/`3e6b048` Appian, `bef46bc` seed review dates, `dfec9dd` action requests (2.1, 2.2).
 - `demo`: **released 22 Oct** at `588e09a` (2.1 to 2.4, the seed date fix, Appian workflows), on the user's go-ahead. Order used: *Database migrations* → demo (from `main`), then fast-forward `demo` to `main` (deploy succeeded, `/api/v1/health` says `env: demo`), then *Seed demo data* → demo with reset. Checked afterwards on demo: 40 agents, 4 overdue reviews, no test agents, both routing rules, and `REQ-000001` (£2,000,000 GBP, pending, with Ravi Menon). The reset removed three hand-made test agents ("Test Agent", "Test Agent 2", "test agent 3") from 7–9 Oct. Later commits on `main` that only touch docs do not need releasing.
 - Old branches: `claude/quirky-planck-d1h2jp` is fully merged and `handover-for-new-session` (05166ab) holds an outdated copy of this file. Both can be deleted when the user agrees.
 
-Preview a branch: run *Deploy* on the branch (workflow_dispatch). It deploys to `https://<branch-with-dashes>.agent-control-tower-56p.pages.dev` using the dev database. Then run *End-to-end* on the branch with input `url` set to that address.
+Preview a branch: run *Deploy* on the branch (workflow_dispatch). It deploys to `https://<branch-with-dashes>.agent-control-tower-56p.pages.dev` using the dev database. Cloudflare cuts that first part to **28 characters** (e.g. `claude/task-2.5-live-approvals` → `claude-task-2-5-live-approva`). If the branch has a migration, first run *Database migrations* → dev on the branch. Then run *End-to-end* on the branch with input `url` set to that address.
 
 ---
 
@@ -162,7 +163,7 @@ Preview a branch: run *Deploy* on the branch (workflow_dispatch). It deploys to 
 | `deploy.yml` | push to `main` (dev preview) and `demo` (production) | builds and deploys to Cloudflare Pages via `wrangler pages deploy` |
 | `db-migrate.yml` | push to `main` (dev, automatic); manual for `demo` | applies `supabase/migrations` to the chosen project |
 | `seed-demo.yml` | manual; inputs `target` (dev/demo) and `reset` (true/false) | loads demo data. Reset clears test agents, requests and routing rules first |
-| `e2e.yml` | after deploy and manual (optional input `url` for a branch preview) | Playwright on the work-in-progress site. Makes a temporary agent key for the Payment Release Assistant (`ACT_AGENT_KEY`) for the approver-task test. Cleans up leftovers: retires test agents, revokes that key, cancels waiting `E2E` requests, deletes `e2e.user.%` auth users and `E2E rule %` routing rules |
+| `e2e.yml` | after deploy and manual (optional input `url` for a branch preview) | Playwright on the work-in-progress site. Makes a temporary agent key for the Payment Release Assistant (`ACT_AGENT_KEY`) for the approver-task test. Cleans up leftovers: retires test agents, revokes that key, cancels waiting `E2E` requests, deletes `e2e.user.%` auth users and `E2E rule %` routing rules. On success it posts test timings (lines `[desktop\|phone] task appeared N ms`) as a "Timings" notice, readable through check-run annotations |
 | `api-smoke.yml` | after deploy and manual | calls the public API end to end |
 | `keep-alive.yml` | scheduled | keeps the Supabase projects awake |
 | `db-inspect.yml` | manual | read-only database look-up |
@@ -229,6 +230,15 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - Demo data `05_action_requests.sql`: the Payment Release Assistant asks to release £2,000,000 to Hartwell Steel Ltd (above its £250k limit) → waits with Ravi Menon. Made through `api_request_action` with a temporary key that is revoked straight after. Idempotent.
 - Tests: `db-tests/tasks.test.ts` (10), seed test (+1), `src/lib/requests.test.ts` (7), `src/components/RequestDecisionPanel.test.tsx` (4), `e2e/requests.spec.ts` (desktop and phone: agent asks via the API, Ravi escalates to Daniel, Daniel approves, API says may_proceed).
 
+### Live approvals list (task 2.5, done on branch, not yet on main)
+- Supabase Realtime **Postgres Changes** (free plan: 200 concurrent connections, 100 messages/s, 2 million messages/month; checked 23 Oct at supabase.com/docs/guides/realtime/limits and supabase.com/pricing).
+- Migration `20261023000100_realtime_approvals.sql` adds `action_requests`, `agent_registrations`, `registration_decisions` to the `supabase_realtime` publication (idempotent; creates the publication if missing). Realtime applies each subscriber's RLS, so the existing select policies decide who hears about what. DELETE events are not RLS-filtered, but these tables are never deleted from (reset uses truncate, which sends nothing).
+- App: `src/lib/live.tsx` `LiveProvider` (inside `Layout`) opens one channel per signed-in person. **Any change only triggers a re-read** of the list (`src/lib/approvals.ts` `loadApprovals`); event contents are not used. Debounced 150 ms.
+- "Live" is shown only after Realtime's `system` message (`extension: 'postgres_changes', status: 'ok'`). Supabase's troubleshooting guide says `SUBSCRIBED` alone only means the socket is open and a change made in the gap can be missed. This caused the first e2e failure. If no system message arrives within 5 s, it is treated as live (Supabase's "weaker fallback").
+- Safety nets: re-read every 30 s while not live, every 2 min while live, on return to the foreground (`visibilitychange`) and on `online`. Re-read once on becoming live.
+- Screen: "Live" / "Connecting…" / "Live updates paused · checking every 30 seconds" indicator (`data-testid="live-status"`); new items marked **New** with a yellow ring for 60 s; `aria-live="polite"` on the list; waiting count (`data-testid="waiting-count"`) on the Approvals link (desktop and phone nav) and in the tab title, e.g. "(2) Agent Control Tower". The list loads for approvers and admins, or anyone on `/approvals`. The request page (`/approvals/requests/:id`) also re-reads on any change, so a decision by someone else shows without a reload.
+- Tests: `db-tests/realtime.test.ts` (3), `src/lib/live.test.tsx` (5), `e2e/live.spec.ts` (desktop and phone: Ravi has Approvals open, the agent raises a £2m request through the API, the card must appear within 2 s without a page load, marked New, then Ravi rejects it to tidy up). Measured 23 Oct: 0.8 s desktop, 0.3 s phone (time from the API reply to the card on screen).
+
 ### Demo personas (seed data; passwords are not recorded here)
 - Admin: `admin@northbridge.demo` (the user signs in as this).
 - Others include Ravi Menon (Payments approver), Daniel Okafor (Payments Risk Lead, approver), Omar Farouk (approver for personal data), Sara (Commercial Lending), Olly Owner (owner who is also approver).
@@ -248,8 +258,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 | 2.2 | Autonomy and threshold decision | Done, on demo (22 Oct) |
 | 2.3 | Routing matrix (rules, screen, reroute, preview) | Done, on demo (22 Oct) |
 | 2.4 | Approver task screen: what the agent wants and why; approve, reject with reason, escalate | **Done**, on main and demo (22 Oct) |
-| 2.5 | Live update of the approvals list | **Next** |
-| 2.6 | Phone install and push notifications | Planned |
+| 2.5 | Live update of the approvals list | **Done** on branch `claude/task-2.5-live-approvals` (dev database migrated), not yet merged to main |
+| 2.6 | Phone install and push notifications | **Next** |
 | 2.7 | Approval emails | Planned; needs task 0.6 (DNS) |
 | 2.8 | Decision callback to the agent | Planned |
 | 2.9 | SLA timers | Planned |
@@ -261,7 +271,9 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 Example for 2.4 (from the user's own wording): "FX agent wants to release £2m to supplier X, because…" with approve, reject with reason, and escalate.
 
 Next steps, in order:
-1. Build **task 2.5**: live update of the approvals list (Supabase Realtime on `action_requests`; check the free-tier limits in Supabase's docs first). Then 2.6 to 2.12.
+1. With the user's go-ahead, merge `claude/task-2.5-live-approvals` into `main` (fast-forward; deploys to dev, runs e2e and api-smoke).
+2. Release 2.5 to demo only when the user says so: *Database migrations* → demo, then fast-forward `demo` to `main`. No reseed needed (2.5 adds no data).
+3. Build **task 2.6**: phone install and push notifications (Web Push; check free limits and iOS support in official docs first). Then 2.7 to 2.12.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbay.ai` at Porkbun (needs Porkbun access or a screenshot of the Resend records from the user).
@@ -274,7 +286,7 @@ Earlier, not yet done:
 
 ## 9. Build plan (PDF)
 
-- Latest PDF: `docs/build-plan/Agent_Control_Tower_Build_Plan.pdf` (updated 22 Oct 2026). The source now lives in the repo so it cannot be lost with a session: `docs/build-plan/build.py` holds all content and statuses (edit `UPDATED`, `TODAY` and the task rows), then run `python3 docs/build-plan/build.py && CHROMIUM_PATH=/opt/pw-browsers/chromium node docs/build-plan/print.mjs`. The earlier scratch-folder source (`parts_*.py`) was lost with its session; the 19 Oct version was rebuilt from the 15 Oct PDF's text. 22 Oct: fixed a bug where the Progress table printed raw badge HTML instead of a coloured status badge (it escaped an already-built badge); `table()` now accepts a `(text, kind)` pair in the Status column.
+- Latest PDF: `docs/build-plan/Agent_Control_Tower_Build_Plan.pdf` (updated 23 Oct 2026). The source now lives in the repo so it cannot be lost with a session: `docs/build-plan/build.py` holds all content and statuses (edit `UPDATED`, `TODAY` and the task rows), then run `python3 docs/build-plan/build.py && CHROMIUM_PATH=/opt/pw-browsers/chromium node docs/build-plan/print.mjs`. The earlier scratch-folder source (`parts_*.py`) was lost with its session; the 19 Oct version was rebuilt from the 15 Oct PDF's text. 22 Oct: fixed a bug where the Progress table printed raw badge HTML instead of a coloured status badge (it escaped an already-built badge); `table()` now accepts a `(text, kind)` pair in the Status column.
 - Key dates in the plan: single release; **credible demo 20 Nov 2026**; **demo ready 15 Dec 2026**. Phases: 2 (15–28 Oct, incl. 2.13 simulator), 3 (platform connection and auto-discovery, 29 Oct–9 Nov), 4 (kill switch, enforcement and incidents, 10–20 Nov), 5 (alerts and routing, 23–26 Nov), 6 (evidence and dashboards, 27 Nov–7 Dec), 7 (demo data and rehearsal, 8–15 Dec).
 - The plan has a feasibility section and a "two findings" callout. Keep both.
 - Update the plan when tasks complete, and send the updated PDF to the user.
@@ -306,6 +318,9 @@ Pitfalls seen so far:
 - `functions/api.test.ts` fails locally with "Cannot find module './config.js'" until you copy `functions-lib/config.example.js` to `functions-lib/config.js` (CI does this).
 - The sandbox clone is shallow (`--depth 1`). Before pushing one branch onto another (e.g. `main` → `demo`), run `git fetch --depth=30 origin main:refs/remotes/origin/main demo:refs/remotes/origin/demo`, or `git merge-base --is-ancestor` wrongly says it is not a fast-forward. `gh api repos/.../compare/demo...main` gives the true ahead/behind count.
 - From the sandbox, GitHub API writes to refs (`PATCH git/refs`) are refused by the proxy; use `git push`. Workflow job logs return 403, so read results from check-run annotations (`gh api repos/.../check-runs/<job id>/annotations`); `db-inspect.yml` puts its query result there. The sandbox cannot reach the Pages sites with curl (proxy 403); WebFetch works for `/api/v1/health`.
+- Supabase Realtime: `SUBSCRIBED` does not mean changes will arrive yet; wait for the `system` message (see task 2.5). In tests, wait for the "Live" indicator before making the change.
+- Playwright: after clicking a card that navigates, wait for something on the new page (e.g. `request-headline`) before clicking a button whose name also exists on the old page, or strict mode fails.
+- Playwright report artifacts can't be downloaded from the sandbox (blob storage 403), the same as logs.
 - An approver who escalates a request may lose sight of it (visibility comes from being assigned), so the screen returns to the list rather than reloading.
 
 ---
@@ -317,4 +332,4 @@ Pitfalls seen so far:
 - Appian: https://appbay-demo.appiancloud.com
 - Repo: github.com/Appbay-AI/agent-control-tower (branches `main`, `demo`)
 - Supabase: `act-dev` (gprwtthwvmmmbslccxpf), `act-demo` (ekowumwkevkzwvkiljvf)
-- This file: `HANDOVER.md` at the repo root (on `main`; last updated 22 Oct)
+- This file: `HANDOVER.md` at the repo root (on `main`; last updated 23 Oct, on the 2.5 branch)

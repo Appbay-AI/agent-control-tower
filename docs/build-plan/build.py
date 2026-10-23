@@ -7,8 +7,8 @@ from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 
-UPDATED = 'Oct 22, 2026'
-TODAY = date(2026, 10, 22)
+UPDATED = 'Oct 23, 2026'
+TODAY = date(2026, 10, 23)
 OUT = Path(__file__).with_name('plan.html')
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -77,7 +77,7 @@ PHASES = [
         'outro': 'Outcome: go, with Microsoft Copilot auto-discovery and platform enforcement added to the scope (Phase 2 requirements, 14 Oct). During the gate the team also wrote the demo bank seed script (task 7.1, done) and the meeting guide.',
     },
     {
-        'title': 'Phase 2 — Approval engine', 'dates': '15–28 Oct (10 days)', 'badge': ('In progress · 5 of 13 done', 'now'),
+        'title': 'Phase 2 — Approval engine', 'dates': '15–28 Oct (10 days)', 'badge': ('In progress · 6 of 13 done', 'now'),
         'intro': 'The heart of the product: an agent above its threshold waits for a named human. Unchanged, except that the Appian agent-platform simulator is built alongside it. Tasks 2.1 to 2.4 were released to the client demo on 22 Oct; later tasks reach it only when released.',
         'cols': ['#', 'Task', 'Tech', 'Dates', 'Done when', 'Status'],
         'rows': [
@@ -85,8 +85,8 @@ PHASES = [
             ('2.2', 'Autonomy and threshold check (Levels 1–4); suspended agents fail closed', 'Postgres functions', '16–19 Oct', 'Each level behaves as specified', 'Done'),
             ('2.3', 'Routing matrix, editable from a screen without code', 'Postgres, React', '19–20 Oct', 'Changing an approver needs no deploy', 'Done'),
             ('2.4', 'Approver task screen: what the agent wants and why; approve, reject with reason, escalate', 'React, TypeScript, Postgres', '20–22 Oct', 'Decision saved and logged', 'Done'),
-            ('2.5', 'Task appears live on screen', 'Supabase Realtime', '22 Oct', 'Task raised within 2 seconds', 'Next'),
-            ('2.6', 'Phone install and push alerts', 'vite-plugin-pwa, Web Push', '22–23 Oct', 'Alert arrives on a phone', 'Planned'),
+            ('2.5', 'Task appears live on screen', 'Supabase Realtime', '22–23 Oct', 'Task raised within 2 seconds', 'Done'),
+            ('2.6', 'Phone install and push alerts', 'vite-plugin-pwa, Web Push', '23–24 Oct', 'Alert arrives on a phone', 'Next'),
             ('2.7', 'Approval emails', 'Resend', '23 Oct', 'Approver gets an email', 'Planned'),
             ('2.8', 'Decision returned to the agent (status check and callback)', 'Cloudflare Functions', '26 Oct', 'Demo agent proceeds on approval', 'Planned'),
             ('2.9', 'SLA timer: escalate to next approver or auto-reject (default)', 'pg_cron', '26–27 Oct', 'Overdue task escalates or rejects', 'Planned'),
@@ -95,7 +95,7 @@ PHASES = [
             ('2.12', 'End-to-end test of the £2m payment on desktop and phone', 'Playwright', '28 Oct', 'Test passes on every change', 'Planned'),
             ('2.13', '<b>New:</b> Build the demo agent platform in Appbay\'s Appian environment ("Northbridge Agent Platform (simulated)", never shown as Microsoft): agents table, a screen to add or switch an agent back on, web APIs to list agents, read and set status, and two demo agents that check their status before every action', 'Appian (Web APIs, data store)', '16–23 Oct', 'Control Tower can list, block and unblock agents through the APIs; a blocked demo agent stops', 'Done'),
         ],
-        'outro': 'Notes on progress. 2.3: rules match on agent, department, value band, data touched and risk tier; a rule never assigns the agent\'s own owner. 2.4: the assigned approver (or any department approver when no rule matched) approves, rejects with a reason or escalates to another approver with a reason; an agent suspended since it asked can only be rejected; every step is in the audit trail; the agent reads the decision through the API. The browser test covers the £2m payment from request to approval, ahead of 2.12. 2.13: the simulator passes 15 of 15 acceptance checks.',
+        'outro': 'Notes on progress. 2.3: rules match on agent, department, value band, data touched and risk tier; a rule never assigns the agent\'s own owner. 2.4: the assigned approver (or any department approver when no rule matched) approves, rejects with a reason or escalates to another approver with a reason; an agent suspended since it asked can only be rejected; every step is in the audit trail; the agent reads the decision through the API. 2.5: a new task reaches an approver\'s open screen in under a second in the browser test (0.8 s desktop, 0.3 s phone; target 2 s), marked New, with a waiting count on the Approvals link; if the live link drops the list is re-read every 30 seconds, so nothing is missed. Uses Supabase Realtime on the free plan (200 connections, 2 million messages a month). The browser test covers the £2m payment from request to approval, ahead of 2.12. 2.13: the simulator passes 15 of 15 acceptance checks.',
     },
     {
         'title': 'Phase 3 — Agent-platform connection and auto-discovery', 'dates': '29 Oct – 9 Nov (8 days)', 'badge': ('Planned', 'plan'),
@@ -174,7 +174,7 @@ PROGRESS = [
     ('Phase 1 — Registry', '5–9 Oct', ('Done', 'done'), 'Plus a Users screen (1.9), not in the original plan.'),
     ('Go/no-go gate', '12–14 Oct', ('Go', 'done'), 'Microsoft Copilot scope added.'),
     ('Phase 2 — Approval engine', '15–28 Oct', ('In progress', 'now'),
-     '2.1 to 2.4 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon. Next: 2.5, live update of the approvals list.'),
+     '2.1 to 2.5 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon; 2.5 (live approvals list) is on the work-in-progress site. Next: 2.6, phone install and push alerts.'),
     ('Phases 3–7', '29 Oct – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 
