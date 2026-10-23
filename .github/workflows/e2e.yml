@@ -45,8 +45,13 @@ jobs:
           echo "ACT_AGENT_KEY=$key" >> "$GITHUB_ENV"
       - name: Run
         run: npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect' out.log | head -n 8 | tr '\n' ' ')"; exit 1; }
-      - run: cat out.log
+      - name: Results
         if: success()
+        run: |
+          cat out.log
+          # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms' out.log | tr '\n' ';' || true)
+          [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retire leftover test agents
         if: always()
         run: |
