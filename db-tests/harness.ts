@@ -50,6 +50,12 @@ const SUPABASE_STUB = `
   grant usage on schema auth to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated, service_role;
   grant usage on schema public to anon, authenticated, service_role;
+  -- Stand-in for pg_net (task 2.6): records each call instead of making it.
+  create schema net;
+  create table net.calls (id serial primary key, url text, body jsonb, at timestamptz default now());
+  create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}',
+                                headers jsonb default '{}', timeout_milliseconds integer default 2000)
+  returns bigint language sql as $$ insert into net.calls (url, body) values (url, body) returning id $$;
 `
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../supabase/migrations')

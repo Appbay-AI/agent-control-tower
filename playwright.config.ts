@@ -12,7 +12,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] }, grepInvert: /@push/ },
     { name: 'phone', use: { ...devices['Pixel 7'] }, grep: /@phone/ },
+    // Phone alerts (task 2.6) need Google Chrome: open-source Chromium cannot subscribe to Google's push service.
+    { name: 'push', use: { ...devices['Desktop Chrome'], channel: 'chrome' }, grep: /@push/ },
   ],
 })

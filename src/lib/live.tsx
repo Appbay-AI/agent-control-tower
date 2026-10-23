@@ -176,6 +176,12 @@ export function LiveProvider({ withApprovals, children }: { withApprovals: boole
     document.title = waiting > 0 ? `(${waiting}) Agent Control Tower` : 'Agent Control Tower'
   }, [waiting])
   useEffect(() => () => { document.title = 'Agent Control Tower' }, [])
+  // Installed app: the same count on its icon, where the phone supports it (task 2.6; Badging API).
+  useEffect(() => {
+    const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
+    if (waiting > 0) nav.setAppBadge?.(waiting).catch(() => undefined)
+    else nav.clearAppBadge?.().catch(() => undefined)
+  }, [waiting])
 
   const value: LiveState = {
     status, tick, approvals: data, approvalsError: error, approvalsLoading: loading, reloadApprovals: reload,

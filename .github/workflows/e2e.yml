@@ -31,6 +31,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # The phone-alert test (task 2.6) runs in Google Chrome; GitHub's Ubuntu runners usually have it already.
+      - run: command -v google-chrome >/dev/null || npx playwright install chrome
       - name: Temporary agent key
         # The approver-task test asks for a £2m payment as the Payment Release Assistant, through the public API.
         run: |
@@ -50,7 +52,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms|\[push\] alert arrived: [^\r]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retire leftover test agents
         if: always()
@@ -73,6 +75,9 @@ jobs:
           commit;
           update public.action_requests set status = 'cancelled', decided_at = now(), decision_reason = 'Test request left by an interrupted test run'
            where status = 'pending' and description like 'Release £2,000,000 to supplier E2E %';
+          -- Phone-alert test (task 2.6): the test browser's device, if the test stopped before turning alerts off.
+          delete from public.push_subscriptions s using public.profiles p
+           where p.id = s.user_id and p.email = 'ravi.menon@northbridge.demo' and s.device like 'Linux · Chrome%';
           -- Test people exist only on the work-in-progress database; remove them entirely.
           delete from auth.users where email like 'e2e.user.%@northbridge.demo';
           SQL

@@ -14,6 +14,8 @@ export default defineConfig({
       // Registered in main.tsx so a new release replaces the cached app and reloads automatically.
       injectRegister: false,
       includeAssets: ['favicon.svg'],
+      // Task 2.6: phone alerts. The push and notification-click handlers live in public/push-sw.js.
+      workbox: { importScripts: ['push-sw.js'] },
       manifest: {
         name: 'Agent Control Tower',
         short_name: 'Control Tower',

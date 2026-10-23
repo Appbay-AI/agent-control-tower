@@ -152,4 +152,11 @@ export const api = {
     check(await db().rpc('escalation_targets', { p_request_id: id })) as { id: string; full_name: string; job_title: string | null }[],
 
   revokeKey: async (keyId: string) => check(await db().rpc('revoke_api_key', { p_key_id: keyId })),
+
+  // Phone alerts (task 2.6)
+  pushPublicKey: async () => check(await db().rpc('push_public_key')) as string | null,
+  pushSubscribe: async (s: { endpoint: string; p256dh: string; auth: string; device: string }) =>
+    check(await db().rpc('push_subscribe', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth, p_device: s.device })) as string,
+  pushUnsubscribe: async (endpoint: string) => check(await db().rpc('push_unsubscribe', { p_endpoint: endpoint })),
+  pushSendTest: async () => check(await db().rpc('push_send_test')),
 }

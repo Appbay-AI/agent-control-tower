@@ -14,6 +14,10 @@ on:
         type: choice
         options: [dev, demo]
         default: dev
+      alerts_site:
+        description: 'Optional: site that sends phone alerts (to test a branch preview on dev). Blank = the normal site.'
+        required: false
+        default: ''
 
 concurrency:
   group: db-migrate-${{ github.event.inputs.target || 'dev' }}
@@ -88,3 +92,14 @@ jobs:
           supabase db push "${target[@]}" > out.log 2>&1 \
             || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | sed -E 's#postgres(ql)?://[^ ]*#postgresql://***#g' | tr '\n' ' ')"; exit 1; }
           cat out.log
+      # Task 2.6: phone alerts. Points the database at this environment's site and creates the signing keys once.
+      - name: Phone alert keys
+        env:
+          TARGET: ${{ github.event.inputs.target || 'dev' }}
+          SITE_URL: ${{ github.event.inputs.alerts_site }}
+        run: |
+          [ -n "$SUPABASE_DB_URL" ] || { echo "::warning title=Phone alerts::SUPABASE_DB_URL is not set, so alert keys were not checked"; exit 0; }
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          node scripts/push-setup.mjs > out.log 2>&1 || { cat out.log; echo "::error title=Phone alert keys::$(tail -n 3 out.log | tr '\n' ' ')"; exit 1; }
+          cat out.log
+          echo "::notice title=Phone alerts::$(tail -n 1 out.log)"
