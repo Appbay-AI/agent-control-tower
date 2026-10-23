@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { chromium, expect, test, type Page } from '@playwright/test'
 
 // Task 2.6: real phone alerts, end to end, in Google Chrome (the "push" project in playwright.config.ts).
 // Chrome subscribes through Google's push service; our database queues the alert, our Cloudflare function encrypts
@@ -21,9 +21,15 @@ const shown = (page: Page) => page.evaluate(async () => {
   return (await reg.getNotifications()).map((n) => ({ title: n.title, body: n.body }))
 })
 
-test('alerts reach the approver\'s browser: a test alert, then a real £2m request @push', async ({ page, context, request, baseURL }, info) => {
+test('alerts reach the approver\'s browser: a test alert, then a real £2m request @push', async ({ request, baseURL }, info) => {
   test.skip(!AGENT_KEY, 'ACT_AGENT_KEY is set by the e2e workflow')
-  await context.grantPermissions(['notifications'], { origin: baseURL })
+  // A normal (persistent) Chrome profile: Playwright's usual contexts are incognito-like, and Chrome refuses push there
+  // ("Registration failed - permission denied"). Background networking stays on: Chrome needs it to reach its push service.
+  const context = await chromium.launchPersistentContext(info.outputPath('chrome-profile'), {
+    channel: 'chrome', headless: false, baseURL, permissions: ['notifications'],
+    ignoreDefaultArgs: ['--disable-background-networking'],
+  })
+  const page = context.pages()[0] ?? await context.newPage()
   await signIn(page, 'ravi.menon')
   await page.getByRole('link', { name: 'Approvals' }).first().click()
   const card = page.getByTestId('alerts-card')
@@ -71,4 +77,5 @@ test('alerts reach the approver\'s browser: a test alert, then a real £2m reque
   await page.goto('/approvals')
   await page.getByTestId('alerts-card').getByRole('button', { name: 'Turn off' }).click()
   await expect(page.getByTestId('alerts-card').getByRole('status')).toHaveText('Alerts are off for this device.')
+  await context.close()
 })
