@@ -31,8 +31,12 @@ test('alerts reach the approver\'s browser: a test alert, then a real £2m reque
 
   // Turn alerts on (or they may still be on from an earlier run of this browser profile).
   const turnOn = card.getByRole('button', { name: 'Turn on alerts' })
-  if (await turnOn.isVisible()) await turnOn.click()
-  await expect(card.getByTestId('alerts-state')).toHaveText(/Alerts are on for this device/, { timeout: 20_000 })
+  if (await turnOn.isVisible()) {
+    await turnOn.click()
+    // Success and failure both show a message here; on failure this prints the reason.
+    await expect(card.getByRole('status')).toHaveText('Alerts are on. Send a test to check.', { timeout: 20_000 })
+  }
+  await expect(card.getByTestId('alerts-state')).toHaveText(/Alerts are on for this device/)
 
   // A test alert arrives.
   const t0 = Date.now()
