@@ -4,46 +4,37 @@ import { RiskBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { UrgencyBadge } from '@/components/requestBadges'
 import { ErrorBox, LoadingRows, PageHeader, TagList } from '@/components/ui-bits'
-import { api } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
+import { cn } from '@/lib/utils'
 import { AUTONOMY, DATA_LABEL, formatDateTime, formatMoney } from '@/lib/format'
-import { agentPermissions } from '@/lib/permissions'
-import { headline, requestAmount, requestPermissions } from '@/lib/requests'
-import { useAsync } from '@/lib/useAsync'
+import { FALLBACK_POLL_MS, useLive, type LiveStatus } from '@/lib/live'
+import { headline, requestAmount } from '@/lib/requests'
+
+/** Whether the list is updating on its own (task 2.5). */
+function LiveIndicator({ status }: { status: LiveStatus }) {
+  const text = status === 'live' ? 'Live' : status === 'connecting' ? 'Connecting…'
+    : `Live updates paused · checking every ${FALLBACK_POLL_MS / 1000} seconds`
+  return (
+    <span data-testid="live-status" title={status === 'live' ? 'New tasks appear here on their own' : undefined}
+      className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+      <span aria-hidden className={cn('size-2 rounded-full', status === 'live' ? 'bg-emerald-500' : status === 'connecting' ? 'bg-slate-400' : 'bg-amber-500')} />
+      {text}
+    </span>
+  )
+}
+
+function NewBadge() {
+  return <span className="bg-brand-yellow text-brand-charcoal rounded px-1.5 text-[10px] leading-4 font-semibold uppercase">New</span>
+}
 
 export function ApprovalsPage() {
-  const { session, roles, scopeDepartmentIds } = useAuth()
-  const userId = session!.user.id
   const notice = (useLocation().state as { notice?: string } | null)?.notice
-
-  const { data, error, loading, reload } = useAsync(async () => {
-    const [pending, agents, decisions, departments, profiles, waiting] = await Promise.all([
-      api.pendingRegistrations(), api.agents(), api.decisions(), api.departments(), api.allProfiles(), api.actionRequests('pending'),
-    ])
-    const byId = new Map(agents.map((a) => [a.id, a]))
-    // Action requests (task 2.4): oldest first, so nothing waits longest unseen.
-    const requests = waiting
-      .map((req) => ({ req, agent: byId.get(req.agent_id)! }))
-      .filter((x) => x.agent)
-      .map((x) => ({ ...x, perms: requestPermissions({ request: x.req, agent: x.agent, userId, roles, scopeDepartmentIds }) }))
-      .reverse()
-    const items = pending
-      .map((reg) => ({ reg, agent: byId.get(reg.agent_id)! }))
-      .filter((x) => x.agent)
-      .map((x) => ({ ...x, perms: agentPermissions({ agent: x.agent, userId, roles, scopeDepartmentIds, pending: x.reg, decisions }) }))
-    return {
-      myRequests: requests.filter((x) => x.perms.canDecide),
-      otherRequests: requests.filter((x) => !x.perms.canDecide),
-      mine: items.filter((x) => x.perms.canDecide),
-      others: items.filter((x) => !x.perms.canDecide),
-      dept: new Map(departments.map((d) => [d.id, d.name])),
-      people: new Map(profiles.map((p) => [p.id, p.full_name])),
-    }
-  }, [roles.join(), scopeDepartmentIds.join()])
+  // Task 2.5: the list lives in LiveProvider and is read again whenever something changes.
+  const { approvals: data, approvalsError: error, approvalsLoading: loading, reloadApprovals: reload, status, fresh } = useLive()
 
   return (
     <div className="space-y-5">
       <PageHeader title="Approvals" subtitle="Actions agents want to take, and new agents waiting to go live" />
+      <LiveIndicator status={status} />
       {notice && <p className="rounded-md border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-950/40">{notice}</p>}
       <ErrorBox message={error} />
       {loading && !data && <LoadingRows />}
@@ -51,6 +42,8 @@ export function ApprovalsPage() {
       {data && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Agent actions</h2>
+          {/* Screen readers announce new tasks as they arrive. */}
+          <div aria-live="polite" className="space-y-3">
           {data.myRequests.length === 0 ? (
             <div className="text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed p-4 text-sm">
               <CheckCircle2 className="size-5 text-emerald-600" aria-hidden /> No agent action is waiting for your decision.
@@ -60,9 +53,11 @@ export function ApprovalsPage() {
               {data.myRequests.map(({ req, agent: a }) => (
                 <li key={req.id}>
                   <Link to={`/approvals/requests/${req.id}`} data-testid="request-card"
-                    className="bg-card hover:border-foreground/30 flex items-center gap-3 rounded-lg border p-4">
+                    className={cn('bg-card hover:border-foreground/30 flex items-center gap-3 rounded-lg border p-4 transition-colors',
+                      fresh.has(req.id) && 'border-brand-yellow ring-brand-yellow/40 ring-2')}>
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                        {fresh.has(req.id) && <NewBadge />}
                         <span>{req.request_code}</span>
                         <span>· {formatDateTime(req.requested_at)}</span>
                         <RiskBadge tier={a.risk_tier} />
@@ -95,6 +90,7 @@ export function ApprovalsPage() {
               </ul>
             </div>
           )}
+          </div>
         </section>
       )}
 
@@ -112,6 +108,7 @@ export function ApprovalsPage() {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <Link to={`/agents/${a.id}`} className="text-lg font-semibold hover:underline">{a.name}</Link>
+                {fresh.has(reg.id) && <> <NewBadge /></>}
                 <div className="text-muted-foreground text-xs">
                   {a.agent_code} · {data.dept.get(a.department_id ?? '')} · submitted {formatDateTime(reg.submitted_at)}
                   {reg.submitted_by ? ` by ${data.people.get(reg.submitted_by)}` : ' via API'}

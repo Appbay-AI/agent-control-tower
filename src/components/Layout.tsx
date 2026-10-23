@@ -1,12 +1,35 @@
 import { Activity, Bot, ClipboardCheck, KeyRound, Lock, LogOut, Route as RouteIcon, UserCog } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { ROLE_LABEL } from '@/lib/format'
+import { LiveProvider, useLive } from '@/lib/live'
 import { supabaseEnvironment } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 export function Layout() {
+  const { hasRole } = useAuth()
+  const onApprovals = useLocation().pathname.startsWith('/approvals')
+  return (
+    <LiveProvider withApprovals={hasRole('approver', 'admin') || onApprovals}>
+      <Shell />
+    </LiveProvider>
+  )
+}
+
+/** Number of things waiting for this person's decision, on the Approvals link (task 2.5). */
+function WaitingCount({ className }: { className?: string }) {
+  const { waiting } = useLive()
+  if (waiting === 0) return null
+  return (
+    <span data-testid="waiting-count" aria-label={`${waiting} waiting for you`}
+      className={cn('bg-brand-yellow text-brand-charcoal inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-semibold tabular-nums', className)}>
+      {waiting > 99 ? '99+' : waiting}
+    </span>
+  )
+}
+
+function Shell() {
   const { profile, roles, hasRole, signOut } = useAuth()
 
   const links = [
@@ -33,6 +56,7 @@ export function Layout() {
                 className={({ isActive }) => cn('rounded-md px-3 py-1.5 text-sm text-white/80 hover:bg-white/10 hover:text-white',
                   isActive && 'bg-white/15 text-white')}>
                 {label}
+                {to === '/approvals' && <WaitingCount className="ml-1.5" />}
               </NavLink>
             ))}
           </nav>
@@ -64,7 +88,11 @@ export function Layout() {
           <NavLink key={to} to={to}
             className={({ isActive }) => cn('flex flex-1 flex-col items-center gap-0.5 py-2 text-xs text-muted-foreground',
               isActive && 'text-foreground font-medium')}>
-            <Icon className="size-5" aria-hidden /> {label}
+            <span className="relative">
+              <Icon className="size-5" aria-hidden />
+              {to === '/approvals' && <WaitingCount className="absolute -top-1.5 left-3.5" />}
+            </span>
+            {label}
           </NavLink>
         ))}
       </nav>

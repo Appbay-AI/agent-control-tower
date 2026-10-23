@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowUpRight, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { RiskBadge, StatusBadge } from '@/components/badges'
 import { RequestDecisionPanel } from '@/components/RequestDecisionPanel'
@@ -8,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { AUTONOMY, DATA_LABEL, formatDateTime, formatMoney } from '@/lib/format'
+import { useLive } from '@/lib/live'
 import { detailEntries, headline, humanAction, requestAmount, requestPermissions } from '@/lib/requests'
 import { useAsync } from '@/lib/useAsync'
 
@@ -29,6 +31,11 @@ export function RequestPage() {
       people: new Map(profiles.map((p) => [p.id, p.full_name])),
     }
   }, [id, roles.join(), scopeDepartmentIds.join()])
+
+  // Task 2.5: if someone else decides or escalates it while it is open, the page shows that without a reload.
+  const { tick } = useLive()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (tick > 0) reload() }, [tick])
 
   const back = (
     <Link to="/approvals" className="text-muted-foreground inline-flex items-center gap-1 text-sm hover:underline">
