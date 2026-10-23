@@ -1,13 +1,18 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { liveStatusFrom, LiveProvider, LIVE_TABLES, trackFresh, useLive } from '@/lib/live'
+import { LiveProvider, LIVE_TABLES, nextLiveStatus, trackFresh, useLive } from '@/lib/live'
 import { approvalIds, waitingForMe, type Approvals } from '@/lib/approvals'
 
 // A stand-in for the Supabase Realtime channel: records what the app listens to, and lets the test fire events.
 const channel = vi.hoisted(() => {
   const c = {
     listeners: [] as { filter: { table: string }; cb: () => void }[],
+    system: null as ((p: { extension?: string; status?: string }) => void) | null,
     onState: null as ((s: string) => void) | null,
-    on(_kind: string, filter: { table: string }, cb: () => void) { c.listeners.push({ filter, cb }); return c },
+    on(kind: string, filter: { table: string }, cb: (p?: unknown) => void) {
+      if (kind === 'system') c.system = cb
+      else c.listeners.push({ filter, cb: () => cb() })
+      return c
+    },
     subscribe(cb: (s: string) => void) { c.onState = cb; return c },
   }
   return c
@@ -38,12 +43,19 @@ describe('live approvals (task 2.5)', () => {
     load.mockReset()
   })
 
-  it('names the channel states the way a person would', () => {
-    expect(liveStatusFrom('SUBSCRIBED')).toBe('live')
-    expect(liveStatusFrom('CHANNEL_ERROR')).toBe('offline')
-    expect(liveStatusFrom('TIMED_OUT')).toBe('offline')
-    expect(liveStatusFrom('CLOSED')).toBe('offline')
-    expect(liveStatusFrom('JOINING')).toBe('connecting')
+  it('says "Live" only once the database listener is confirmed, not when the connection merely opens', () => {
+    const ready = { kind: 'system', extension: 'postgres_changes', status: 'ok' } as const
+    expect(nextLiveStatus('connecting', { kind: 'channel', state: 'SUBSCRIBED' })).toBe('connecting')
+    expect(nextLiveStatus('connecting', ready)).toBe('live')
+    expect(nextLiveStatus('live', { kind: 'channel', state: 'SUBSCRIBED' })).toBe('live') // confirmation came first
+    expect(nextLiveStatus('connecting', { kind: 'system', extension: 'postgres_changes', status: 'error' })).toBe('offline')
+    expect(nextLiveStatus('connecting', { kind: 'system', extension: 'presence', status: 'ok' })).toBe('connecting')
+    for (const state of ['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED']) expect(nextLiveStatus('live', { kind: 'channel', state })).toBe('offline')
+    // Reconnecting after a drop waits for a fresh confirmation.
+    expect(nextLiveStatus('offline', { kind: 'channel', state: 'SUBSCRIBED' })).toBe('connecting')
+    // No confirmation at all: live after a short wait (Supabase's weaker fallback), but never over an error.
+    expect(nextLiveStatus('connecting', { kind: 'no-confirmation' })).toBe('live')
+    expect(nextLiveStatus('offline', { kind: 'no-confirmation' })).toBe('offline')
   })
 
   it('marks only items that arrived after the first load as new, and only for a while', () => {
@@ -73,6 +85,8 @@ describe('live approvals (task 2.5)', () => {
     expect(screen.getByTestId('status')).toHaveTextContent('connecting')
 
     act(() => channel.onState!('SUBSCRIBED'))
+    expect(screen.getByTestId('status')).toHaveTextContent('connecting')
+    act(() => channel.system!({ extension: 'postgres_changes', status: 'ok' }))
     expect(screen.getByTestId('status')).toHaveTextContent('live')
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2)) // reads once on connecting, in case something was missed
     expect(screen.getByTestId('waiting')).toHaveTextContent('1')

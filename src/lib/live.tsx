@@ -8,23 +8,42 @@ import { useAsync } from '@/lib/useAsync'
 // One Supabase Realtime channel per signed-in person listens for changes to the tables behind the Approvals screen
 // (published by migration 20261023000100). Realtime only sends changes to rows the person may read (row-level security),
 // and the change itself is not trusted for content: any change just triggers a fresh read of the list.
-// If the live connection drops (phone asleep, network change), the list is re-read every 30 seconds and whenever the
-// app comes back to the foreground, so nothing is missed.
+// "Live" is shown only once Realtime confirms it is listening to the database (its `system` message), because
+// "SUBSCRIBED" alone only means the connection is open and a change made in between can be missed
+// (https://supabase.com/docs/guides/troubleshooting/realtime-postgres-changes-troubleshooting).
+// Delivery is not guaranteed, so the list is also re-read: every 30 seconds while not live, every 2 minutes while live,
+// and whenever the app comes back to the foreground or the network returns.
 
 export type LiveStatus = 'connecting' | 'live' | 'offline'
 
 export const LIVE_TABLES = ['action_requests', 'agent_registrations', 'registration_decisions'] as const
 export const FALLBACK_POLL_MS = 30_000
+/** Safety net while live: events are a signal, not a guarantee. */
+export const LIVE_SAFETY_POLL_MS = 120_000
+/** If the readiness message never comes, treat the channel as live after this long (Supabase's weaker fallback). */
+export const CONFIRM_WAIT_MS = 5_000
 /** How long a newly arrived item is marked "New". */
 export const FRESH_MS = 60_000
 /** Several changes in a burst (a request and its routing) cause one re-read. */
 const DEBOUNCE_MS = 150
 
-/** Maps the Realtime channel state to what the person sees. */
-export function liveStatusFrom(channelState: string): LiveStatus {
-  if (channelState === 'SUBSCRIBED') return 'live'
-  if (channelState === 'CHANNEL_ERROR' || channelState === 'TIMED_OUT' || channelState === 'CLOSED') return 'offline'
-  return 'connecting'
+export type LiveEvent =
+  | { kind: 'channel'; state: string } // from subscribe(): SUBSCRIBED, CHANNEL_ERROR, TIMED_OUT, CLOSED
+  | { kind: 'system'; extension?: string; status?: string } // Realtime's own message once the database listener is ready
+  | { kind: 'no-confirmation' } // CONFIRM_WAIT_MS after SUBSCRIBED without a system message
+
+/** What the person sees, given what the Realtime connection just reported. */
+export function nextLiveStatus(current: LiveStatus, e: LiveEvent): LiveStatus {
+  if (e.kind === 'channel') {
+    if (e.state === 'SUBSCRIBED') return current === 'live' ? 'live' : 'connecting' // connected, not yet listening
+    if (e.state === 'CHANNEL_ERROR' || e.state === 'TIMED_OUT' || e.state === 'CLOSED') return 'offline'
+    return current
+  }
+  if (e.kind === 'system') {
+    if (e.extension !== 'postgres_changes') return current
+    return e.status === 'ok' ? 'live' : 'offline'
+  }
+  return current === 'connecting' ? 'live' : current
 }
 
 /**
@@ -81,23 +100,35 @@ export function LiveProvider({ withApprovals, children }: { withApprovals: boole
   useEffect(() => {
     if (!supabase || !userId) return
     const client = supabase
+    const report = (e: LiveEvent) => setStatus((s) => nextLiveStatus(s, e))
+    let confirm: ReturnType<typeof setTimeout> | null = null
     let channel = client.channel(`approvals-live:${userId}`)
     for (const table of LIVE_TABLES) {
       channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, changed)
     }
-    channel.subscribe((state) => {
-      const next = liveStatusFrom(state)
-      setStatus(next)
-      // (Re)connected: read once, in case something changed while not listening.
-      if (next === 'live') changed()
+    channel = channel.on('system', {}, (p: { extension?: string; status?: string }) => {
+      if (p?.extension === 'postgres_changes' && confirm) { clearTimeout(confirm); confirm = null }
+      report({ kind: 'system', extension: p?.extension, status: p?.status })
     })
-    return () => { client.removeChannel(channel) }
+    channel.subscribe((state) => {
+      report({ kind: 'channel', state })
+      if (state === 'SUBSCRIBED') {
+        if (confirm) clearTimeout(confirm)
+        confirm = setTimeout(() => report({ kind: 'no-confirmation' }), CONFIRM_WAIT_MS)
+      }
+    })
+    return () => {
+      if (confirm) clearTimeout(confirm)
+      client.removeChannel(channel)
+    }
   }, [userId, changed])
 
-  // Safety net while not live, and whenever the app returns to the foreground or the network comes back.
+  // On becoming live: read once, in case something changed while not listening.
+  useEffect(() => { if (status === 'live') changed() }, [status, changed])
+
+  // Safety net: re-read now and then (often while not live), and when the app returns to the foreground or the network comes back.
   useEffect(() => {
-    if (status === 'live') return
-    const id = setInterval(changed, FALLBACK_POLL_MS)
+    const id = setInterval(changed, status === 'live' ? LIVE_SAFETY_POLL_MS : FALLBACK_POLL_MS)
     return () => clearInterval(id)
   }, [status, changed])
   useEffect(() => {

@@ -51,6 +51,7 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
 
   // Tidy up: Ravi rejects it, and it leaves his list.
   await card.click()
+  await expect(page.getByTestId('request-headline')).toContainText(stamp)
   await page.getByRole('button', { name: 'Reject' }).click()
   await page.getByLabel('Reason', { exact: true }).fill('E2E live update test, not a real payment')
   await page.getByRole('button', { name: 'Confirm rejection' }).click()
