@@ -144,7 +144,7 @@ describe('POST /api/v1/push/dispatch', () => {
     expect(out.sent).toBe(1)
     expect(JSON.parse(calls[0].body as string)).toEqual({ p_token: TOKEN })
     const reported = JSON.parse(calls.at(-1)!.body as string)
-    expect(reported).toEqual({ p_token: TOKEN, p_results: { email: [], push: [{ id: 7, delivered: ['s-phone'], gone: ['s-old'], failed: [{ id: 's-laptop', error: '503 from push service: busy' }] }] } })
+    expect(reported).toEqual({ p_token: TOKEN, p_results: { email: [], callback: [], push: [{ id: 7, delivered: ['s-phone'], gone: ['s-old'], failed: [{ id: 's-laptop', error: '503 from push service: busy' }] }] } })
     // The phone gets the alert it can read, with the link to the task.
     const toPhone = calls.find((c) => c.url.includes('phone'))!
     expect(JSON.parse(decrypt(toPhone.body as Uint8Array, phone))).toEqual({ title: claimed.messages[0].title, body: claimed.messages[0].body, url: '/approvals/requests/r9', tag: 'r9' })
@@ -152,7 +152,7 @@ describe('POST /api/v1/push/dispatch', () => {
 
   it('does nothing more when the token is refused or nothing is waiting', async () => {
     const refused = vi.fn(async () => new Response(JSON.stringify({ code: '28000', message: 'Invalid or used dispatch token' }), { status: 401 })) as unknown as typeof fetch
-    expect(await dispatch(TOKEN, refused)).toEqual({ sent: 0, results: [], emails: [] })
+    expect(await dispatch(TOKEN, refused)).toEqual({ sent: 0, results: [], emails: [], callbacks: [] })
     expect(refused).toHaveBeenCalledOnce()
   })
 })

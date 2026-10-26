@@ -159,7 +159,15 @@ export const api = {
     check(await db().rpc('push_subscribe', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth, p_device: s.device })) as string,
   pushUnsubscribe: async (endpoint: string) => check(await db().rpc('push_unsubscribe', { p_endpoint: endpoint })),
   pushSendTest: async () => check(await db().rpc('push_send_test')),
-  // Who was told about a request (tasks 2.6 and 2.7)
+  // Agent console (task 2.8, demo)
+  demoAgentAsk: async (amount: number, supplier: string, reason: string, test: boolean) =>
+    check(await db().rpc('demo_agent_ask', { p_amount: amount, p_supplier: supplier, p_reason: reason, p_test: test })) as
+      { request_id: string; request_code: string; status: string; reason: string | null },
+  demoAgentLog: async () =>
+    check(await db().from('demo_agent_events')
+      .select('id, request_id, kind, status, may_proceed, reason, at, request:action_requests(request_code, description, amount, status)')
+      .order('id', { ascending: false }).limit(60)) as unknown as import('@/lib/agentConsole').ConsoleEvent[],
+  // Who was told about a request (tasks 2.6, 2.7 and 2.8)
   requestNotifications: async (requestId: string) =>
     check(await db().rpc('request_notifications', { p_request_id: requestId })) as { channel: string; person: string; status: string; at: string }[],
 }

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { PGlite, type Transaction } from '@electric-sql/pglite'
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
 
 /** What Supabase provides that plain Postgres does not: API roles, auth.users and auth.uid(). */
 const SUPABASE_STUB = `
@@ -50,6 +51,12 @@ const SUPABASE_STUB = `
   grant usage on schema auth to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated, service_role;
   grant usage on schema public to anon, authenticated, service_role;
+  -- Real pgcrypto for HMAC signatures (task 2.8), in its own schema so the fast stand-ins above stay as they are.
+  create schema pgcrypto_real;
+  create extension pgcrypto with schema pgcrypto_real;
+  create function extensions.hmac(data text, key text, type text) returns bytea language sql immutable
+    as $$ select pgcrypto_real.hmac(data, key, type) $$;
+  grant usage on schema extensions to anon, authenticated, service_role;
   -- Stand-in for pg_net (task 2.6): records each call instead of making it.
   create schema net;
   create table net.calls (id serial primary key, url text, body jsonb, at timestamptz default now());
@@ -63,7 +70,7 @@ const MIGRATIONS_DIR = path.resolve(__dirname, '../supabase/migrations')
 export type Role = 'admin' | 'approver' | 'owner' | 'executive' | 'auditor'
 
 export async function createDb() {
-  const db = new PGlite()
+  const db = new PGlite({ extensions: { pgcrypto } })
   await db.exec(SUPABASE_STUB)
   for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()) {
     try {

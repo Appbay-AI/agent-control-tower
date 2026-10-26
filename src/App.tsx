@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { AgentDetailPage } from '@/pages/AgentDetailPage'
 import { AgentFormPage } from '@/pages/AgentFormPage'
+import { AgentConsolePage } from '@/pages/AgentConsolePage'
 import { AgentsPage } from '@/pages/AgentsPage'
 import { ApprovalsPage } from '@/pages/ApprovalsPage'
 import { IntegrationsPage } from '@/pages/IntegrationsPage'
@@ -56,6 +57,7 @@ export function AppRoutes() {
         <Route path="/approvals/requests/:id" element={<RequestPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/routing" element={<RequireAdmin><RoutingPage /></RequireAdmin>} />
+        <Route path="/demo/agent" element={<RequireAdmin><AgentConsolePage /></RequireAdmin>} />
         <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="/users/new" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
         <Route path="/users/:id" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
