@@ -10,6 +10,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { AUTONOMY, DATA_LABEL, formatDateTime, formatMoney } from '@/lib/format'
 import { useLive } from '@/lib/live'
+import { dueState } from '@/lib/sla'
 import { detailEntries, headline, humanAction, requestAmount, requestPermissions } from '@/lib/requests'
 import { useAsync } from '@/lib/useAsync'
 
@@ -82,6 +83,13 @@ export function RequestPage() {
           <AlertTitle>Why it needs a person</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{r.hold_reason ?? r.decision_reason}</p>
+            {dueState(r.due_at) && (
+              <p data-testid="request-due" className={`text-sm font-medium ${dueState(r.due_at)!.tone === 'ok' ? '' : 'text-red-700 dark:text-red-400'}`}>
+                <Clock className="mr-1 inline size-4 align-text-bottom" aria-hidden />{dueState(r.due_at)!.text}
+                {' '}<span className="text-muted-foreground font-normal">(by {formatDateTime(r.due_at)}; then {r.sla_escalate_to
+                  ? `it goes to ${name(r.sla_escalate_to)}` : 'it expires and the agent is told no'})</span>
+              </p>
+            )}
             <p className="text-sm">
               {r.assigned_to
                 ? <>Assigned to <strong>{name(r.assigned_to)}</strong>. </>
@@ -100,7 +108,7 @@ export function RequestPage() {
         <Alert variant={r.status === 'approved' ? 'default' : 'destructive'}
           className={r.status === 'approved' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : undefined}>
           {r.status === 'approved' ? <CheckCircle2 className="text-emerald-700" /> : <XCircle />}
-          <AlertTitle>{r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Not allowed'}{r.decided_at && ` on ${formatDateTime(r.decided_at)}`}</AlertTitle>
+          <AlertTitle>{r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : r.status === 'expired' ? 'Expired: nobody decided in time' : 'Not allowed'}{r.decided_at && ` on ${formatDateTime(r.decided_at)}`}</AlertTitle>
           <AlertDescription className="space-y-1">
             <p data-testid="request-outcome">{r.decision_reason}</p>
             {r.decision_source === 'policy' && <p className="text-sm">Decided automatically by the agent's autonomy rules.</p>}
@@ -124,7 +132,7 @@ export function RequestPage() {
             {r.escalated_at && (
               <div className="col-span-2">
                 <Field label="Escalated">
-                  {formatDateTime(r.escalated_at)} by {name(r.escalated_by)}: {r.escalation_reason}
+                  {formatDateTime(r.escalated_at)} {r.escalated_by ? `by ${name(r.escalated_by)}: ` : 'automatically: '}{r.escalation_reason}
                 </Field>
               </div>
             )}

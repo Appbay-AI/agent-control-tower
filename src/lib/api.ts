@@ -1,8 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  ActionDecision, ActionRequest, ActionRequestStatus, Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
+  ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  UserDraft, UserRow,
+  SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -12,7 +12,8 @@ function db() {
 
 const REQUEST_COLUMNS = 'id, request_code, agent_id, action, description, target_system, reasoning, amount, currency, volume, urgency, '
   + 'details, autonomy_level, value_threshold, threshold_currency, volume_threshold, status, decision_source, decision_reason, '
-  + 'decided_by, decided_at, requested_at, assigned_to, routing_note, hold_reason, escalated_by, escalated_at, escalation_reason'
+  + 'decided_by, decided_at, requested_at, assigned_to, routing_note, hold_reason, escalated_by, escalated_at, escalation_reason, '
+  + 'due_at, sla_minutes, sla_escalate_to, sla_escalated_at'
 
 const NOT_VISIBLE = "This record doesn't exist, or you don't have access to it."
 
@@ -111,7 +112,7 @@ export const api = {
 
   routingRules: async () =>
     check(await db().from('routing_rules')
-      .select('id, name, priority, is_active, agent_id, department_id, min_amount, max_amount, currency, data_classification, min_risk_tier, approver_id')
+      .select('id, name, priority, is_active, agent_id, department_id, min_amount, max_amount, currency, data_classification, min_risk_tier, approver_id, sla_minutes, on_overdue, overdue_escalate_to')
       .order('priority').order('created_at')) as RoutingRule[],
   /** Active people with the Approver role, for the routing screen. */
   approvers: async () => {
@@ -125,6 +126,12 @@ export const api = {
     const row = check(await q.select('id').maybeSingle()) as { id: string } | null
     if (!row) throw new Error('The rule was not saved. Only admins can change routing.')
     return row
+  },
+  // Default time limits by urgency (task 2.9)
+  slaSettings: async () => check(await db().from('sla_settings').select('urgency, minutes')) as SlaSetting[],
+  saveSlaSetting: async (urgency: ActionUrgency, minutes: number) => {
+    const row = check(await db().from('sla_settings').update({ minutes }).eq('urgency', urgency).select('urgency').maybeSingle())
+    if (!row) throw new Error('Not saved. Only admins can change time limits.')
   },
   setRulePriorities: async (order: { id: string; priority: number }[]) => {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))

@@ -65,6 +65,12 @@ describe('the approval email', () => {
     expect(text).toContain('Escalated by: Ravi Menon: New supplier')
   })
 
+  it('on an automatic escalation (time limit passed), says so', () => {
+    const { text } = buildApprovalEmail(email({ kind: 'escalated', to_name: 'Daniel Okafor' }, { escalated_by: null, escalation_reason: 'No decision within 30 minutes, so it was escalated automatically' }), settings, false)
+    expect(text).toContain('Escalated automatically: No decision within 30 minutes, so it was escalated automatically')
+    expect(text).not.toContain('Escalated by')
+  })
+
   it('cannot be used to inject HTML through what an agent writes', () => {
     const { html } = buildApprovalEmail(email({}, { reasoning: '<script>alert(1)</script><a href="https://evil">x</a>' }), settings, false)
     expect(html).not.toContain('<script>')

@@ -189,7 +189,13 @@ export interface RoutingRule {
   data_classification: DataClassification | null
   min_risk_tier: RiskTier | null
   approver_id: string
+  // Time limit (task 2.9): blank = the default for the request's urgency.
+  sla_minutes: number | null
+  on_overdue: 'reject' | 'escalate'
+  overdue_escalate_to: string | null
 }
+
+export interface SlaSetting { urgency: ActionUrgency; minutes: number }
 
 export type RoutingRuleDraft = Omit<RoutingRule, 'id'>
 
@@ -236,4 +242,9 @@ export interface ActionRequest {
   escalated_by: string | null
   escalated_at: string | null
   escalation_reason: string | null
+  // Time limit (task 2.9)
+  due_at: string | null
+  sla_minutes: number | null
+  sla_escalate_to: string | null
+  sla_escalated_at: string | null
 }

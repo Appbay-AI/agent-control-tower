@@ -1,10 +1,20 @@
 import { DATA_LABEL, formatMoney, RISK_LABEL } from '@/lib/format'
+import { durationText } from '@/lib/sla'
 import type { RoutingRule, RoutingRuleDraft } from '@/lib/types'
 
 export const emptyRule = (priority: number): RoutingRuleDraft => ({
   name: '', priority, is_active: true, agent_id: null, department_id: null, min_amount: null, max_amount: null,
   currency: 'GBP', data_classification: null, min_risk_tier: null, approver_id: '',
+  sla_minutes: null, on_overdue: 'reject', overdue_escalate_to: null,
 })
+
+/** What happens when nobody decides in time (task 2.9), e.g. "Within 45 minutes, else escalated once to Daniel Okafor". */
+export function describeOverdue(r: Pick<RoutingRule, 'sla_minutes' | 'on_overdue' | 'overdue_escalate_to'>, people: Map<string, string>): string {
+  const within = r.sla_minutes ? `Within ${durationText(r.sla_minutes)}` : 'Within the default time for its urgency'
+  return r.on_overdue === 'escalate' && r.overdue_escalate_to
+    ? `${within}, else escalated once to ${people.get(r.overdue_escalate_to) ?? 'an inactive approver'}`
+    : `${within}, else it expires and the agent is told no`
+}
 
 /** The rule's conditions in one plain sentence, e.g. "Payments · GBP 1,000,000.00 and above · touches Personal data". */
 export function describeConditions(r: Pick<RoutingRule, 'agent_id' | 'department_id' | 'min_amount' | 'max_amount' | 'currency' | 'data_classification' | 'min_risk_tier'>,
@@ -32,6 +42,9 @@ export function ruleProblem(d: RoutingRuleDraft): string | null {
   if (d.min_amount != null && d.min_amount < 0) return 'The lower amount cannot be negative.'
   if (d.min_amount != null && d.max_amount != null && d.min_amount >= d.max_amount) return 'The "up to" amount must be larger than the "from" amount.'
   if (!Number.isInteger(d.priority) || d.priority < 1 || d.priority > 9999) return 'Priority must be a whole number from 1 to 9999.'
+  if (d.sla_minutes != null && (!Number.isInteger(d.sla_minutes) || d.sla_minutes < 1 || d.sla_minutes > 43200)) return 'Time to decide must be a whole number of minutes, from 1 to 43,200 (30 days).'
+  if (d.on_overdue === 'escalate' && !d.overdue_escalate_to) return 'Choose who it goes to when nobody decides in time.'
+  if (d.on_overdue === 'escalate' && d.overdue_escalate_to === d.approver_id) return 'Escalate to someone other than the rule\'s approver.'
   return null
 }
 

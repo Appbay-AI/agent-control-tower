@@ -17,7 +17,7 @@ jobs:
   e2e:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25 # the time-limit test (task 2.9) waits about 4 minutes in real time
     environment: dev
     env:
       ACT_URL: ${{ github.event.inputs.url || 'https://main.agent-control-tower-56p.pages.dev' }}

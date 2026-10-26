@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, FlaskConical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Clock, FlaskConical, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { ErrorBox, LoadingRows, PageHeader, selectClass } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { DATA_LABEL, errorMessage, RISK_LABEL } from '@/lib/format'
-import { describeConditions, emptyRule, reorder, ruleProblem } from '@/lib/routing'
-import type { DataClassification, RiskTier, RoutingPreview, RoutingRule, RoutingRuleDraft } from '@/lib/types'
+import { describeConditions, describeOverdue, emptyRule, reorder, ruleProblem } from '@/lib/routing'
+import { durationText, URGENCIES } from '@/lib/sla'
+import type { ActionUrgency, DataClassification, RiskTier, RoutingPreview, RoutingRule, RoutingRuleDraft, SlaSetting } from '@/lib/types'
 import { useAsync } from '@/lib/useAsync'
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v))
@@ -18,11 +19,11 @@ export function RoutingPage() {
   const { hasRole } = useAuth()
   const isAdmin = hasRole('admin')
   const { data, error, loading, reload } = useAsync(async () => {
-    const [rules, agents, departments, approvers] = await Promise.all([
-      api.routingRules(), api.agents(), api.departments(), api.approvers(),
+    const [rules, agents, departments, approvers, sla] = await Promise.all([
+      api.routingRules(), api.agents(), api.departments(), api.approvers(), api.slaSettings(),
     ])
     return {
-      rules, agents, departments, approvers,
+      rules, agents, departments, approvers, sla,
       names: {
         agents: new Map(agents.map((a) => [a.id, `${a.agent_code} ${a.name}`])),
         departments: new Map(departments.map((d) => [d.id, d.name])),
@@ -95,6 +96,7 @@ export function RoutingPage() {
               <div className="text-muted-foreground text-sm">
                 {describeConditions(r, data.names)} → <span className="text-foreground font-medium">{data.names.people.get(r.approver_id) ?? 'An inactive approver'}</span>
               </div>
+              <div className="text-muted-foreground flex items-center gap-1 text-xs"><Clock className="size-3" aria-hidden /> {describeOverdue(r, data.names.people)}</div>
             </div>
             {isAdmin && (
               <div className="flex gap-1">
@@ -114,9 +116,11 @@ export function RoutingPage() {
         ))}
         <li className="text-muted-foreground flex items-center gap-3 p-3 text-sm">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full border text-xs">↳</span>
-          Otherwise: any approver for the agent's department.
+          Otherwise: any approver for the agent's department, within the default time; else it expires.
         </li>
       </ol>
+
+      <TimeLimits settings={data.sla} canEdit={isAdmin} onSaved={reload} />
 
       <RoutingTester agents={data.agents} />
 
@@ -189,6 +193,38 @@ export function RoutingPage() {
                   </select>
                   <p className="text-muted-foreground text-xs">If this person owns or created the agent, the rule is skipped and the next one is used.</p>
                 </div>
+                <fieldset className="space-y-3 rounded-md border p-3">
+                  <legend className="px-1 text-sm font-medium">Time to decide</legend>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="r-sla">Minutes</Label>
+                      <Input id="r-sla" inputMode="numeric" value={editing.draft.sla_minutes ?? ''} placeholder="Default for its urgency"
+                        onChange={(e) => set('sla_minutes', num(e.target.value))} />
+                      {editing.draft.sla_minutes != null && editing.draft.sla_minutes > 0 && Number.isInteger(editing.draft.sla_minutes) &&
+                        <p className="text-muted-foreground text-xs">= {durationText(editing.draft.sla_minutes)}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="r-overdue">If nobody decides in time</Label>
+                      <select id="r-overdue" className={selectClass} value={editing.draft.on_overdue}
+                        onChange={(e) => set('on_overdue', e.target.value as 'reject' | 'escalate')}>
+                        <option value="reject">It expires (the agent is told no)</option>
+                        <option value="escalate">Escalate once to…</option>
+                      </select>
+                    </div>
+                  </div>
+                  {editing.draft.on_overdue === 'escalate' && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="r-escalate-to">Escalate to</Label>
+                      <select id="r-escalate-to" className={selectClass} value={editing.draft.overdue_escalate_to ?? ''}
+                        onChange={(e) => set('overdue_escalate_to', e.target.value || null)}>
+                        <option value="">Choose an approver</option>
+                        {data.approvers.filter((p) => p.id !== editing.draft.approver_id).map((p) =>
+                          <option key={p.id} value={p.id}>{p.full_name}{p.job_title ? ` · ${p.job_title}` : ''}</option>)}
+                      </select>
+                      <p className="text-muted-foreground text-xs">They get a fresh time limit. If they don't decide either, it expires.</p>
+                    </div>
+                  )}
+                </fieldset>
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" className="size-4" checked={editing.draft.is_active} onChange={(e) => set('is_active', e.target.checked)} /> Rule is on
                 </label>
@@ -220,6 +256,54 @@ export function RoutingPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/** Task 2.9: the default time to decide, by urgency. Used when a request's rule sets no time of its own. */
+function TimeLimits({ settings, canEdit, onSaved }: { settings: SlaSetting[]; canEdit: boolean; onSaved: () => Promise<void> }) {
+  const current = (u: ActionUrgency) => settings.find((s) => s.urgency === u)?.minutes ?? 0
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(URGENCIES.map((u) => [u, String(current(u))])))
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const changed = URGENCIES.filter((u) => values[u] !== String(current(u)))
+
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    const bad = changed.find((u) => !/^\d+$/.test(values[u]) || Number(values[u]) < 1 || Number(values[u]) > 43200)
+    if (bad) { setMsg({ ok: false, text: `${bad[0].toUpperCase()}${bad.slice(1)}: enter whole minutes from 1 to 43,200.` }); return }
+    setBusy(true); setMsg(null)
+    try {
+      for (const u of changed) await api.saveSlaSetting(u, Number(values[u]))
+      await onSaved()
+      setMsg({ ok: true, text: 'Saved. New waiting requests use these limits.' })
+    } catch (err) { setMsg({ ok: false, text: errorMessage(err) }) } finally { setBusy(false) }
+  }
+
+  return (
+    <section className="bg-card space-y-3 rounded-lg border p-4" data-testid="time-limits">
+      <div>
+        <h2 className="font-semibold">Default time to decide</h2>
+        <p className="text-muted-foreground text-xs">
+          Used when the rule sets no time of its own. When the time is up, a request expires and the agent is told no,
+          unless its rule says to escalate it.
+        </p>
+      </div>
+      <form onSubmit={save} className="grid gap-3 sm:grid-cols-4">
+        {URGENCIES.map((u) => (
+          <div key={u} className="space-y-1">
+            <Label htmlFor={`sla-${u}`} className="capitalize">{u} (minutes)</Label>
+            <Input id={`sla-${u}`} inputMode="numeric" disabled={!canEdit} value={values[u]} onChange={(e) => setValues({ ...values, [u]: e.target.value })} />
+            {/^\d+$/.test(values[u]) && Number(values[u]) > 0 && <p className="text-muted-foreground text-xs">= {durationText(Number(values[u]))}</p>}
+          </div>
+        ))}
+        {canEdit && (
+          <div className="flex items-center gap-3 sm:col-span-4">
+            <Button type="submit" variant="outline" disabled={busy || changed.length === 0}>Save time limits</Button>
+            {msg && <span role="status" className={msg.ok ? 'text-sm text-emerald-700 dark:text-emerald-400' : 'text-destructive text-sm'}>{msg.text}</span>}
+          </div>
+        )}
+      </form>
+    </section>
   )
 }
 

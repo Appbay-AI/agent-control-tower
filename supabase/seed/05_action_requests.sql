@@ -26,4 +26,9 @@ begin
   perform public.revoke_api_key(id) from public.agent_api_keys where agent_id = a and revoked_at is null
     and key_hash = public.secret_hash(k);
   perform pg_temp.act_as_system();
+
+  -- Time limit (task 2.9): high urgency means 2 hours, which would expire the demo's main story before a client
+  -- meeting. Give it 3 days from the (re)seed instead.
+  update public.action_requests set due_at = now() + interval '3 days'
+   where agent_id = a and status = 'pending' and due_at is not null;
 end $$;

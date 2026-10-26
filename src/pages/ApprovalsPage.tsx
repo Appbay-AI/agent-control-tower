@@ -10,6 +10,7 @@ import { AUTONOMY, DATA_LABEL, formatDateTime, formatMoney } from '@/lib/format'
 import { useAuth } from '@/lib/auth'
 import { FALLBACK_POLL_MS, useLive, type LiveStatus } from '@/lib/live'
 import { headline, requestAmount } from '@/lib/requests'
+import { dueState } from '@/lib/sla'
 
 /** Whether the list is updating on its own (task 2.5). */
 function LiveIndicator({ status }: { status: LiveStatus }) {
@@ -66,6 +67,11 @@ export function ApprovalsPage() {
                         <span>· {formatDateTime(req.requested_at)}</span>
                         <RiskBadge tier={a.risk_tier} />
                         {req.urgency !== 'normal' && <UrgencyBadge urgency={req.urgency} />}
+                        {dueState(req.due_at) && (
+                          <span data-testid="request-due" className={dueState(req.due_at)!.tone === 'ok' ? '' : 'font-medium text-red-700 dark:text-red-400'}>
+                            · {dueState(req.due_at)!.text}
+                          </span>
+                        )}
                       </div>
                       <div className="font-medium">{headline(req, a.name)}</div>
                       {req.reasoning && <div className="text-muted-foreground line-clamp-2 text-sm">Because {req.reasoning}</div>}

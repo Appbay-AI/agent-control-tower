@@ -63,6 +63,8 @@ export function buildApprovalEmail(e: QueuedEmail, s: Pick<EmailSettings, 'site_
     ...(r.reasoning ? [['Because', r.reasoning] as [string, string]] : []),
     ...(r.hold_reason ? [['Why it needs a person', r.hold_reason] as [string, string]] : []),
     ...(e.kind === 'escalated' && r.escalated_by ? [['Escalated by', `${r.escalated_by}${r.escalation_reason ? `: ${r.escalation_reason}` : ''}`] as [string, string]] : []),
+    // Task 2.9: the time limit passed and the rule sent it on.
+    ...(e.kind === 'escalated' && !r.escalated_by && r.escalation_reason ? [['Escalated automatically', r.escalation_reason] as [string, string]] : []),
     ...(r.urgency && r.urgency !== 'normal' ? [['Urgency', r.urgency[0].toUpperCase() + r.urgency.slice(1)] as [string, string]] : []),
   ]
   const demoNote = redirected
