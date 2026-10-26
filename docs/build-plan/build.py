@@ -80,7 +80,7 @@ PHASES = [
     },
     {
         'title': 'Phase 2 — Approval engine', 'dates': '15–28 Oct (10 days)', 'badge': ('In progress · 10 of 13 done', 'now'),
-        'intro': 'The heart of the product: an agent above its threshold waits for a named human. Unchanged, except that the Appian agent-platform simulator is built alongside it. Tasks 2.1 to 2.4 were released to the client demo on 22 Oct; later tasks reach it only when released.',
+        'intro': 'The heart of the product: an agent above its threshold waits for a named human. Unchanged, except that the Appian agent-platform simulator is built alongside it. Tasks 2.1 to 2.4 were released to the client demo on 22 Oct and 2.5 to 2.9 on 26 Oct; later tasks reach it only when released.',
         'cols': ['#', 'Task', 'Tech', 'Dates', 'Done when', 'Status'],
         'rows': [
             ('2.1', 'Action request API with duplicate protection (idempotency keys)', 'Cloudflare Functions, Postgres', '15–16 Oct', 'Same request twice is processed once', 'Done'),
@@ -176,7 +176,7 @@ PROGRESS = [
     ('Phase 1 — Registry', '5–9 Oct', ('Done', 'done'), 'Plus a Users screen (1.9), not in the original plan.'),
     ('Go/no-go gate', '12–14 Oct', ('Go', 'done'), 'Microsoft Copilot scope added.'),
     ('Phase 2 — Approval engine', '15–28 Oct', ('In progress', 'now'),
-     '2.1 to 2.9 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon; 2.5 (live approvals list), 2.6 (phone alerts, confirmed on a real phone), 2.7 (emails), 2.8 (decision back to the agent) and 2.9 (time limits) are on the work-in-progress site, not yet on the client demo. 2.7 (approval emails) works in temporary mode until the email domain is verified. Next: 2.10, four-eyes approval for Critical agents.'),
+     '2.1 to 2.9 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.9 are on the client demo (released 26 Oct), with the £2m payment request waiting for Ravi Menon; phone alerts were confirmed on a real phone. 2.7 (approval emails) works in temporary mode until the email domain is verified. Next: 2.10, four-eyes approval for Critical agents.'),
     ('Phases 3–7', '29 Oct – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 

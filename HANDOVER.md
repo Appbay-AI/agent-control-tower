@@ -133,6 +133,7 @@ Local commands (from the repo root, after `npm install`):
 - `npm run dev`: optional; needs `.env.local` (see `.env.example`)
 
 Git: branches `main` (work in progress, auto-deploys to dev) and `demo` (client demo). Claude Code sessions work on a `claude/...` branch the session names, and merge to `main` only when the user asks.
+- **Demo released again on 26 Oct at `fed7730` (tasks 2.1 to 2.9)**, on the user's go-ahead. Order: *Database migrations* → demo from `main` with `email_redirect_to` = rajveersingh@appbaytech.com (created demo's own alert keys, site https://agent-control-tower-56p.pages.dev, email on), then fast-forward `demo` to `main` (deploy succeeded). No reseed. Checked on demo afterwards: the Hartwell request REQ-000001 still waits with Ravi and has **no time limit** (it was waiting before 2.9); both routing rules; cron jobs `push-retry` and `sla-sweep`; default limits; Payment Release Assistant live; 4 overdue reviews. Phone alerts must be turned on again on the demo site (its own keys and address). A reseed with reset would give the Hartwell request a 3-day limit.
 - Task 2.9 (time limits) was built on branch `claude/task-2.9-sla-timers` and fast-forwarded onto `main` on 26 Oct with the user's go-ahead. Branch history: Migration `20261028000100_sla_timers.sql` applied to **dev** from that branch with `alerts_site` = the preview https://claude-task-2-9-sla-timers.agent-control-tower-56p.pages.dev. e2e passed there, including the real-time timer test (REQ-000134 on dev: escalated after 102 s, expired 60 s later).
 - Task 2.8 (decision returned to the agent) was built on branch `claude/task-2.8-decision-callback` and fast-forwarded onto `main` on 26 Oct with the user's go-ahead. **Not yet on demo.** Branch history: Migration `20261027000100_decision_callbacks.sql` applied to **dev** from that branch with `alerts_site` = the preview https://claude-task-2-8-decision-cal.agent-control-tower-56p.pages.dev (so dev's alerts, emails and callbacks are dispatched by the preview until the merge). e2e passed there, including the agent console test.
 - Task 2.7 (approval emails, temporary mode) was built on branch `claude/task-2.7-approval-emails` and fast-forwarded onto `main` on 26 Oct after the user received a real email (an escalation of the Hartwell request to Daniel, delivered to rajveersingh@appbaytech.com). **Not yet on demo.** Branch history: Migration `20261026000100_approval_emails.sql` applied to **dev** from that branch with `alerts_site` = the preview https://claude-task-2-7-approval-ema.agent-control-tower-56p.pages.dev and `email_redirect_to` = rajveersingh@appbaytech.com. e2e passed there; the dev database shows 8 test emails accepted by Resend (0.4–1.5 s each), all to the test inbox.
@@ -302,15 +303,15 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 
 | Task | What | Status |
 |---|---|---|
-| 2.1 | Action request API with idempotency | Done, on demo (22 Oct) |
+| 2.1 | Action request API with idempotency | Done, on demo |
 | 2.2 | Autonomy and threshold decision | Done, on demo (22 Oct) |
 | 2.3 | Routing matrix (rules, screen, reroute, preview) | Done, on demo (22 Oct) |
 | 2.4 | Approver task screen: what the agent wants and why; approve, reject with reason, escalate | **Done**, on main and demo (22 Oct) |
-| 2.5 | Live update of the approvals list | **Done**, on main (23 Oct); not on demo |
-| 2.6 | Phone install and push notifications | **Done**, on main (26 Oct); user confirmed alerts on their phone; not on demo |
-| 2.7 | Approval emails | **Done** in temporary mode, on main (26 Oct); real email confirmed by the user; real recipients after task 0.6 |
-| 2.8 | Decision callback to the agent | **Done**, on main (26 Oct); not on demo |
-| 2.9 | SLA timers | **Done**, on main (26 Oct) |
+| 2.5 | Live update of the approvals list | **Done**, on main and demo (26 Oct) |
+| 2.6 | Phone install and push notifications | **Done**, on main and demo; user confirmed alerts on their phone |
+| 2.7 | Approval emails | **Done** in temporary mode, on main and demo; real email confirmed by the user; real recipients after task 0.6 |
+| 2.8 | Decision callback to the agent | **Done**, on main and demo (26 Oct) |
+| 2.9 | SLA timers | **Done**, on main and demo (26 Oct) |
 | 2.10 | Four-eyes approval for Critical | **Next** |
 | 2.11 | Log API and heartbeat | Planned |
 | 2.12 | End-to-end test of the £2m payment | Planned |
@@ -319,8 +320,7 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 Example for 2.4 (from the user's own wording): "FX agent wants to release £2m to supplier X, because…" with approve, reject with reason, and escalate.
 
 Next steps, in order:
-1. Release 2.5 to 2.9 to demo only when the user says so: *Database migrations* → demo (creates demo's own alert keys, points alerts at the demo site; give input `email_redirect_to` = rajveersingh@appbaytech.com), then fast-forward `demo` to `main`. No reseed needed.
-2. Build **task 2.10** (four-eyes approval for Critical agents; bulk approval for low-risk). Then 2.11 and 2.12.
+1. Build **task 2.10** (four-eyes approval for Critical agents; bulk approval for low-risk). Then 2.11 and 2.12.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbaytech.com` at **Hostinger** (hPanel → the domain → DNS zone editor). Steps given to the user on 26 Oct: the domain is added in Resend (region Tokyo, receiving off); copy its 3 records into Hostinger (or use Resend's "Go to Hostinger" button) (Name = only the part before `.appbaytech.com`, e.g. `send.notify`), then Verify in Resend. Hostinger records only work if appbaytech.com uses Hostinger's nameservers; the sandbox cannot do DNS lookups to check. Needs whoever holds the Hostinger login, or a screenshot of the Resend records.
