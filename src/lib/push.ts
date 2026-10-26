@@ -64,6 +64,12 @@ export function bytesToBase64Url(buf: ArrayBuffer | null): string {
 const sameKey = (a: ArrayBuffer | null | undefined, b: Uint8Array) =>
   !!a && a.byteLength === b.length && new Uint8Array(a).every((x, i) => x === b[i])
 
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  return Promise.race([p, new Promise<never>((_, no) => { timer = setTimeout(() => no(new Error(message)), ms) })])
+    .finally(() => clearTimeout(timer))
+}
+
 async function registration(): Promise<ServiceWorkerRegistration> {
   // The app's service worker (it also holds the offline copy); wait up to 10 seconds for it.
   const ready = navigator.serviceWorker.ready
@@ -97,7 +103,9 @@ export async function turnOnAlerts(): Promise<PushSubscription> {
     await sub.unsubscribe()
     sub = null
   }
-  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey })
+  // The browser asks its push service (Google, Apple or Mozilla) for an address; offline, that can wait for ever.
+  sub ??= await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey }), 20_000,
+    "The phone's push service didn't answer. Check the connection and try again.")
   const f = browserFacts()
   await api.pushSubscribe({
     endpoint: sub.endpoint,
