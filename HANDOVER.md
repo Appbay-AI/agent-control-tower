@@ -108,7 +108,7 @@ src/                       React app
                            permissions.ts, requests.ts, users.ts, routing.ts, format.ts, approvals.ts (list loader), live.tsx (task 2.5), push.ts (task 2.6) (+ unit tests)
   App.tsx                  routes; admin-only routes wrapped in RequireAdmin
   components/Layout.tsx    navigation (Routing is admin-only)
-functions/api/v1/          Cloudflare Pages Functions (public API): health.ts, agents/register.ts,
+functions/api/v1/          Cloudflare Pages Functions (public API): health.ts, agents/register.ts, push/dispatch.ts (alerts, emails, callbacks), demo-agent/callback.ts,
                            agents/[id]/..., actions/...
   actions/request.ts       POST action request (Idempotency-Key header or body)
   actions/[id].ts          GET action request by REQ code or id
@@ -119,6 +119,7 @@ supabase/seed/             demo data: 00_helpers, 01_users, 02_demo_bank, 03_mor
                            04_routing, 05_action_requests, 90_reset
 db-tests/                  PGlite tests: harness.ts + users, actions, routing, tasks, realtime, push, seed, audit, security, workflow
 e2e/                       Playwright tests: registry, users, routing, requests, live, alerts (Chrome, real push)
+docs/agent-api.md          guide for agent builders: ask, get the decision, verify callback signatures (task 2.8)
 docs/build-plan/           build plan source (build.py → plan.html, print.mjs → PDF) and the latest PDF
 scripts/                   register-agent.mjs, ms-spike.mjs, appian-check.mjs
 appian/                    simulator spec, DevMCP guide, mcp.json.example
@@ -132,6 +133,7 @@ Local commands (from the repo root, after `npm install`):
 - `npm run dev`: optional; needs `.env.local` (see `.env.example`)
 
 Git: branches `main` (work in progress, auto-deploys to dev) and `demo` (client demo). Claude Code sessions work on a `claude/...` branch the session names, and merge to `main` only when the user asks.
+- Task 2.8 (decision returned to the agent) is on branch `claude/task-2.8-decision-callback`, **not yet merged to `main`**. Migration `20261027000100_decision_callbacks.sql` applied to **dev** from that branch with `alerts_site` = the preview https://claude-task-2-8-decision-cal.agent-control-tower-56p.pages.dev (so dev's alerts, emails and callbacks are dispatched by the preview until the merge). e2e passed there, including the agent console test.
 - Task 2.7 (approval emails, temporary mode) was built on branch `claude/task-2.7-approval-emails` and fast-forwarded onto `main` on 26 Oct after the user received a real email (an escalation of the Hartwell request to Daniel, delivered to rajveersingh@appbaytech.com). **Not yet on demo.** Branch history: Migration `20261026000100_approval_emails.sql` applied to **dev** from that branch with `alerts_site` = the preview https://claude-task-2-7-approval-ema.agent-control-tower-56p.pages.dev and `email_redirect_to` = rajveersingh@appbaytech.com. e2e passed there; the dev database shows 8 test emails accepted by Resend (0.4–1.5 s each), all to the test inbox.
 - Task 2.6 (phone alerts) was built on branch `claude/task-2.6-push-alerts` and fast-forwarded onto `main` (`cbd58fc`) on 26 Oct after the user confirmed alerts work on their phone; checks, migration, dev deploy, e2e (incl. real push) and api-smoke passed, and the migration run pointed dev's alerts back at the main site (keys kept). **Not yet on demo.** History of the branch: Its migration `20261024000100_push_alerts.sql` was applied to the **dev** database from that branch with `alerts_site` set to the preview, so dev's alerts are currently sent by the preview https://claude-task-2-6-push-alerts.agent-control-tower-56p.pages.dev. After the merge, the automatic *Database migrations* run on `main` points dev back at the main site (or run it by hand for dev). e2e passed twice on the preview, including real push in Chrome.
 - Task 2.5 (live approvals list) was built on branch `claude/task-2.5-live-approvals` (`05ef120`, `50317b8`, `d5fb23b`, `074ca6c`) and fast-forwarded onto `main` on 23 Oct with the user's go-ahead; checks, dev deploy, e2e and api-smoke passed. **Not yet on demo.** Its migration `20261023000100_realtime_approvals.sql` was applied to the **dev** database from that branch (verified: the three tables are in the `supabase_realtime` publication on dev). Preview: https://claude-task-2-5-live-approva.agent-control-tower-56p.pages.dev; e2e passed twice there (desktop and phone). Merging is a fast-forward; the migration will not run twice on dev.
@@ -265,6 +267,16 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - **Demo reset** truncates `email_outbox`. Reseeding demo emails the Hartwell request to the redirect inbox once.
 - **Tests:** `db-tests/emails.test.ts` (8), `functions/email.test.ts` (13), `e2e/emails.spec.ts` (desktop: a test request's email shows "Sent (test inbox)" on the request page; skips with a note if the key is not set).
 
+### Decision returned to the agent (task 2.8, done on branch, not yet on main)
+- **Status check** (existed since 2.1): `GET /api/v1/actions/{id}`. **New: callback.** When a request that waited is decided (or cancelled) and has a `callback_url`, trigger `action_requests_callback` queues a row in `callback_outbox`; the same dispatch delivers it. Requests decided at once by policy get no callback (their answer came back in the 201).
+- **Signature:** header `ACT-Signature: t=<unix>,v1=<hex>`, `v1 = HMAC-SHA256(key = lowercase hex SHA-256 of the agent key that made the request, message = "<t>." + exact body)`. Signed **in the database** (`callback_signed`, pgcrypto `extensions.hmac`); the secret never leaves it. Needs `action_requests.api_key_id`, set by trigger `action_requests_key` from `act.api_key_id`, which `agent_for_key` now sets. Requests made before 2.8 have no key on record: their callbacks are closed with that reason. Integrator guide with checked Node and Python examples: `docs/agent-api.md`.
+- **Delivery** (`functions-lib/callback.ts`): exact body, headers `ACT-Signature`, `ACT-Event: action.decided`, `ACT-Delivery: <id>`; https public host names only (no IPs, localhost, `.local`, `.internal`); 10-second limit; redirects are not followed. Any 2xx = delivered. Retries after 1, 2, 5, 15, 60 min (6 tries; `callback_backoff`, `next_attempt_at`).
+- **Claim/report wrapping:** the 2.6/2.7 `push_claim`/`push_report` were renamed `push_claim_alerts_and_emails` / `push_report_alerts_and_emails` (no grants) and are called by new `push_claim`/`push_report`, which add `callbacks` / `p_results.callback`.
+- **Who was told** now also lists "Callback to agent · Delivered (HTTP 200)" etc.
+- **Agent console** (`/demo/agent`, admins; nav "Agent console"; `src/pages/AgentConsolePage.tsx`, story logic `src/lib/agentConsole.ts`): plays the Payment Release Assistant. `demo_agent_ask(amount, supplier, reason, test)` makes a one-off key, calls `api_request_action` with `callback_url = <site_url>/api/v1/demo-agent/callback` and `details.demo_console = true`, then revokes the key (the callback is still signed with it). The receiver function passes body + signature to `demo_agent_receive`, which checks the HMAC like a real agent (5-minute window, console requests only) and records it in `demo_agent_events` (admins can read; a retried delivery is recorded once). The page polls every 2 s while waiting. `?test=1` marks requests as tests (no alerts/emails to people). A Cloudflare function calling its own pages.dev address works (verified 26 Oct).
+- **Demo reset** truncates `demo_agent_events` and `callback_outbox`.
+- **Tests:** `db-tests/callbacks.test.ts` (10, incl. verifying the DB signature with Node's HMAC), `functions/callback.test.ts` (6), `src/lib/agentConsole.test.ts` (5), `e2e/console.spec.ts` (admin asks from the console, Ravi approves in a second browser, the console shows the signed decision heard and the agent going ahead; the request page shows the callback delivered). Measured 26 Oct: 1.4 s from approval to the agent going ahead. The test DB harness now loads real pgcrypto (schema `pgcrypto_real`) behind an `extensions.hmac` wrapper.
+
 ### Demo personas (seed data; passwords are not recorded here)
 - Admin: `admin@northbridge.demo` (the user signs in as this).
 - Others include Ravi Menon (Payments approver), Daniel Okafor (Payments Risk Lead, approver), Omar Farouk (approver for personal data), Sara (Commercial Lending), Olly Owner (owner who is also approver).
@@ -287,8 +299,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 | 2.5 | Live update of the approvals list | **Done**, on main (23 Oct); not on demo |
 | 2.6 | Phone install and push notifications | **Done**, on main (26 Oct); user confirmed alerts on their phone; not on demo |
 | 2.7 | Approval emails | **Done** in temporary mode, on main (26 Oct); real email confirmed by the user; real recipients after task 0.6 |
-| 2.8 | Decision callback to the agent | **Next** |
-| 2.9 | SLA timers | Planned |
+| 2.8 | Decision callback to the agent | **Done** on branch `claude/task-2.8-decision-callback` (dev migrated), not yet merged |
+| 2.9 | SLA timers | **Next** |
 | 2.10 | Four-eyes approval for Critical | Planned |
 | 2.11 | Log API and heartbeat | Planned |
 | 2.12 | End-to-end test of the £2m payment | Planned |
@@ -297,8 +309,9 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 Example for 2.4 (from the user's own wording): "FX agent wants to release £2m to supplier X, because…" with approve, reject with reason, and escalate.
 
 Next steps, in order:
-1. Release 2.5, 2.6 and 2.7 to demo only when the user says so: *Database migrations* → demo (creates demo's own alert keys, points alerts at the demo site; give input `email_redirect_to` = rajveersingh@appbaytech.com), then fast-forward `demo` to `main`. No reseed needed.
-2. Build **task 2.8** (decision returned to the agent: status check and callback). Then 2.9 to 2.12.
+1. With the user's go-ahead, merge `claude/task-2.8-decision-callback` into `main` (fast-forward); the automatic *Database migrations* run points dev back at the main site.
+2. Release 2.5 to 2.8 to demo only when the user says so: *Database migrations* → demo (creates demo's own alert keys, points alerts at the demo site; give input `email_redirect_to` = rajveersingh@appbaytech.com), then fast-forward `demo` to `main`. No reseed needed.
+3. Build **task 2.9** (SLA timers: escalate to the next approver or auto-reject). Then 2.10 to 2.12.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbaytech.com` at **Hostinger** (hPanel → the domain → DNS zone editor). Steps given to the user on 26 Oct: the domain is added in Resend (region Tokyo, receiving off); copy its 3 records into Hostinger (or use Resend's "Go to Hostinger" button) (Name = only the part before `.appbaytech.com`, e.g. `send.notify`), then Verify in Resend. Hostinger records only work if appbaytech.com uses Hostinger's nameservers; the sandbox cannot do DNS lookups to check. Needs whoever holds the Hostinger login, or a screenshot of the Resend records.
