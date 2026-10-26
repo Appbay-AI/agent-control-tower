@@ -18,6 +18,10 @@ on:
         description: 'Optional: site that sends phone alerts (to test a branch preview on dev). Blank = the normal site.'
         required: false
         default: ''
+      email_redirect_to:
+        description: 'Optional: inbox that receives every approval email (temporary/demo mode). Kept once set.'
+        required: false
+        default: ''
 
 concurrency:
   group: db-migrate-${{ github.event.inputs.target || 'dev' }}
@@ -92,14 +96,19 @@ jobs:
           supabase db push "${target[@]}" > out.log 2>&1 \
             || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | sed -E 's#postgres(ql)?://[^ ]*#postgresql://***#g' | tr '\n' ' ')"; exit 1; }
           cat out.log
-      # Task 2.6: phone alerts. Points the database at this environment's site and creates the signing keys once.
-      - name: Phone alert keys
+      # Tasks 2.6 and 2.7: phone alerts and approval emails. Points the database at this environment's site, creates the
+      # alert signing keys once, and stores the Resend key (secret RESEND_API_KEY) and email settings.
+      - name: Phone alert and email settings
         env:
           TARGET: ${{ github.event.inputs.target || 'dev' }}
           SITE_URL: ${{ github.event.inputs.alerts_site }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          EMAIL_REDIRECT_TO: ${{ github.event.inputs.email_redirect_to || vars.EMAIL_REDIRECT_TO }}
         run: |
           [ -n "$SUPABASE_DB_URL" ] || { echo "::warning title=Phone alerts::SUPABASE_DB_URL is not set, so alert keys were not checked"; exit 0; }
           command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
-          node scripts/push-setup.mjs > out.log 2>&1 || { cat out.log; echo "::error title=Phone alert keys::$(tail -n 3 out.log | tr '\n' ' ')"; exit 1; }
+          node scripts/push-setup.mjs > out.log 2>&1 || { cat out.log; echo "::error title=Alert and email settings::$(tail -n 3 out.log | tr '\n' ' ')"; exit 1; }
           cat out.log
-          echo "::notice title=Phone alerts::$(tail -n 1 out.log)"
+          echo "::notice title=Phone alerts::$(grep '^Alerts:' out.log | tail -n 1)"
+          echo "::notice title=Email::$(grep '^Email:' out.log | tail -n 1)"

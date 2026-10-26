@@ -159,4 +159,7 @@ export const api = {
     check(await db().rpc('push_subscribe', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth, p_device: s.device })) as string,
   pushUnsubscribe: async (endpoint: string) => check(await db().rpc('push_unsubscribe', { p_endpoint: endpoint })),
   pushSendTest: async () => check(await db().rpc('push_send_test')),
+  // Who was told about a request (tasks 2.6 and 2.7)
+  requestNotifications: async (requestId: string) =>
+    check(await db().rpc('request_notifications', { p_request_id: requestId })) as { channel: string; person: string; status: string; at: string }[],
 }

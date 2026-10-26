@@ -30,7 +30,7 @@ test('an approver sees what the agent wants and why, escalates it, and the next 
     data: {
       action: 'payment.release', amount: 2000000, currency: 'GBP', target_system: 'SWIFT gateway',
       description: `Release £2,000,000 to supplier ${stamp}`, reasoning: 'Invoice is due today and matches the purchase order',
-      details: { supplier: stamp, invoice: 'INV-E2E' },
+      details: { supplier: stamp, invoice: 'INV-E2E', test: true }, // test request: emails go to Resend's test inbox
     },
   })
   expect(asked.status()).toBe(201)

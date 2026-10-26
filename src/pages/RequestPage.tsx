@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, BellRing, CheckCircle2, Clock, Mail, XCircle } from 'lucide-react'
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { RiskBadge, StatusBadge } from '@/components/badges'
@@ -24,9 +24,12 @@ export function RequestPage() {
     const request = await api.actionRequest(id!)
     const [agent, departments, profiles] = await Promise.all([api.agent(request.agent_id), api.departments(), api.allProfiles()])
     const perms = requestPermissions({ request, agent, userId, roles, scopeDepartmentIds })
-    const targets = perms.canDecide ? await api.escalationTargets(request.id) : []
+    const [targets, told] = await Promise.all([
+      perms.canDecide ? api.escalationTargets(request.id) : Promise.resolve([]),
+      api.requestNotifications(request.id).catch(() => []),
+    ])
     return {
-      request, agent, perms, targets,
+      request, agent, perms, targets, told,
       department: departments.find((d) => d.id === agent.department_id)?.name ?? null,
       people: new Map(profiles.map((p) => [p.id, p.full_name])),
     }
@@ -46,7 +49,7 @@ export function RequestPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { request: r, agent: a, perms, targets, department, people } = data
+  const { request: r, agent: a, perms, targets, told, department, people } = data
   const name = (uid: string | null) => (uid ? people.get(uid) ?? 'Former user' : null)
   const amount = requestAmount(r)
   const details = detailEntries(r.details)
@@ -153,6 +156,26 @@ export function RequestPage() {
           </dl>
         </section>
       </div>
+
+      {/* Tasks 2.6 and 2.7: every phone alert and email about this request, and what happened to it. */}
+      {told.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-medium">Who was told</h2>
+          <ul className="divide-y rounded-lg border text-sm" data-testid="who-was-told">
+            {told.map((t, i) => (
+              <li key={i} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span className="inline-flex items-center gap-2">
+                  {t.channel === 'Email' ? <Mail className="text-muted-foreground size-4" aria-hidden /> : <BellRing className="text-muted-foreground size-4" aria-hidden />}
+                  {t.channel} to <span className="font-medium">{t.person}</span>
+                </span>
+                <span className={t.status.startsWith('Sent') ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}>
+                  {t.status} <span className="text-muted-foreground text-xs">· {formatDateTime(t.at)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   )
 }

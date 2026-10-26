@@ -56,7 +56,7 @@ test('alerts reach the approver\'s browser: a test alert, then a real £2m reque
   const t1 = Date.now()
   const asked = await request.post('/api/v1/actions/request', {
     headers: { authorization: `Bearer ${AGENT_KEY}`, 'idempotency-key': stamp },
-    data: { action: 'payment.release', amount: 2000000, currency: 'GBP', description: `Release £2,000,000 to supplier ${stamp}`, reasoning: 'Alert test' },
+    data: { action: 'payment.release', amount: 2000000, currency: 'GBP', description: `Release £2,000,000 to supplier ${stamp}`, reasoning: 'Alert test', details: { test: true } },
   })
   expect(asked.status()).toBe(201)
   const { request_code: code } = await asked.json()

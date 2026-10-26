@@ -1,4 +1,5 @@
-// Task 2.6: makes sure the database can send phone alerts. Run by the Database migrations workflow after migrations.
+// Tasks 2.6 and 2.7: makes sure the database can send phone alerts and approval emails. Run by the Database
+// migrations workflow after migrations.
 //   - Tells the database which site sends the alerts (dev or demo).
 //   - Creates the VAPID signing key pair once, if the database has none. The private key goes straight from this
 //     runner into the database (push_config, readable by no one); it is never printed or stored anywhere else.
@@ -44,3 +45,14 @@ if (existing && process.env.ROTATE !== 'true') {
     { site, pub, jwk: JSON.stringify({ kty, crv, x, y, d }) }))
   console.log(`Alerts: ${existing ? 'new' : 'first'} keys created (public key ${pub.slice(0, 12)}…); site ${site}`)
 }
+
+// Approval emails (task 2.7). RESEND_API_KEY comes from the GitHub secret of the same name; without it, email is off.
+// EMAIL_FROM: blank = Resend's test sender (temporary mode, until notify.appbaytech.com is verified).
+// EMAIL_REDIRECT_TO: an inbox that receives every email (temporary/demo mode); kept in the database once set.
+const apiKey = process.env.RESEND_API_KEY ?? ''
+const from = process.env.EMAIL_FROM ?? ''
+const redirect = (process.env.EMAIL_REDIRECT_TO ?? '').trim()
+if (redirect && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(redirect)) throw new Error('EMAIL_REDIRECT_TO is not an email address')
+const state = psql(`select public.email_configure(:'key', :'from', :'redirect');`, { key: apiKey, from, redirect })
+const inbox = psql(`select coalesce(email_redirect_to, '') || '|' || coalesce(email_from, '') from public.push_config;`).split('|')
+console.log(`Email: ${state}; sender ${inbox[1] || 'Resend test sender'}; ${inbox[0] ? `every email goes to ${inbox[0]}` : 'emails go to each person'}`)

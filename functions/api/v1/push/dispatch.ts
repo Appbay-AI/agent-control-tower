@@ -1,16 +1,14 @@
 import { problem, rpc, json } from '../../../../functions-lib/api'
+import { sendApprovalEmail, type EmailSettings, type QueuedEmail, type SendResult } from '../../../../functions-lib/email'
 import { sendPush, type PushSubscriptionKeys, type Vapid } from '../../../../functions-lib/webpush'
 
 interface Message { id: number; title: string; body: string; url: string; tag: string; subscriptions: (PushSubscriptionKeys & { id: string })[] }
-interface Claimed { vapid?: Vapid; messages: Message[] }
+interface Claimed { vapid?: Vapid; messages: Message[]; email?: EmailSettings; emails?: QueuedEmail[] }
 interface Result { id: number; delivered: string[]; gone: string[]; failed: { id: string; error: string }[] }
 
-/** Sends every claimed alert to every device of its person, then reports what happened. */
-export async function dispatch(token: string, fetchImpl: typeof fetch = fetch): Promise<{ sent: number; results: Result[] }> {
-  const claimed = await rpc<Claimed>('push_claim', { p_token: token }, fetchImpl)
-  if (!claimed.ok || !claimed.data.vapid || claimed.data.messages.length === 0) return { sent: 0, results: [] }
-  const vapid = claimed.data.vapid
-  const results = await Promise.all(claimed.data.messages.map(async (m): Promise<Result> => {
+async function sendAlerts(vapid: Vapid | undefined, messages: Message[], fetchImpl: typeof fetch): Promise<Result[]> {
+  if (!vapid) return []
+  return Promise.all(messages.map(async (m): Promise<Result> => {
     const r: Result = { id: m.id, delivered: [], gone: [], failed: [] }
     await Promise.all(m.subscriptions.map(async (s) => {
       const out = await sendPush(s, { title: m.title, body: m.body, url: m.url, tag: m.tag }, vapid, { topic: m.tag, fetchImpl })
@@ -21,13 +19,36 @@ export async function dispatch(token: string, fetchImpl: typeof fetch = fetch): 
     }))
     return r
   }))
-  await rpc('push_report', { p_token: token, p_results: results }, fetchImpl)
-  return { sent: results.reduce((n, r) => n + r.delivered.length, 0), results }
+}
+
+/** One at a time, to stay well inside Resend's rate limit (10 requests a second per team). */
+async function sendEmails(settings: EmailSettings | undefined, emails: QueuedEmail[], fetchImpl: typeof fetch): Promise<SendResult[]> {
+  if (!settings) return []
+  const out: SendResult[] = []
+  for (const e of emails) {
+    out.push(await sendApprovalEmail(e, settings, fetchImpl).catch((err: Error) => ({ id: e.id, sent: false, error: err.message, retry: true })))
+  }
+  return out
+}
+
+/** Sends every claimed phone alert (task 2.6) and email (task 2.7), then reports what happened. */
+export async function dispatch(token: string, fetchImpl: typeof fetch = fetch): Promise<{ sent: number; results: Result[]; emails: SendResult[] }> {
+  const claimed = await rpc<Claimed>('push_claim', { p_token: token }, fetchImpl)
+  if (!claimed.ok) return { sent: 0, results: [], emails: [] }
+  const c = claimed.data
+  const [results, emails] = await Promise.all([
+    sendAlerts(c.vapid, c.messages ?? [], fetchImpl),
+    sendEmails(c.email, c.emails ?? [], fetchImpl),
+  ])
+  if (results.length > 0 || emails.length > 0) {
+    await rpc('push_report', { p_token: token, p_results: { push: results, email: emails } }, fetchImpl)
+  }
+  return { sent: results.reduce((n, r) => n + r.delivered.length, 0) + emails.filter((e) => e.sent).length, results, emails }
 }
 
 /**
  * POST /api/v1/push/dispatch   body: { "token": "pdt_..." }
- * Called by the database (pg_net) right after alerts are queued. The token is single-use and only the database
+ * Called by the database (pg_net) right after alerts or emails are queued. The token is single-use and only the database
  * can make one, so this endpoint needs no other secret. Answers at once and sends in the background.
  */
 export async function onRequestPost({ request, waitUntil }: { request: Request; waitUntil: (p: Promise<unknown>) => void }): Promise<Response> {
