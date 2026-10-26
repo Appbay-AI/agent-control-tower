@@ -315,6 +315,7 @@ Earlier, not yet done:
 - Key dates in the plan: single release; **credible demo 20 Nov 2026**; **demo ready 15 Dec 2026**. Phases: 2 (15–28 Oct, incl. 2.13 simulator), 3 (platform connection and auto-discovery, 29 Oct–9 Nov), 4 (kill switch, enforcement and incidents, 10–20 Nov), 5 (alerts and routing, 23–26 Nov), 6 (evidence and dashboards, 27 Nov–7 Dec), 7 (demo data and rehearsal, 8–15 Dec).
 - The plan has a feasibility section and a "two findings" callout. Keep both.
 - Update the plan when tasks complete, and send the updated PDF to the user.
+- **Never change a task's planned dates** (user's rule, 26 Oct). Mark progress only in the Status column and the notes. On 23–26 Oct dates for 2.5–2.7 had been edited to the actual days; they were put back to the 15 Oct plan (2.5: 22 Oct, 2.6: 22–23 Oct, 2.7: 23 Oct).
 
 ### Kill switch: what it can and cannot do (answer given to the user)
 - **Instant** for agents connected through the API, the control endpoint, or the platform connection (e.g., Appian agents via the simulator endpoint).

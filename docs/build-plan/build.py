@@ -2,6 +2,8 @@
 
 Run from the repo root:  python3 docs/build-plan/build.py && node docs/build-plan/print.mjs
 Update UPDATED, TODAY and the task statuses below when a task completes.
+Never change a task's planned dates (the user's rule, 26 Oct): the Dates column is the plan, even when a task finishes
+early or late. Progress shows in the Status column and the notes.
 """
 from datetime import date, timedelta
 from html import escape
@@ -85,9 +87,9 @@ PHASES = [
             ('2.2', 'Autonomy and threshold check (Levels 1–4); suspended agents fail closed', 'Postgres functions', '16–19 Oct', 'Each level behaves as specified', 'Done'),
             ('2.3', 'Routing matrix, editable from a screen without code', 'Postgres, React', '19–20 Oct', 'Changing an approver needs no deploy', 'Done'),
             ('2.4', 'Approver task screen: what the agent wants and why; approve, reject with reason, escalate', 'React, TypeScript, Postgres', '20–22 Oct', 'Decision saved and logged', 'Done'),
-            ('2.5', 'Task appears live on screen', 'Supabase Realtime', '22–23 Oct', 'Task raised within 2 seconds', 'Done'),
-            ('2.6', 'Phone install and push alerts', 'vite-plugin-pwa, Web Push', '23 Oct', 'Alert arrives on a phone', 'Done'),
-            ('2.7', 'Approval emails (temporary mode until 0.6: every email goes to one Appbay inbox)', 'Resend', '26 Oct', 'Approver gets an email', 'Done'),
+            ('2.5', 'Task appears live on screen', 'Supabase Realtime', '22 Oct', 'Task raised within 2 seconds', 'Done'),
+            ('2.6', 'Phone install and push alerts', 'vite-plugin-pwa, Web Push', '22–23 Oct', 'Alert arrives on a phone', 'Done'),
+            ('2.7', 'Approval emails (temporary mode until 0.6: every email goes to one Appbay inbox)', 'Resend', '23 Oct', 'Approver gets an email', 'Done'),
             ('2.8', 'Decision returned to the agent (status check and callback)', 'Cloudflare Functions', '26 Oct', 'Demo agent proceeds on approval', 'Next'),
             ('2.9', 'SLA timer: escalate to next approver or auto-reject (default)', 'pg_cron', '26–27 Oct', 'Overdue task escalates or rejects', 'Planned'),
             ('2.10', 'Four-eyes approval for Critical agents; bulk approval for low-risk', 'Postgres, React', '27 Oct', 'Both work and are logged', 'Planned'),
