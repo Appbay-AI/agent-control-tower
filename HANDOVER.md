@@ -132,7 +132,7 @@ Local commands (from the repo root, after `npm install`):
 - `npm run dev`: optional; needs `.env.local` (see `.env.example`)
 
 Git: branches `main` (work in progress, auto-deploys to dev) and `demo` (client demo). Claude Code sessions work on a `claude/...` branch the session names, and merge to `main` only when the user asks.
-- Task 2.6 (phone alerts) is on branch `claude/task-2.6-push-alerts`, **not yet merged to `main`**. Its migration `20261024000100_push_alerts.sql` was applied to the **dev** database from that branch with `alerts_site` set to the preview, so dev's alerts are currently sent by the preview https://claude-task-2-6-push-alerts.agent-control-tower-56p.pages.dev. After the merge, the automatic *Database migrations* run on `main` points dev back at the main site (or run it by hand for dev). e2e passed twice on the preview, including real push in Chrome.
+- Task 2.6 (phone alerts) was built on branch `claude/task-2.6-push-alerts` and fast-forwarded onto `main` (`cbd58fc`) on 26 Oct after the user confirmed alerts work on their phone; checks, migration, dev deploy, e2e (incl. real push) and api-smoke passed, and the migration run pointed dev's alerts back at the main site (keys kept). **Not yet on demo.** History of the branch: Its migration `20261024000100_push_alerts.sql` was applied to the **dev** database from that branch with `alerts_site` set to the preview, so dev's alerts are currently sent by the preview https://claude-task-2-6-push-alerts.agent-control-tower-56p.pages.dev. After the merge, the automatic *Database migrations* run on `main` points dev back at the main site (or run it by hand for dev). e2e passed twice on the preview, including real push in Chrome.
 - Task 2.5 (live approvals list) was built on branch `claude/task-2.5-live-approvals` (`05ef120`, `50317b8`, `d5fb23b`, `074ca6c`) and fast-forwarded onto `main` on 23 Oct with the user's go-ahead; checks, dev deploy, e2e and api-smoke passed. **Not yet on demo.** Its migration `20261023000100_realtime_approvals.sql` was applied to the **dev** database from that branch (verified: the three tables are in the `supabase_realtime` publication on dev). Preview: https://claude-task-2-5-live-approva.agent-control-tower-56p.pages.dev; e2e passed twice there (desktop and phone). Merging is a fast-forward; the migration will not run twice on dev.
 - `main`: task 2.4 (`086ee38`, `588e09a`) was fast-forwarded onto `main` on 22 Oct with the user's go-ahead; checks, dev deploy, e2e (desktop and phone) and api-smoke all passed. The commit after that updates this file and the build plan. Below 2.4: `c259d55`/`ba05d55` routing (2.3), `fd7b87e`/`a7a2d1c`/`3e6b048` Appian, `bef46bc` seed review dates, `dfec9dd` action requests (2.1, 2.2).
 - `demo`: **released 22 Oct** at `588e09a` (2.1 to 2.4, the seed date fix, Appian workflows), on the user's go-ahead. Order used: *Database migrations* → demo (from `main`), then fast-forward `demo` to `main` (deploy succeeded, `/api/v1/health` says `env: demo`), then *Seed demo data* → demo with reset. Checked afterwards on demo: 40 agents, 4 overdue reviews, no test agents, both routing rules, and `REQ-000001` (£2,000,000 GBP, pending, with Ravi Menon). The reset removed three hand-made test agents ("Test Agent", "Test Agent 2", "test agent 3") from 7–9 Oct. Later commits on `main` that only touch docs do not need releasing.
@@ -241,7 +241,7 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - Screen: "Live" / "Connecting…" / "Live updates paused · checking every 30 seconds" indicator (`data-testid="live-status"`); new items marked **New** with a yellow ring for 60 s; `aria-live="polite"` on the list; waiting count (`data-testid="waiting-count"`) on the Approvals link (desktop and phone nav) and in the tab title, e.g. "(2) Agent Control Tower". The list loads for approvers and admins, or anyone on `/approvals`. The request page (`/approvals/requests/:id`) also re-reads on any change, so a decision by someone else shows without a reload.
 - Tests: `db-tests/realtime.test.ts` (3), `src/lib/live.test.tsx` (5), `e2e/live.spec.ts` (desktop and phone: Ravi has Approvals open, the agent raises a £2m request through the API, the card must appear within 2 s without a page load, marked New, then Ravi rejects it to tidy up). Measured 23 Oct (time from the API reply to the card on screen): preview 0.8 s desktop / 0.3 s phone; dev site after the merge 1.3 s / 1.3 s. Under the 2 s target but with less headroom than the preview runs; if the e2e starts failing on time alone, look at network latency before the code.
 
-### Phone alerts (task 2.6, done on branch, not yet on main)
+### Phone alerts (task 2.6, done, on main; not on demo)
 - **Who gets an alert:** the people who may decide the request (`request_deciders`, same rules as `can_decide_request`): the assigned approver, or every active department approver when nobody is assigned; never the agent's owners/creator. When a request starts waiting ("Approval needed · REQ-…") and when `assigned_to` changes (escalation: "Escalated to you · REQ-…"; admin re-route). Body = the same headline as the app; tapping opens `/approvals/requests/<id>`.
 - **Flow:** trigger → `push_outbox` → statement trigger `push_kick()` makes a one-time token (`pdt_…`, only its hash stored) and `net.http_post`s it to `<site>/api/v1/push/dispatch` after commit → the function answers 202 and, in `waitUntil`, calls `push_claim(token)` (returns due alerts, devices and the VAPID key; token works once, 10 min) → encrypts per device (RFC 8291, `functions-lib/webpush.ts`, Web Crypto only) with a VAPID JWT (RFC 8292) → `push_report(token, results)`: 2xx delivered, 404/410 device removed, other errors kept for retry. `pg_cron` job `push-retry` (every minute) re-kicks anything unsent after a minute; gives up after 5 tries. People with no device: closed at once ("No device has alerts switched on").
 - **Keys:** VAPID key pair made by `scripts/push-setup.mjs` in the *Database migrations* workflow, stored only in `push_config` (no grants; `push_configure` executable by nobody but the workflow's postgres login). No secret in GitHub or Cloudflare. `ROTATE=true` makes new keys and deletes all devices (people turn alerts on again). The browser gets the public key via `push_public_key()`.
@@ -250,6 +250,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - **Demo reset** (`90_reset.sql`) truncates `push_outbox` and `push_dispatch_tokens`; devices are kept.
 - **Tests:** `db-tests/push.test.ts` (10), `functions/webpush.test.ts` (9: encryption decrypted by the independent `http_ece` library, VAPID signature verified with Node crypto, sender, dispatch), `src/lib/push.test.ts` (5), `src/components/AlertsCard.test.tsx` (4), `e2e/alerts.spec.ts` (project `push`: Google Chrome, **persistent profile**, windowed under xvfb; turns alerts on as Ravi, test alert and a real £2m request arrive as notifications, read via `registration.getNotifications()`). Measured 23 Oct on the preview: test alert 1.4 s, request alert 0.6 s.
 - **Why the e2e is set up that way** (each was a failure first): open-source Chromium can't subscribe (no Google push keys) → `channel: 'chrome'`; Chrome refuses push in Playwright's normal incognito-like contexts ("Registration failed - permission denied") → `launchPersistentContext`; kept windowed with `--disable-background-networking` removed so Chrome can reach its push service.
+- **Push subscriptions belong to one site address.** A phone that turned alerts on at a preview address keeps getting alerts (the database sends to every saved device) but tapping opens that preview. Turn alerts on again at the real site.
+- **e2e timing headroom:** after the 2.6 merge the live-list test measured 1.88 s desktop / 1.84 s phone against its 2 s limit; it may fail now and then on network latency alone (it retries once).
 - **Side effect to know:** anyone who turns alerts on as Ravi on dev gets an alert each time the e2e runs (it raises £2m requests for Ravi).
 
 ### Demo personas (seed data; passwords are not recorded here)
@@ -272,7 +274,7 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 | 2.3 | Routing matrix (rules, screen, reroute, preview) | Done, on demo (22 Oct) |
 | 2.4 | Approver task screen: what the agent wants and why; approve, reject with reason, escalate | **Done**, on main and demo (22 Oct) |
 | 2.5 | Live update of the approvals list | **Done**, on main (23 Oct); not on demo |
-| 2.6 | Phone install and push notifications | **Done** on branch `claude/task-2.6-push-alerts` (dev database migrated), not yet merged to main |
+| 2.6 | Phone install and push notifications | **Done**, on main (26 Oct); user confirmed alerts on their phone; not on demo |
 | 2.7 | Approval emails | On hold: needs task 0.6 (DNS) |
 | 2.8 | Decision callback to the agent | **Next** |
 | 2.9 | SLA timers | Planned |
@@ -284,10 +286,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 Example for 2.4 (from the user's own wording): "FX agent wants to release £2m to supplier X, because…" with approve, reject with reason, and escalate.
 
 Next steps, in order:
-1. With the user's go-ahead, merge `claude/task-2.6-push-alerts` into `main` (fast-forward). Check that the automatic *Database migrations* run's "Phone alerts" notice shows the main site again.
-2. Ask the user to try alerts on their own phone (steps are in the 23 Oct conversation: Android Chrome directly; iPhone via Share → Add to Home Screen).
-3. Release 2.5 and 2.6 to demo only when the user says so: *Database migrations* → demo (creates demo's own alert keys, points alerts at the demo site), then fast-forward `demo` to `main`. No reseed needed.
-4. Build **task 2.8** (decision returned to the agent: status check and callback). 2.7 (emails) waits for task 0.6 (DNS). Then 2.9 to 2.12.
+1. Release 2.5 and 2.6 to demo only when the user says so: *Database migrations* → demo (creates demo's own alert keys, points alerts at the demo site), then fast-forward `demo` to `main`. No reseed needed.
+2. Build **task 2.8** (decision returned to the agent: status check and callback). 2.7 (emails) waits for task 0.6 (DNS). Then 2.9 to 2.12.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbay.ai` at Porkbun (needs Porkbun access or a screenshot of the Resend records from the user).
@@ -346,4 +346,4 @@ Pitfalls seen so far:
 - Appian: https://appbay-demo.appiancloud.com
 - Repo: github.com/Appbay-AI/agent-control-tower (branches `main`, `demo`)
 - Supabase: `act-dev` (gprwtthwvmmmbslccxpf), `act-demo` (ekowumwkevkzwvkiljvf)
-- This file: `HANDOVER.md` at the repo root (on `main`; last updated 23 Oct, on the 2.6 branch)
+- This file: `HANDOVER.md` at the repo root (on `main`; last updated 26 Oct)
