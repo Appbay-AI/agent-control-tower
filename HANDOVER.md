@@ -8,7 +8,7 @@ Secrets are never written in this file or in the repo. Keys and passwords live o
 
 ## 1. What we are building
 
-**Agent Control Tower**: a governance app for AI agents at **Appbay Technologies**, a ~25-person Appian and Databricks partner in India (company domain appbay.ai, GitHub org `Appbay-AI`).
+**Agent Control Tower**: a governance app for AI agents at **Appbay Technologies**, a ~25-person Appian and Databricks partner in India (company domain **appbaytech.com**, DNS at **Hostinger**; GitHub org `Appbay-AI`. Corrected by the user on 26 Oct: earlier notes said appbay.ai at Porkbun, which was wrong).
 
 The app does four things:
 - keeps a **register** of every AI agent a company runs;
@@ -54,7 +54,7 @@ Microsoft Copilot Studio can't be used for the demo without paid capacity. The w
 | Scheduled work | `pg_cron` / keep-alive GitHub workflow | Supabase Edge Functions and scheduled functions were tried and did not work (access-token failure), so the team moved away from them |
 | API hosting | Cloudflare Pages Functions | `functions/api/v1/*`, shared helpers in `functions-lib/api.ts` |
 | Hosting | Cloudflare Pages | |
-| Email | Resend (planned) | Domain `notify.appbay.ai`, DNS not done yet |
+| Email | Resend (planned) | Sending subdomain `notify.appbaytech.com` (Resend recommends a subdomain, to keep the company's own email reputation separate). DNS records at Hostinger not added yet |
 | Phone alerts | Web Push (browsers' own push services: Google, Apple, Mozilla) | Free, no account. Database queues, `pg_net` calls our Cloudflare function, which encrypts and sends (task 2.6) |
 | CI/CD | GitHub Actions | Deploy is by `wrangler pages deploy` from Actions, not Cloudflare's Git connection |
 | Tests | Vitest (unit), PGlite (in-memory Postgres for DB tests), Playwright (browser tests, desktop and Pixel 7) | |
@@ -290,7 +290,7 @@ Next steps, in order:
 2. Build **task 2.8** (decision returned to the agent: status check and callback). 2.7 (emails) waits for task 0.6 (DNS). Then 2.9 to 2.12.
 
 Earlier, not yet done:
-- **Task 0.6**: email DNS for `notify.appbay.ai` at Porkbun (needs Porkbun access or a screenshot of the Resend records from the user).
+- **Task 0.6**: email DNS for `notify.appbaytech.com` at **Hostinger** (hPanel → the domain → DNS zone editor). Steps given to the user on 26 Oct: add the domain in Resend, copy its 3–4 records into Hostinger (Name = only the part before `.appbaytech.com`, e.g. `send.notify`), then Verify in Resend. Hostinger records only work if appbaytech.com uses Hostinger's nameservers; the sandbox cannot do DNS lookups to check. Needs whoever holds the Hostinger login, or a screenshot of the Resend records.
 - **Task 3.1**: Microsoft spike. Needs the user to create a free trial tenant, register an app, and give the Application (client) ID and Directory (tenant) ID. Then run `ms-spike.yml` and complete device-code sign-in. Second run for the audit query ID.
 - **User action**: turn off open sign-ups in both Supabase projects (Authentication → Sign In / Providers → Email).
 - **Before client demos**: the user runs *Seed demo data* on demo (with reset) to restore review counts and clear test agents.

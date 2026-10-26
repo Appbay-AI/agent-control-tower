@@ -7,8 +7,8 @@ from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 
-UPDATED = 'Oct 23, 2026'
-TODAY = date(2026, 10, 23)
+UPDATED = 'Oct 26, 2026'
+TODAY = date(2026, 10, 26)
 OUT = Path(__file__).with_name('plan.html')
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ PHASES = [
             ('0.3', 'Two Supabase projects: development and demo', 'Supabase', '1 Oct', 'Both projects reachable', 'Done'),
             ('0.4', 'Deploy app to Cloudflare Pages from the repo', 'Cloudflare Pages', '2 Oct', 'Every push shows a live link', 'Done'),
             ('0.5', 'Automated checks on every change; Supabase keep-alive ping', 'GitHub Actions, Vitest', '2 Oct', 'Checks run on each push', 'Done'),
-            ('0.6', 'Verify email sending domain (needs DNS access)', 'Resend', '2 Oct', 'Test email arrives', 'Waiting on DNS'),
+            ('0.6', 'Verify email sending domain notify.appbaytech.com (DNS records at Hostinger)', 'Resend', '2 Oct', 'Test email arrives', ('On hold', 'wait')),
         ],
     },
     {
@@ -170,11 +170,11 @@ PHASES = [
 ]
 
 PROGRESS = [
-    ('Phase 0 — Setup', '1–2 Oct', ('Done except 0.6', 'done'), 'Email domain waits on DNS access at Porkbun.'),
+    ('Phase 0 — Setup', '1–2 Oct', ('Done except 0.6', 'done'), 'Email domain (appbaytech.com, at Hostinger) waits on DNS records.'),
     ('Phase 1 — Registry', '5–9 Oct', ('Done', 'done'), 'Plus a Users screen (1.9), not in the original plan.'),
     ('Go/no-go gate', '12–14 Oct', ('Go', 'done'), 'Microsoft Copilot scope added.'),
     ('Phase 2 — Approval engine', '15–28 Oct', ('In progress', 'now'),
-     '2.1 to 2.6 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon; 2.5 (live approvals list) and 2.6 (phone alerts) are on the work-in-progress site, not yet on the client demo. 2.7 (emails) waits for DNS. Next: 2.8, decision returned to the agent.'),
+     '2.1 to 2.6 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.4 released to the client demo on 22 Oct, with the £2m payment request waiting for Ravi Menon; 2.5 (live approvals list) and 2.6 (phone alerts, confirmed on a real phone) are on the work-in-progress site, not yet on the client demo. 2.7 (emails) waits for DNS. Next: 2.8, decision returned to the agent.'),
     ('Phases 3–7', '29 Oct – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 
@@ -209,7 +209,7 @@ RISKS = [
     ('The admin sign-in.', 'If a client\'s security policies end the stored admin sign-in, sync and enforcement stop until an admin signs in again; agents stay blocked (fail closed) and admins are alerted.'),
     ('The spike (3.1) may change Phase 3.', 'If the answers to the open questions are unfavourable (for example, no reliable way to name who reactivated an agent), the affected tasks shrink to what Microsoft supports rather than pushing the date.'),
     ('Diwali (around 8 Nov) now falls inside Phase 3.', 'If the team takes leave, that phase slips by the days lost.'),
-    ('DNS access for email (0.6) is still open.', 'Approval emails (2.7), owner emails (4.2) and every alert in Phase 5 depend on it. It needs whoever holds the Porkbun login.'),
+    ('DNS access for email (0.6) is still open.', 'Approval emails (2.7), owner emails (4.2) and every alert in Phase 5 depend on it. It needs whoever holds the Hostinger login for appbaytech.com (about 10 minutes).'),
     ('Bank security reviews.', 'Clients must grant our app high-privilege admin consent in Microsoft. Expect weeks per client; it does not block the demo.'),
     ('Scope creep.', 'Anything else a client asks for goes on a v2 list, not into this plan.'),
 ]
