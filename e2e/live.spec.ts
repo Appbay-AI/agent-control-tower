@@ -33,7 +33,7 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
     data: {
       action: 'payment.release', amount: 2000000, currency: 'GBP', target_system: 'SWIFT gateway',
       description: `Release £2,000,000 to supplier ${stamp}`, reasoning: 'Live update test',
-      details: { test: true }, // emails for test requests go to Resend's test inbox (task 2.7)
+      details: { test: true }, // test request: no email is sent (task 2.7)
     },
   })
   expect(asked.status()).toBe(201)

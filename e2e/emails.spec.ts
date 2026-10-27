@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
 // Task 2.7: an approval email is sent through Resend for a waiting request, and the request page says so.
-// The request is marked as a test, so the email goes to Resend's test inbox (delivered@resend.dev), not to a person.
+// The request is marked test: 'email', so its one email goes to Resend's test inbox (delivered@resend.dev), not to a
+// person. Other e2e requests (test: true) send no email at all: every send counts towards Resend's 100-a-day limit.
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 const AGENT_KEY = process.env.ACT_AGENT_KEY ?? ''
@@ -20,7 +21,7 @@ test('the approver is emailed about a waiting request, and the request page show
   const asked = await request.post('/api/v1/actions/request', {
     headers: { authorization: `Bearer ${AGENT_KEY}`, 'idempotency-key': stamp },
     data: { action: 'payment.release', amount: 2000000, currency: 'GBP', description: `Release £2,000,000 to supplier ${stamp}`,
-      reasoning: 'Email test', details: { test: true } },
+      reasoning: 'Email test', details: { test: 'email' } }, // the one e2e email actually sent (to Resend's test inbox)
   })
   expect(asked.status()).toBe(201)
   const { request_id: id } = await asked.json()

@@ -92,10 +92,15 @@ describe('approval emails (task 2.7)', () => {
     expect(got.emails[0].request).toMatchObject({ escalated_by: 'Ravi Menon', escalation_reason: 'New supplier' })
   })
 
-  it('marks test requests so the sender uses the test inbox', async () => {
-    await ask(await liveAgent(), { test: true })
+  it('test requests send no email (Resend counts every send); a test of email itself goes to the test inbox', async () => {
+    const r = await ask(await liveAgent(), { test: true })
     const got = await claim(await token())
-    expect(got.emails[0].test).toBe(true)
+    expect(got.emails).toEqual([])
+    expect((await told(u.ravi, r.request_id)).find((x) => x.channel === 'Email')?.status).toBe('Not sent: test request')
+    await ask(await liveAgent(), { test: 'email' })
+    const again = await claim(await token())
+    expect(again.emails).toHaveLength(1)
+    expect(again.emails[0].test).toBe(true)
   })
 
   it('retries an email that failed for a passing reason; finishes one that cannot succeed', async () => {
