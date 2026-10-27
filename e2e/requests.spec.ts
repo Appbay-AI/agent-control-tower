@@ -20,7 +20,7 @@ async function openTask(page: Page, stamp: string) {
 
 test.describe.configure({ mode: 'serial' })
 
-test('an approver sees what the agent wants and why, escalates it, and the next approver approves @phone', async ({ page, request }) => {
+test('an approver sees what the agent wants and why, escalates it; two approvers approve it (four-eyes) @phone', async ({ page, request }) => {
   test.skip(!AGENT_KEY, 'ACT_AGENT_KEY is set by the e2e workflow')
   const stamp = `E2E ${Date.now()}`
 
@@ -67,7 +67,20 @@ test('an approver sees what the agent wants and why, escalates it, and the next 
   await page.getByRole('button', { name: 'Approve' }).click()
   await page.getByLabel('Note (optional)').fill('Supplier verified by phone')
   await page.getByRole('button', { name: 'Confirm approval' }).click()
-  await expect(page.getByTestId('request-outcome')).toHaveText('Approved by Daniel Okafor: Supplier verified by phone')
+  // The Payment Release Assistant is Critical: four-eyes (task 2.10). Daniel's approval is the first of two.
+  await expect(page.getByTestId('four-eyes-status')).toContainText('1 of 2 so far')
+  await expect(page.getByTestId('four-eyes-status')).toContainText('Approved by Daniel Okafor: Supplier verified by phone')
+  await expect(page.getByText('You have approved it. A second approver must decide.')).toBeVisible()
+  const waiting = await (await request.get(`/api/v1/actions/${code}`, { headers: { authorization: `Bearer ${AGENT_KEY}` } })).json()
+  expect(waiting).toMatchObject({ status: 'pending', may_proceed: false })
+  await page.getByRole('button', { name: /sign out/i }).click()
+
+  // Ravi gives the second approval.
+  await signIn(page, 'ravi.menon')
+  await openTask(page, stamp)
+  await page.getByRole('button', { name: 'Approve' }).click()
+  await page.getByRole('button', { name: 'Confirm approval' }).click()
+  await expect(page.getByTestId('request-outcome')).toHaveText('Approved by Daniel Okafor (Supplier verified by phone) and Ravi Menon')
 
   const answer = await (await request.get(`/api/v1/actions/${code}`, { headers: { authorization: `Bearer ${AGENT_KEY}` } })).json()
   expect(answer).toMatchObject({ status: 'approved', may_proceed: true, decision_source: 'human' })

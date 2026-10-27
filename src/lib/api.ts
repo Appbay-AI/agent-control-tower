@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  SlaSetting, UserDraft, UserRow,
+  BulkResult, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -13,7 +13,7 @@ function db() {
 const REQUEST_COLUMNS = 'id, request_code, agent_id, action, description, target_system, reasoning, amount, currency, volume, urgency, '
   + 'details, autonomy_level, value_threshold, threshold_currency, volume_threshold, status, decision_source, decision_reason, '
   + 'decided_by, decided_at, requested_at, assigned_to, routing_note, hold_reason, escalated_by, escalated_at, escalation_reason, '
-  + 'due_at, sla_minutes, sla_escalate_to, sla_escalated_at'
+  + 'due_at, sla_minutes, sla_escalate_to, sla_escalated_at, required_approvals'
 
 const NOT_VISIBLE = "This record doesn't exist, or you don't have access to it."
 
@@ -151,6 +151,12 @@ export const api = {
     if (!row) throw new Error("This request doesn't exist, or you don't have access to it.")
     return row
   },
+  // Four-eyes and bulk (task 2.10)
+  requestApprovals: async (requestIds: string[]) => requestIds.length === 0 ? [] :
+    check(await db().from('action_request_approvals').select('request_id, approver_id, note, approved_at')
+      .in('request_id', requestIds).order('approved_at')) as RequestApproval[],
+  bulkApprove: async (ids: string[], note: string | null) =>
+    check(await db().rpc('decide_action_requests_bulk', { p_ids: ids, p_note: note })) as BulkResult[],
   decideRequest: async (id: string, decision: ActionDecision, reason: string | null) =>
     check(await db().rpc('decide_action_request', { p_request_id: id, p_decision: decision, p_reason: reason })) as ActionRequestStatus,
   escalateRequest: async (id: string, to: string, reason: string) =>

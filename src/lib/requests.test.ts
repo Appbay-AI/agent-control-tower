@@ -49,4 +49,11 @@ describe('who may decide an action request', () => {
     expect(requestPermissions({ request: { status: 'approved', assigned_to: 'ravi' }, agent, userId: 'ravi', roles: ['approver'], scopeDepartmentIds: [] }))
       .toEqual({ canDecide: false, whyNot: null })
   })
+
+  it('four-eyes: whoever approved first cannot also give the second approval (task 2.10)', () => {
+    const r = { status: 'pending' as const, assigned_to: null }
+    expect(requestPermissions({ request: r, agent, userId: 'ravi', roles: ['approver'], scopeDepartmentIds: ['payments'], approvedBy: ['ravi'] }))
+      .toEqual({ canDecide: false, whyNot: 'You have approved it. A second approver must decide.' })
+    expect(requestPermissions({ request: r, agent, userId: 'daniel', roles: ['approver'], scopeDepartmentIds: ['payments'], approvedBy: ['ravi'] }).canDecide).toBe(true)
+  })
 })

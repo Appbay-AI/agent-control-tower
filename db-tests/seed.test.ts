@@ -36,14 +36,22 @@ describe('Northbridge demo bank seed', () => {
     ])
   })
 
-  it('leaves the £2m payment waiting in Ravi\'s queue, once however often it runs', async () => {
+  it('leaves the £2m payment waiting in Ravi\'s queue (four-eyes) and three rotas with Omar, once however often it runs', async () => {
     await db.exec(seedFile('00_helpers.sql') + seedFile('05_action_requests.sql'))
-    const rows = await q<{ status: string; amount: string; assignee: string; hold_reason: string; live_keys: number }>(`
-      select r.status::text, r.amount::text, p.email assignee, r.hold_reason,
+    const rows = await q<{ agent: string; status: string; amount: string | null; assignee: string; required: number; days_left: number; live_keys: number }>(`
+      select a.name agent, r.status::text, r.amount::text, p.email assignee, r.required_approvals required,
+             round(extract(epoch from r.due_at - now()) / 86400)::int days_left,
              (select count(*)::int from public.agent_api_keys k where k.agent_id = r.agent_id and k.revoked_at is null) live_keys
-      from public.action_requests r join public.profiles p on p.id = r.assigned_to`)
-    expect(rows).toEqual([{ status: 'pending', amount: '2000000.00', assignee: 'ravi.menon@northbridge.demo',
-      hold_reason: expect.stringMatching(/outside its limits/), live_keys: 0 }])
+      from public.action_requests r join public.profiles p on p.id = r.assigned_to join public.agents a on a.id = r.agent_id
+      order by a.name, r.description`)
+    expect(rows).toEqual([
+      ...['Bristol', 'Leeds', 'Manchester'].map(() => ({ agent: 'Branch Rota Planner', status: 'pending', amount: null,
+        assignee: 'omar.farouk@northbridge.demo', required: 1, days_left: 3, live_keys: 0 })),
+      { agent: 'Payment Release Assistant', status: 'pending', amount: '2000000.00', assignee: 'ravi.menon@northbridge.demo',
+        required: 2, days_left: 3, live_keys: 0 },
+    ])
+    const hold = await q<{ h: string }>(`select hold_reason h from public.action_requests where amount = 2000000`)
+    expect(hold[0].h).toMatch(/outside its limits/)
   })
 
   it('tells the story: six live agents without owners, four overdue reviews, one shadow agent', async () => {

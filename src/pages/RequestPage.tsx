@@ -23,14 +23,16 @@ export function RequestPage() {
 
   const { data, error, loading, reload } = useAsync(async () => {
     const request = await api.actionRequest(id!)
-    const [agent, departments, profiles] = await Promise.all([api.agent(request.agent_id), api.departments(), api.allProfiles()])
-    const perms = requestPermissions({ request, agent, userId, roles, scopeDepartmentIds })
+    const [agent, departments, profiles, approvals] = await Promise.all([
+      api.agent(request.agent_id), api.departments(), api.allProfiles(), api.requestApprovals([request.id]),
+    ])
+    const perms = requestPermissions({ request, agent, userId, roles, scopeDepartmentIds, approvedBy: approvals.map((x) => x.approver_id) })
     const [targets, told] = await Promise.all([
       perms.canDecide ? api.escalationTargets(request.id) : Promise.resolve([]),
       api.requestNotifications(request.id).catch(() => []),
     ])
     return {
-      request, agent, perms, targets, told,
+      request, agent, perms, targets, told, approvals,
       department: departments.find((d) => d.id === agent.department_id)?.name ?? null,
       people: new Map(profiles.map((p) => [p.id, p.full_name])),
     }
@@ -50,7 +52,7 @@ export function RequestPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { request: r, agent: a, perms, targets, told, department, people } = data
+  const { request: r, agent: a, perms, targets, told, approvals, department, people } = data
   const name = (uid: string | null) => (uid ? people.get(uid) ?? 'Former user' : null)
   const amount = requestAmount(r)
   const details = detailEntries(r.details)
@@ -83,6 +85,16 @@ export function RequestPage() {
           <AlertTitle>Why it needs a person</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{r.hold_reason ?? r.decision_reason}</p>
+            {r.required_approvals > 1 && (
+              <div data-testid="four-eyes-status" className="text-sm">
+                <p className="font-medium">Four-eyes: this agent is Critical, so two different approvers must approve ({approvals.length} of {r.required_approvals} so far).</p>
+                {approvals.map((x) => (
+                  <p key={x.approver_id} className="text-muted-foreground">
+                    Approved by {name(x.approver_id)}{x.note ? `: ${x.note}` : ''} · {formatDateTime(x.approved_at)}
+                  </p>
+                ))}
+              </div>
+            )}
             {dueState(r.due_at) && (
               <p data-testid="request-due" className={`text-sm font-medium ${dueState(r.due_at)!.tone === 'ok' ? '' : 'text-red-700 dark:text-red-400'}`}>
                 <Clock className="mr-1 inline size-4 align-text-bottom" aria-hidden />{dueState(r.due_at)!.text}

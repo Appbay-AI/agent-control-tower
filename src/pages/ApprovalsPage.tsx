@@ -1,10 +1,17 @@
-import { CheckCircle2, ChevronRight } from 'lucide-react'
+import { CheckCheck, CheckCircle2, ChevronRight, Users } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { RiskBadge } from '@/components/badges'
 import { AlertsCard } from '@/components/AlertsCard'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { UrgencyBadge } from '@/components/requestBadges'
 import { ErrorBox, LoadingRows, PageHeader, TagList } from '@/components/ui-bits'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { AUTONOMY, DATA_LABEL, formatDateTime, formatMoney } from '@/lib/format'
 import { useAuth } from '@/lib/auth'
@@ -35,6 +42,35 @@ export function ApprovalsPage() {
   // Task 2.5: the list lives in LiveProvider and is read again whenever something changes.
   const { approvals: data, approvalsError: error, approvalsLoading: loading, reloadApprovals: reload, status, fresh } = useLive()
 
+  // Bulk approval of low-risk requests (task 2.10).
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkNote, setBulkNote] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkMsg, setBulkMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const bulkable = data?.myRequests.filter((x) => x.bulkable) ?? []
+  const chosen = bulkable.filter((x) => selected.has(x.req.id))
+  const toggle = (id: string) => setSelected((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n })
+
+  async function approveSelected() {
+    setBulkBusy(true)
+    setBulkMsg(null)
+    try {
+      const res = await api.bulkApprove(chosen.map((x) => x.req.id), bulkNote.trim() || null)
+      const ok = res.filter((x) => x.ok).length
+      const failed = res.filter((x) => !x.ok)
+      setBulkMsg({ ok: failed.length === 0, text: `${ok} approved.${failed.length ? ` Not approved: ${failed.map((f) => `${f.code ?? 'request'} (${f.message})`).join('; ')}.` : ''}` })
+      setSelected(new Set())
+      setBulkOpen(false)
+      setBulkNote('')
+      await reload()
+    } catch (e) {
+      setBulkMsg({ ok: false, text: errorMessage(e) })
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader title="Approvals" subtitle="Actions agents want to take, and new agents waiting to go live" />
@@ -47,6 +83,19 @@ export function ApprovalsPage() {
       {data && (
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Agent actions</h2>
+          {bulkMsg && <p role="status" data-testid="bulk-result" className={cn('text-sm', bulkMsg.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive')}>{bulkMsg.text}</p>}
+          {bulkable.length > 1 && (
+            <div className="bg-muted/50 flex flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="size-4" aria-label="Select all low-risk requests"
+                  checked={chosen.length === bulkable.length} onChange={(e) => setSelected(new Set(e.target.checked ? bulkable.map((x) => x.req.id) : []))} />
+                Low-risk requests: {chosen.length} of {bulkable.length} selected
+              </label>
+              <Button size="sm" disabled={chosen.length === 0} onClick={() => setBulkOpen(true)}>
+                <CheckCheck className="size-4" /> Approve selected ({chosen.length})
+              </Button>
+            </div>
+          )}
           {/* Screen readers announce new tasks as they arrive. */}
           <div aria-live="polite" className="space-y-3">
           {data.myRequests.length === 0 ? (
@@ -55,10 +104,16 @@ export function ApprovalsPage() {
             </div>
           ) : (
             <ul className="space-y-3">
-              {data.myRequests.map(({ req, agent: a }) => (
-                <li key={req.id}>
+              {data.myRequests.map(({ req, agent: a, approvedBy, bulkable: canBulk }) => (
+                <li key={req.id} className="flex items-stretch gap-2">
+                  {bulkable.length > 1 && (
+                    <label className="flex w-6 shrink-0 items-center justify-center">
+                      {canBulk && <input type="checkbox" className="size-4" aria-label={`Select ${req.request_code}`}
+                        checked={selected.has(req.id)} onChange={() => toggle(req.id)} />}
+                    </label>
+                  )}
                   <Link to={`/approvals/requests/${req.id}`} data-testid="request-card"
-                    className={cn('bg-card hover:border-foreground/30 flex items-center gap-3 rounded-lg border p-4 transition-colors',
+                    className={cn('bg-card hover:border-foreground/30 flex min-w-0 flex-1 items-center gap-3 rounded-lg border p-4 transition-colors',
                       fresh.has(req.id) && 'border-brand-yellow ring-brand-yellow/40 ring-2')}>
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
@@ -67,6 +122,11 @@ export function ApprovalsPage() {
                         <span>· {formatDateTime(req.requested_at)}</span>
                         <RiskBadge tier={a.risk_tier} />
                         {req.urgency !== 'normal' && <UrgencyBadge urgency={req.urgency} />}
+                        {req.required_approvals > 1 && (
+                          <span data-testid="four-eyes" className="inline-flex items-center gap-1 font-medium">
+                            <Users className="size-3" aria-hidden /> Four-eyes · {approvedBy.length} of {req.required_approvals}
+                          </span>
+                        )}
                         {dueState(req.due_at) && (
                           <span data-testid="request-due" className={dueState(req.due_at)!.tone === 'ok' ? '' : 'font-medium text-red-700 dark:text-red-400'}>
                             · {dueState(req.due_at)!.text}
@@ -87,13 +147,14 @@ export function ApprovalsPage() {
             <div className="space-y-2">
               <h3 className="text-muted-foreground text-sm font-medium">Also waiting, for someone else</h3>
               <ul className="divide-y rounded-lg border text-sm">
-                {data.otherRequests.map(({ req, agent: a }) => (
+                {data.otherRequests.map(({ req, agent: a, perms }) => (
                   <li key={req.id} className="flex items-center justify-between gap-2 px-3 py-2">
                     <Link to={`/approvals/requests/${req.id}`} className="hover:underline">
                       {headline(req, a.name)} <span className="text-muted-foreground">· {req.request_code}</span>
                     </Link>
                     <span className="text-muted-foreground text-xs whitespace-nowrap">
-                      {req.assigned_to ? `With ${data.people.get(req.assigned_to) ?? 'former user'}` : `Any ${data.dept.get(a.department_id ?? '') ?? ''} approver`}
+                      {perms.whyNot?.startsWith('You have approved') ? 'You approved · waiting for a second approver'
+                        : req.assigned_to ? `With ${data.people.get(req.assigned_to) ?? 'former user'}` : `Any ${data.dept.get(a.department_id ?? '') ?? ''} approver`}
                     </span>
                   </li>
                 ))}
@@ -146,6 +207,26 @@ export function ApprovalsPage() {
           </li>
         ))}
       </ul>
+
+      <Dialog open={bulkOpen} onOpenChange={(o) => { if (!o) setBulkOpen(false) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve {chosen.length} low-risk {chosen.length === 1 ? 'request' : 'requests'}?</DialogTitle>
+            <DialogDescription>Each is approved and recorded on its own, as if you approved them one by one. The agents are told straight away.</DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+            {chosen.map(({ req, agent: a }) => <li key={req.id}>{req.request_code} · {headline(req, a.name)}</li>)}
+          </ul>
+          <div className="space-y-1.5">
+            <Label htmlFor="bulk-note">Note (optional)</Label>
+            <Textarea id="bulk-note" rows={2} value={bulkNote} onChange={(e) => setBulkNote(e.target.value)} placeholder="e.g. Rotas checked against branch cover" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
+            <Button disabled={bulkBusy} onClick={approveSelected}>{bulkBusy ? 'Approving…' : `Approve ${chosen.length}`}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {data && data.others.length > 0 && (
         <section className="space-y-2">

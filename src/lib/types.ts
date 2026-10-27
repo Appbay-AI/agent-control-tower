@@ -195,6 +195,10 @@ export interface RoutingRule {
   overdue_escalate_to: string | null
 }
 
+export interface RequestApproval { request_id: string; approver_id: string; note: string | null; approved_at: string }
+
+export interface BulkResult { id: string; code: string | null; ok: boolean; message: string }
+
 export interface SlaSetting { urgency: ActionUrgency; minutes: number }
 
 export type RoutingRuleDraft = Omit<RoutingRule, 'id'>
@@ -242,6 +246,8 @@ export interface ActionRequest {
   escalated_by: string | null
   escalated_at: string | null
   escalation_reason: string | null
+  // Four-eyes (task 2.10): 2 for Critical agents
+  required_approvals: number
   // Time limit (task 2.9)
   due_at: string | null
   sla_minutes: number | null

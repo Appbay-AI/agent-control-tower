@@ -58,9 +58,12 @@ export function requestPermissions(params: {
   userId: string
   roles: AppRole[]
   scopeDepartmentIds: string[]
+  /** Who has already approved it (four-eyes, task 2.10). */
+  approvedBy?: string[]
 }): { canDecide: boolean; whyNot: string | null } {
   const { request: r, agent: a, userId, roles, scopeDepartmentIds } = params
   if (r.status !== 'pending') return { canDecide: false, whyNot: null }
+  if (params.approvedBy?.includes(userId)) return { canDecide: false, whyNot: 'You have approved it. A second approver must decide.' }
   if ([a.business_owner_id, a.technical_owner_id, a.created_by].includes(userId)) {
     return { canDecide: false, whyNot: 'You own or created this agent, so someone else must decide.' }
   }
