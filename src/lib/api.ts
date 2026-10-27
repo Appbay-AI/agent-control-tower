@@ -152,6 +152,11 @@ export const api = {
     return row
   },
   // Four-eyes and bulk (task 2.10)
+  /** Approvals so far on every waiting request (one query, so the Approvals screen can load it alongside the rest). */
+  pendingApprovals: async () =>
+    (check(await db().from('action_request_approvals').select('request_id, approver_id, note, approved_at, action_requests!inner(status)')
+      .eq('action_requests.status', 'pending').order('approved_at')) as unknown as (RequestApproval & { action_requests: unknown })[])
+      .map((x) => ({ request_id: x.request_id, approver_id: x.approver_id, note: x.note, approved_at: x.approved_at })),
   requestApprovals: async (requestIds: string[]) => requestIds.length === 0 ? [] :
     check(await db().from('action_request_approvals').select('request_id, approver_id, note, approved_at')
       .in('request_id', requestIds).order('approved_at')) as RequestApproval[],

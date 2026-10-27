@@ -5,12 +5,12 @@ import type { AppRole } from '@/lib/types'
 
 /** Everything the Approvals screen shows, split into what this person can decide and what waits for someone else. */
 export async function loadApprovals({ userId, roles, scopeDepartmentIds }: { userId: string; roles: AppRole[]; scopeDepartmentIds: string[] }) {
-  const [pending, agents, decisions, departments, profiles, waiting] = await Promise.all([
+  const [pending, agents, decisions, departments, profiles, waiting, approvals] = await Promise.all([
     api.pendingRegistrations(), api.agents(), api.decisions(), api.departments(), api.allProfiles(), api.actionRequests('pending'),
+    api.pendingApprovals(),
   ])
   const byId = new Map(agents.map((a) => [a.id, a]))
   // Four-eyes (task 2.10): who has approved what so far.
-  const approvals = await api.requestApprovals(waiting.map((r) => r.id))
   const approvedBy = new Map<string, string[]>()
   for (const x of approvals) approvedBy.set(x.request_id, [...(approvedBy.get(x.request_id) ?? []), x.approver_id])
   // Action requests (task 2.4): oldest first, so nothing waits longest unseen.
