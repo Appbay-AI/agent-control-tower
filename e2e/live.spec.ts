@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { cardSeenAt, watchForCard } from './helpers.js'
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 // A key for the Payment Release Assistant, made by the e2e workflow for this run and revoked after it.
@@ -26,6 +27,7 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
   await expect(card).toHaveCount(0)
   let reloaded = false
   page.on('framenavigated', (f) => { if (f === page.mainFrame()) reloaded = true })
+  await watchForCard(page, stamp) // records the exact moment the card appears (see helpers.ts)
 
   // The agent asks to release £2m; the large-payments rule sends it to Ravi.
   const asked = await request.post('/api/v1/actions/request', {
@@ -40,7 +42,7 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
   const raisedAt = Date.now()
 
   await expect(card).toBeVisible({ timeout: 10_000 })
-  const took = Date.now() - raisedAt
+  const took = (await cardSeenAt(page, stamp))! - raisedAt
   info.annotations.push({ type: 'appeared after', description: `${took} ms` })
   console.log(`[${info.project.name}] task appeared ${took} ms after it was raised`)
   expect(took, `task appeared after ${took} ms`).toBeLessThanOrEqual(WITHIN_MS)

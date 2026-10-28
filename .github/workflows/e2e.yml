@@ -45,6 +45,9 @@ jobs:
           [ -n "$key" ] || { echo "::error::Could not make an agent key; run Seed demo data for dev first"; exit 1; }
           echo "::add-mask::$key"
           echo "ACT_AGENT_KEY=$key" >> "$GITHUB_ENV"
+          # Its code (e.g. AGT-0001), for the £2m payment story test (task 2.12): status check and check-in by code.
+          code=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "select agent_code from public.agents where name = 'Payment Release Assistant'")
+          echo "ACT_AGENT_CODE=$code" >> "$GITHUB_ENV"
           # Bulk approval test (task 2.10): a key for the Branch Rota Planner (low risk).
           low=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "begin;
             select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
@@ -60,7 +63,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retire leftover test agents
         if: always()
