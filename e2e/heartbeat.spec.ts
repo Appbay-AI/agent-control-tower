@@ -79,11 +79,12 @@ test('an agent writes to its log and checks in; when it goes quiet it is flagged
     const entries = page.getByTestId('log-entry')
     await expect(entries.filter({ hasText: `Summarising new rules ${stamp}` })).toContainText('e2e.started')
     await expect(entries.filter({ hasText: `One source was slow ${stamp}` })).toContainText('Warning')
-    await expect(page.getByTestId('alert-agent_silent')).toHaveCount(0)
+    await expect(page.getByTestId('alert-agent_silent')).toHaveCount(0) // checked after the page has loaded (above)
 
     // The agent goes quiet. Within about two minutes (1-minute limit, checked every minute) it is flagged.
     await expect.poll(async () => {
       await page.reload()
+      await expect(page.getByTestId('last-heard')).toBeVisible() // the page has loaded its data
       return page.getByTestId('alert-agent_silent').count()
     }, { timeout: 170_000, intervals: [10_000] }).toBe(1)
     const after = Math.round((Date.now() - lastBeat) / 1000)
@@ -99,8 +100,8 @@ test('an agent writes to its log and checks in; when it goes quiet it is flagged
     // It checks in: the flag clears at once.
     expect((await request.post(`/api/v1/agents/${agentId}/heartbeat`, { headers: auth })).status()).toBe(200)
     await page.goto(`/agents/${agentId}`)
-    await expect(page.getByTestId('alert-agent_silent')).toHaveCount(0)
     await expect(page.getByTestId('last-heard')).toContainText('Just now')
+    await expect(page.getByTestId('alert-agent_silent')).toHaveCount(0)
   } finally {
     // Tidy up: stop watching, revoke the key.
     await page.goto(`/agents/${agentId}`)
