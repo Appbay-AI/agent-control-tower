@@ -1,6 +1,7 @@
 import { ArrowLeft, Copy, KeyRound, Pencil, Rocket, Send } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { RegistrationBadge, RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
@@ -27,16 +28,16 @@ export function AgentDetailPage() {
   const [newKey, setNewKey] = useState<string | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts] = await Promise.all([
+    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs] = await Promise.all([
       api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
-      api.reviews(id!), api.activity(id!), api.openAlerts(),
+      api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
     const keys = canSeeKeys ? await api.apiKeys(id!) : []
     const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
-      agent, people, registrations, decisions, reviews, activity, keys, approvers,
+      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs,
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
     }
@@ -53,7 +54,8 @@ export function AgentDetailPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs } = data
+  const silent = alerts.some((al) => al.kind === 'agent_silent')
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
   const orList = (names: string[]) => names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
@@ -85,7 +87,7 @@ export function AgentDetailPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-muted-foreground text-sm">{a.agent_code}</div>
+          <div className="text-muted-foreground text-sm" data-testid="agent-code">{a.agent_code}</div>
           <h1 className="text-2xl font-semibold tracking-tight">{a.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <StatusBadge status={a.status} />
@@ -93,6 +95,7 @@ export function AgentDetailPage() {
             <span className="text-muted-foreground text-xs">Level {a.autonomy_level} · {AUTONOMY[a.autonomy_level].name}</span>
             {(!a.business_owner_id || people.get(a.business_owner_id)?.is_active === false) && <WarningBadge>No business owner</WarningBadge>}
             {overdue && <WarningBadge>Review overdue</WarningBadge>}
+            {silent && <WarningBadge>Silent</WarningBadge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -142,7 +145,7 @@ export function AgentDetailPage() {
         </Alert>
       )}
       {alerts.map((al) => (
-        <Alert key={al.id} variant="destructive"><AlertDescription>{al.message}</AlertDescription></Alert>
+        <Alert key={al.id} variant="destructive" data-testid={`alert-${al.kind}`}><AlertDescription>{al.message}</AlertDescription></Alert>
       ))}
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -175,6 +178,9 @@ export function AgentDetailPage() {
               <Field label="Regulations"><TagList items={a.regulatory_flags} /></Field>
             </dl>
           </Card>
+          <Card title="Agent log" subtitle={`What the agent reported${logs.length >= 50 ? ' · latest 50 entries' : ''}. Entries cannot be edited or deleted.`}>
+            <AgentLogList entries={logs} />
+          </Card>
           <Card title="Activity" subtitle="From the tamper-proof audit trail">
             <Activity events={activity} name={name} />
           </Card>
@@ -192,6 +198,11 @@ export function AgentDetailPage() {
               <Field label="Department">{department?.name ?? '—'}</Field>
               <Field label="Cost centre">{a.cost_centre ?? department?.cost_centre ?? '—'}</Field>
             </dl>
+          </Card>
+          <Card title="Check-ins">
+            <CheckinsBody key={a.silent_after_minutes ?? 'off'} limit={a.silent_after_minutes} contact={contact} live={a.status === 'live'}
+              canChange={perms.canManageKeys && a.status !== 'retired'}
+              onSave={async (m) => { await api.setSilenceLimit(a.id, m); await reload() }} />
           </Card>
           <Card title="Lifecycle">
             <dl className="space-y-3">

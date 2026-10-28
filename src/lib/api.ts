@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
+  ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
   BulkResult, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
@@ -81,6 +81,15 @@ export const api = {
   reviews: async (agentId: string) =>
     check(await db().from('agent_reviews').select('*').eq('agent_id', agentId).order('reviewed_at', { ascending: false })) as AgentReview[],
   openAlerts: async () => check(await db().from('alerts').select('*').is('resolved_at', null)) as AlertRow[],
+  // Task 2.11: check-ins and the agent log.
+  agentContact: async (agentId: string) =>
+    check(await db().from('agent_contact').select('*').eq('agent_id', agentId).maybeSingle()) as AgentContact | null,
+  agentLogs: async (agentId: string, limit = 50) =>
+    check(await db().from('agent_logs')
+      .select('id, agent_id, level, event, message, details, request_id, occurred_at, received_at, request:action_requests(request_code)')
+      .eq('agent_id', agentId).order('occurred_at', { ascending: false }).order('id', { ascending: false }).limit(limit)) as unknown as AgentLog[],
+  setSilenceLimit: async (agentId: string, minutes: number | null) =>
+    check(await db().rpc('set_agent_silence_limit', { p_agent: agentId, p_minutes: minutes })),
   activity: async (agentId: string) =>
     check(await db().from('audit_events')
       .select('id, seq, occurred_at, actor_id, actor_type, action, entity_type, entity_id, agent_id, summary, reason, before, after, hash')

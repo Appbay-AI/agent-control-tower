@@ -9,7 +9,7 @@ export type DataClassification = 'public' | 'internal' | 'confidential' | 'restr
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'sent_back'
 export type RegistrationDecision = 'approve' | 'reject' | 'send_back'
 export type ReviewOutcome = 'no_change' | 'changes_required' | 'retire'
-export type AlertKind = 'review_overdue' | 'owner_missing'
+export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent'
 
 export interface Department {
   id: string
@@ -85,9 +85,36 @@ export interface Agent {
   next_review_date: string | null
   registration_source: 'manual' | 'api' | 'discovered'
   control_endpoint: string | null
+  /** Task 2.11: flag the agent as silent when nothing is heard from it for this many minutes. Null = not watched. */
+  silent_after_minutes: number | null
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+/** Task 2.11: when the agent was last heard from (any call with its key). */
+export interface AgentContact {
+  agent_id: string
+  last_seen_at: string | null
+  last_seen_via: string | null
+  last_note: string | null
+  watch_from: string | null
+}
+
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error'
+
+/** Task 2.11: one entry the agent wrote through the log API. */
+export interface AgentLog {
+  id: number
+  agent_id: string
+  level: LogLevel
+  event: string | null
+  message: string
+  details: Record<string, unknown> | null
+  request_id: string | null
+  occurred_at: string
+  received_at: string
+  request: { request_code: string } | null
 }
 
 /** Fields an owner may set when proposing or editing (the database grants exactly these). */

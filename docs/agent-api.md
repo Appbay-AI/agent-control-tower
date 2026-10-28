@@ -88,6 +88,52 @@ def is_genuine(raw_body: bytes, header: str, agent_key: str) -> bool:
 The callback is signed with the key that made the request. If you rotate keys, keep the old key until its requests
 are decided.
 
+## 4. Check in, so the Control Tower knows you are running
+
+`POST /api/v1/agents/{agent id or code}/heartbeat`, body optional: `{ "note": "Queue: 12 invoices" }` (up to 500 characters).
+
+```json
+{ "agent_code": "AGT-0004", "status": "live", "may_act": true, "heard_at": "2026-10-28T09:15:02Z",
+  "silent_after_minutes": 60, "check_in_by": "2026-10-28T10:15:02Z" }
+```
+
+- An agent's owner or an admin can ask to be told when the agent goes quiet ("flag if silent for more than 1 hour",
+  on the agent's page). If nothing is heard from the agent for that long while it is Live, it is flagged as silent.
+- **Every call with the key counts**, not only check-ins: asking before acting, reading a decision, the status
+  check and writing to the log. Check in when you have nothing else to say, comfortably more often than the limit
+  (for a 60-minute limit, every 15 minutes is sensible). `check_in_by` is the latest time; it is `null` when the agent
+  is not watched.
+- The flag clears as soon as the agent is heard from again.
+- `may_act` is `false` when the agent is not Live (for example suspended). Stop acting when you see it.
+
+## 5. Write to the agent log
+
+`POST /api/v1/agents/{agent id or code}/logs`: one entry, or `{ "entries": [ ... ] }` with up to 100.
+
+```json
+{ "entries": [
+  { "level": "info", "event": "invoice.matched", "message": "Invoice HS-48817 matches PO-2026-0912",
+    "details": { "invoice": "HS-48817" }, "id": "run-381-step-1" },
+  { "level": "warning", "message": "Above my £250,000 limit; asked for approval", "request": "REQ-000001",
+    "occurred_at": "2026-10-28T09:15:00Z" }
+] }
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `message` | yes | Up to 2,000 characters. |
+| `level` | no | `debug`, `info` (default), `warning` or `error`. |
+| `event` | no | A short code for the kind of step, such as `invoice.matched`. |
+| `occurred_at` | no | When it happened (within the last 7 days). Default: when received. |
+| `request` | no | One of this agent's requests (`REQ-…` or its id), to link the entry to it. |
+| `details` | no | A JSON object, up to 8 KB. Do not put secrets or personal data here. |
+| `id` | no | Your own id for the entry. Sending the same id again is ignored, so retries are safe. |
+
+- `201` with `{ "accepted": 2, "duplicates": 0 }`. A batch is stored whole or not at all; a `422` says which entry is
+  wrong (`"Entry 2: message is required"`).
+- Entries appear on the agent's page for everyone who can see the agent. They can never be edited or deleted, and
+  are kept for 90 days.
+
 ## See it working
 
 In the Control Tower, an admin can open **Agent console**. It plays the Payment Release Assistant and uses exactly this

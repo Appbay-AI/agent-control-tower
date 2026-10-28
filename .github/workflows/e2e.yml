@@ -60,7 +60,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retire leftover test agents
         if: always()
@@ -80,6 +80,11 @@ jobs:
           from public.profiles where email = 'admin@northbridge.demo';
           select public.revoke_api_key(id) from public.agent_api_keys
            where key_hash in (public.secret_hash(:'agent_key'), public.secret_hash(:'low_key')) and revoked_at is null;
+          -- Silent-agent test (task 2.11): stop watching the Regulatory Change Summariser and revoke its test keys.
+          select public.set_agent_silence_limit(id, null) from public.agents
+           where name = 'Regulatory Change Summariser' and silent_after_minutes is not null;
+          select public.revoke_api_key(k.id) from public.agent_api_keys k join public.agents a on a.id = k.agent_id
+           where a.name = 'Regulatory Change Summariser' and k.revoked_at is null;
           commit;
           update public.action_requests set status = 'cancelled', decided_at = now(), decision_reason = 'Test request left by an interrupted test run'
            where status = 'pending' and (description like 'Release £% to supplier E2E %'

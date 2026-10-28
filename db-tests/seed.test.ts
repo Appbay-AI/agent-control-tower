@@ -6,7 +6,7 @@ import { createDb, createUser } from './harness'
 
 const seedFile = (f: string) => readFileSync(path.resolve(__dirname, '../supabase/seed', f), 'utf8')
 // psql runs these in one session; so does the test.
-const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql', '05_action_requests.sql'].map(seedFile).join('\n')
+const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql', '05_action_requests.sql', '06_agent_logs.sql'].map(seedFile).join('\n')
 const PERSONAS = ['admin', 'priya.sharma', 'ravi.menon', 'daniel.okafor', 'sara.haddad', 'omar.farouk',
   'james.whitfield', 'aisha.rahman', 'tom.becker', 'lucy.grant', 'mei.lin']
 
@@ -54,11 +54,27 @@ describe('Northbridge demo bank seed', () => {
     expect(hold[0].h).toMatch(/outside its limits/)
   })
 
+  it('flags the Cash Forecast Agent as silent and gives the £2m payment a log, once however often it runs', async () => {
+    await db.exec(seedFile('00_helpers.sql') + seedFile('06_agent_logs.sql'))
+    const silent = await q<{ name: string; message: string; limit: number }>(`
+      select a.name, al.message, a.silent_after_minutes "limit" from public.alerts al join public.agents a on a.id = al.agent_id
+      where al.kind = 'agent_silent' and al.resolved_at is null`)
+    expect(silent).toEqual([{ name: 'Cash Forecast Agent', limit: 60, message: expect.stringMatching(/has gone silent: nothing heard from it for more than 1 hour$/) }])
+    const logs = await q<{ name: string; n: number; linked: number; last: string }>(`
+      select a.name, count(*)::int n, count(l.request_id)::int linked,
+             (array_agg(l.level order by l.occurred_at desc))[1] last
+      from public.agent_logs l join public.agents a on a.id = l.agent_id group by a.name order by a.name`)
+    expect(logs).toEqual([
+      { name: 'Cash Forecast Agent', n: 5, linked: 0, last: 'error' },
+      { name: 'Payment Release Assistant', n: 4, linked: 2, last: 'info' },
+    ])
+  })
+
   it('tells the story: six live agents without owners, four overdue reviews, one shadow agent', async () => {
     expect((await q<{ n: number }>(`select count(*)::int n from public.agents where status = 'live' and business_owner_id is null`))[0].n).toBe(6)
     const alerts = await q<{ kind: string; n: number }>(
       `select kind::text, count(*)::int n from public.alerts where resolved_at is null group by 1 order by 1`)
-    expect(Object.fromEntries(alerts.map((a) => [a.kind, a.n]))).toEqual({ owner_missing: 6, review_overdue: 4 })
+    expect(Object.fromEntries(alerts.map((a) => [a.kind, a.n]))).toEqual({ agent_silent: 1, owner_missing: 6, review_overdue: 4 })
     const shadow = await q<{ registration_source: string; business_owner_id: string | null }>(
       `select registration_source, business_owner_id from public.agents where name = 'Copilot for Ops Tickets'`)
     expect(shadow[0]).toEqual({ registration_source: 'discovered', business_owner_id: null })

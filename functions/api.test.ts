@@ -4,6 +4,8 @@ import { onRequestPost as register } from './api/v1/agents/register'
 import { onRequestGet as status } from './api/v1/agents/[id]/status'
 import { onRequestPost as requestAction } from './api/v1/actions/request'
 import { onRequestGet as actionStatus } from './api/v1/actions/[id]'
+import { onRequestPost as heartbeat } from './api/v1/agents/[id]/heartbeat'
+import { onRequestPost as logs } from './api/v1/agents/[id]/logs'
 
 const db = (status: number, body: unknown) =>
   vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))
@@ -123,5 +125,65 @@ describe('GET /api/v1/actions/{id}', () => {
     vi.stubGlobal('fetch', db(400, { code: 'P0002', message: 'No request REQ-9 for this agent' }))
     const res = await actionStatus({ request: req('/x', { headers: { authorization: 'Bearer k' } }), params: { id: 'REQ-9' } })
     expect(res.status).toBe(404)
+  })
+})
+
+// Task 2.11
+describe('POST /api/v1/agents/{id}/heartbeat', () => {
+  const auth = { authorization: 'Bearer act_agt_k' }
+  const sent = (m: ReturnType<typeof db>) => JSON.parse(String((m.mock.calls[0] as unknown as [string, RequestInit])[1].body))
+
+  it('checks in with or without a note, naming the agent from the path', async () => {
+    const answer = { agent_code: 'AGT-0001', status: 'live', may_act: true, heard_at: 'now', silent_after_minutes: 15, check_in_by: 'later' }
+    let m = db(200, answer)
+    vi.stubGlobal('fetch', m)
+    const res = await heartbeat({ request: req('/x', { method: 'POST', headers: auth }), params: { id: 'AGT-0001' } })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual(answer)
+    expect(sent(m)).toEqual({ p_agent_key: 'act_agt_k', p_agent: 'AGT-0001', p_note: null })
+    m = db(200, answer)
+    vi.stubGlobal('fetch', m)
+    await heartbeat({ request: req('/x', { method: 'POST', headers: auth, body: JSON.stringify({ note: 'Queue: 12' }) }), params: { id: 'AGT-0001' } })
+    expect(sent(m).p_note).toBe('Queue: 12')
+  })
+
+  it('refuses a missing key, bad JSON and a note that is not text; maps a different agent to 403', async () => {
+    expect((await heartbeat({ request: req('/x', { method: 'POST' }), params: { id: 'a' } })).status).toBe(401)
+    expect((await heartbeat({ request: req('/x', { method: 'POST', headers: auth, body: '{' }), params: { id: 'a' } })).status).toBe(400)
+    expect((await heartbeat({ request: req('/x', { method: 'POST', headers: auth, body: '{"note": 5}' }), params: { id: 'a' } })).status).toBe(422)
+    vi.stubGlobal('fetch', db(400, { code: '42501', message: 'This key belongs to a different agent.' }))
+    expect((await heartbeat({ request: req('/x', { method: 'POST', headers: auth }), params: { id: 'AGT-0002' } })).status).toBe(403)
+  })
+})
+
+describe('POST /api/v1/agents/{id}/logs', () => {
+  const auth = { authorization: 'Bearer act_agt_k', 'content-type': 'application/json' }
+  const post = (body: string) => logs({ request: req('/x', { method: 'POST', headers: auth, body }), params: { id: 'AGT-0001' } })
+  const sent = (m: ReturnType<typeof db>) => JSON.parse(String((m.mock.calls[0] as unknown as [string, RequestInit])[1].body))
+
+  it('accepts one entry, a list, or { entries }, and answers 201', async () => {
+    for (const [body, entries] of [
+      [{ message: 'one' }, { message: 'one' }],
+      [[{ message: 'a' }, { message: 'b' }], [{ message: 'a' }, { message: 'b' }]],
+      [{ entries: [{ message: 'c' }] }, [{ message: 'c' }]],
+    ] as const) {
+      const m = db(200, { accepted: 1, duplicates: 0, may_act: true })
+      vi.stubGlobal('fetch', m)
+      const res = await post(JSON.stringify(body))
+      expect(res.status).toBe(201)
+      expect(sent(m)).toEqual({ p_agent_key: 'act_agt_k', p_agent: 'AGT-0001', p_entries: entries })
+    }
+  })
+
+  it('refuses bad JSON, too much at once, and passes on the database\'s reason for a bad entry', async () => {
+    expect((await post('not json')).status).toBe(400)
+    expect((await post('"text"')).status).toBe(400)
+    expect((await post('{"entries": 3}')).status).toBe(422)
+    const big = await logs({ request: req('/x', { method: 'POST', headers: { ...auth, 'content-length': '2000000' }, body: '{}' }), params: { id: 'a' } })
+    expect(big.status).toBe(413)
+    vi.stubGlobal('fetch', db(400, { code: '23514', message: 'Entry 2: message is required' }))
+    const res = await post('[{"message": "a"}, {}]')
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: 'invalid_request', message: 'Entry 2: message is required' })
   })
 })

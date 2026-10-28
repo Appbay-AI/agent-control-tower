@@ -17,11 +17,11 @@ export function AgentsPage() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<AgentStatus | ''>('')
   const [risk, setRisk] = useState<RiskTier | ''>('')
-  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending'>('')
+  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent'>('')
 
   const { data, error, loading } = useAsync(async () => {
-    const [agents, departments, profiles, pending] = await Promise.all([
-      api.agents(), api.departments(), api.allProfiles(), api.pendingRegistrations(),
+    const [agents, departments, profiles, pending, alerts] = await Promise.all([
+      api.agents(), api.departments(), api.allProfiles(), api.pendingRegistrations(), api.openAlerts(),
     ])
     return {
       agents,
@@ -30,6 +30,8 @@ export function AgentsPage() {
       // Owners whose account was deactivated (e.g. left the bank): their agents count as having no owner.
       gone: new Set(profiles.filter((p) => !p.is_active).map((p) => p.id)),
       pending: new Set(pending.map((r) => r.agent_id)),
+      // Task 2.11: agents flagged by the silent-agent check.
+      silent: new Set(alerts.filter((al) => al.kind === 'agent_silent').map((al) => al.agent_id)),
     }
   })
 
@@ -45,6 +47,7 @@ export function AgentsPage() {
       if (flag === 'no_owner' && !(ownerMissing(a) && ['approved', 'live', 'suspended'].includes(a.status))) return false
       if (flag === 'overdue' && !isReviewOverdue(a.next_review_date, a.status)) return false
       if (flag === 'pending' && !data.pending.has(a.id)) return false
+      if (flag === 'silent' && !data.silent.has(a.id)) return false
       if (!q) return true
       return [a.name, a.agent_code, a.vendor_name, data.dept.get(a.department_id ?? ''), data.people.get(a.business_owner_id ?? '')]
         .some((v) => v?.toLowerCase().includes(q))
@@ -60,6 +63,7 @@ export function AgentsPage() {
       noOwner: agents.filter((a) => ownerMissing(a) && ['approved', 'live', 'suspended'].includes(a.status)).length,
       overdue: agents.filter((a) => isReviewOverdue(a.next_review_date, a.status)).length,
       pending: data?.pending.size ?? 0,
+      silent: data?.silent.size ?? 0,
     }
   }, [data])
 
@@ -74,12 +78,14 @@ export function AgentsPage() {
       />
 
       {data && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <Stat label="Active agents" value={counts.total} onClick={() => setFlag('')} active={flag === ''} />
           <Stat label="No owner" value={counts.noOwner} tone={counts.noOwner ? 'bad' : undefined}
             onClick={() => setFlag('no_owner')} active={flag === 'no_owner'} />
           <Stat label="Review overdue" value={counts.overdue} tone={counts.overdue ? 'warn' : undefined}
             onClick={() => setFlag('overdue')} active={flag === 'overdue'} />
+          <Stat label="Silent" value={counts.silent} tone={counts.silent ? 'bad' : undefined}
+            onClick={() => setFlag('silent')} active={flag === 'silent'} />
           <Stat label="Waiting for approval" value={counts.pending} onClick={() => setFlag('pending')} active={flag === 'pending'} />
         </div>
       )}
@@ -151,6 +157,7 @@ export function AgentsPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex flex-wrap gap-1">
                           <StatusBadge status={a.status} />
+                          {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}
                           {data.pending.has(a.id) && <span className="text-muted-foreground text-xs">awaiting approval</span>}
                         </div>
                       </td>
@@ -181,6 +188,7 @@ export function AgentsPage() {
                     <span className="text-muted-foreground">Level {a.autonomy_level}</span>
                     {ownerMissing(a) && <WarningBadge>No owner</WarningBadge>}
                     {isReviewOverdue(a.next_review_date, a.status) && <WarningBadge>Review overdue</WarningBadge>}
+                    {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}
                     {data.pending.has(a.id) && <span className="text-muted-foreground">· awaiting approval</span>}
                   </div>
                 </Link>
