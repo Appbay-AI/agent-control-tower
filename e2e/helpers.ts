@@ -33,12 +33,18 @@ export async function cardSeenAt(page: Page, text: string): Promise<number | nul
 export async function liveBreakdown(page: Page, text: string, raisedAt: number): Promise<string> {
   const t = await page.evaluate((x) => {
     const at = (n: string) => performance.getEntriesByName(n).map((e) => performance.timeOrigin + e.startTime)
-    return { events: at('act:live-event'), loads: at('act:live-loaded'),
+    const reads = (performance.getEntriesByType('resource') as PerformanceResourceTiming[])
+      .filter((r) => r.name.includes('/rest/v1/'))
+      .map((r) => ({ what: r.name.split('/rest/v1/')[1].split('?')[0], start: performance.timeOrigin + r.startTime, ms: r.duration }))
+    return { events: at('act:live-event'), loads: at('act:live-loaded'), reads,
       seen: (window as unknown as { __actSeen?: Record<string, number> }).__actSeen?.[x] ?? null }
   }, text)
   if (t.seen === null) return 'card not seen'
   const event = t.events.find((e) => e >= raisedAt - 1000 && e <= t.seen!)
   const load = t.loads.filter((l) => l <= t.seen! + 5).pop()
   const ms = (a?: number, b?: number) => (a !== undefined && b !== undefined ? `${Math.round(b - a)} ms` : '?')
-  return `realtime message ${ms(raisedAt, event)}, list re-read ${ms(event, load)}, screen ${ms(load, t.seen)}`
+  // The database reads made for that re-read, slowest first.
+  const reads = event === undefined || load === undefined ? [] : t.reads.filter((r) => r.start >= event && r.start <= load)
+    .sort((a, b) => b.ms - a.ms).slice(0, 3).map((r) => `${r.what} ${Math.round(r.ms)}`)
+  return `realtime message ${ms(raisedAt, event)}, list re-read ${ms(event, load)} [${reads.join(', ')}], screen ${ms(load, t.seen)}`
 }
