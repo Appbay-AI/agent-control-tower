@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { cardSeenAt, watchForCard } from './helpers.js'
+import { cardSeenAt, liveBreakdown, watchForCard } from './helpers.js'
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 // A key for the Payment Release Assistant, made by the e2e workflow for this run and revoked after it.
@@ -43,9 +43,10 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
 
   await expect(card).toBeVisible({ timeout: 10_000 })
   const took = (await cardSeenAt(page, stamp))! - raisedAt
-  info.annotations.push({ type: 'appeared after', description: `${took} ms` })
-  console.log(`[${info.project.name}] task appeared ${took} ms after it was raised`)
-  expect(took, `task appeared after ${took} ms`).toBeLessThanOrEqual(WITHIN_MS)
+  const parts = await liveBreakdown(page, stamp, raisedAt)
+  info.annotations.push({ type: 'appeared after', description: `${took} ms (${parts})` })
+  console.log(`[${info.project.name}] task appeared ${took} ms after it was raised (${parts})`)
+  expect(took, `task appeared after ${took} ms (${parts})`).toBeLessThanOrEqual(WITHIN_MS)
   expect(reloaded, 'the page must not reload').toBe(false)
 
   // It is marked new, and the Approvals link shows a count (other tests may add tasks at the same time, so not an exact number).

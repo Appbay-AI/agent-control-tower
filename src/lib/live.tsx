@@ -59,6 +59,14 @@ export function trackFresh(fresh: Map<string, number>, previous: Set<string> | n
   return next
 }
 
+/**
+ * Timing marks for the browser tests (task 2.12): when a change arrived from Realtime, and when the list had been
+ * read again. Visible in the browser's performance timeline; nothing is sent anywhere.
+ */
+function mark(name: 'act:live-event' | 'act:live-loaded') {
+  try { performance.mark(name) } catch { /* old browsers */ }
+}
+
 type LiveState = {
   status: LiveStatus
   /** Goes up by one each time something changed; pages that show one item reload on it. */
@@ -104,7 +112,7 @@ export function LiveProvider({ withApprovals, children }: { withApprovals: boole
     let confirm: ReturnType<typeof setTimeout> | null = null
     let channel = client.channel(`approvals-live:${userId}`)
     for (const table of LIVE_TABLES) {
-      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, changed)
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => { mark('act:live-event'); changed() })
     }
     channel = channel.on('system', {}, (p: { extension?: string; status?: string }) => {
       if (p?.extension === 'postgres_changes' && confirm) { clearTimeout(confirm); confirm = null }
@@ -144,7 +152,12 @@ export function LiveProvider({ withApprovals, children }: { withApprovals: boole
   // The approvals list, read again after every change.
   const enabled = withApprovals && !!userId
   const { data, error, loading, reload } = useAsync(
-    async () => (enabled ? loadApprovals({ userId: userId!, roles, scopeDepartmentIds }) : null),
+    async () => {
+      if (!enabled) return null
+      const a = await loadApprovals({ userId: userId!, roles, scopeDepartmentIds })
+      mark('act:live-loaded')
+      return a
+    },
     [enabled, userId, roles.join(), scopeDepartmentIds.join()],
   )
   // eslint-disable-next-line react-hooks/exhaustive-deps

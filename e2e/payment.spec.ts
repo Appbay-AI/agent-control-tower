@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from '@playwright/test'
-import { cardSeenAt, watchForCard } from './helpers.js'
+import { cardSeenAt, liveBreakdown, watchForCard } from './helpers.js'
 
 // Task 2.12: the £2m payment, start to finish, on desktop and on a phone, in one story. This is the demo the client
 // will see, run against the real site and database on every change (the e2e workflow runs after each deploy of main).
@@ -83,7 +83,7 @@ test('the £2m payment, start to finish: the agent asks, two approvers decide on
     const card = page.getByTestId('request-card').filter({ hasText: stamp })
     await expect(card).toBeVisible({ timeout: 10_000 })
     const appeared = (await cardSeenAt(page, stamp))! - raisedAt
-    timings.push(`appeared ${appeared} ms`)
+    timings.push(`appeared ${appeared} ms (${await liveBreakdown(page, stamp, raisedAt)})`)
     expect(reloaded, 'the list must update without a page load').toBe(false)
     await expect(card.getByText('New', { exact: true })).toBeVisible()
     await expect(card.getByTestId('four-eyes')).toHaveText(/Four-eyes · 0 of 2/)
@@ -91,7 +91,7 @@ test('the £2m payment, start to finish: the agent asks, two approvers decide on
     // 5. Ravi reads it: what, how much, why, why it needs a person, by when, and who was told.
     await card.click()
     await expect(page.getByTestId('request-headline')).toHaveText(`${AGENT} wants to release £2,000,000 to supplier ${supplier}`)
-    await expect(page.getByText('£2,000,000', { exact: true })).toBeVisible()
+    await expect(page.getByText('£2,000,000', { exact: true }).first()).toBeVisible()
     await expect(page.getByText(/Invoice HS-48817 for the Q4 steel order is due today/)).toBeVisible()
     await expect(page.getByText(/outside its limits/)).toBeVisible()
     await expect(page.getByText(/Assigned to/)).toContainText('Ravi Menon')
