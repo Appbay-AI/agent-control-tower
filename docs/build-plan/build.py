@@ -176,7 +176,7 @@ PROGRESS = [
     ('Phase 1 — Registry', '5–9 Oct', ('Done', 'done'), 'Plus a Users screen (1.9), not in the original plan.'),
     ('Go/no-go gate', '12–14 Oct', ('Go', 'done'), 'Microsoft Copilot scope added.'),
     ('Phase 2 — Approval engine', '15–28 Oct', ('In progress', 'now'),
-     '2.1 to 2.12 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.9 are on the client demo (released 26 Oct), with the £2m payment request waiting for Ravi Menon; phone alerts were confirmed on a real phone. 2.7 (approval emails) works in temporary mode until the email domain is verified. 2.10 (four-eyes and bulk approval) is on the work-in-progress site; 2.11 (log API and silent-agent check) is on the work-in-progress site; 2.12 (the £2m payment test on desktop and phone) is built and passing, waiting to be merged. That completes Phase 2. Next: Phase 3, starting with the Microsoft spike (3.1).'),
+     '2.1 to 2.12 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.9 are on the client demo (released 26 Oct), with the £2m payment request waiting for Ravi Menon; phone alerts were confirmed on a real phone. 2.7 (approval emails) works in temporary mode until the email domain is verified. 2.10 (four-eyes and bulk approval) is on the work-in-progress site; 2.11 (log API and silent-agent check) is on the work-in-progress site; 2.12 (the £2m payment test on desktop and phone) passes there on every change. Phase 2 is complete. Next: Phase 3, starting with the Microsoft spike (3.1).'),
     ('Phases 3–7', '29 Oct – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 
