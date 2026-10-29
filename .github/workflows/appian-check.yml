@@ -18,8 +18,19 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
       - name: Acceptance checks
         env:
           APPIAN_BASE: ${{ github.event.inputs.site }}
           APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
         run: node scripts/appian-check.mjs
+      # Task 3.2: Control Tower's own Appian plug-in must pass the platform contract against the real simulator.
+      # Blocks NAP-001 briefly and puts it back as it was.
+      - run: npm ci
+        if: ${{ !cancelled() }}
+      - name: Plug-in contract against the simulator
+        if: ${{ !cancelled() }}
+        env:
+          APPIAN_BASE: ${{ github.event.inputs.site }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: npx vitest run functions/platforms.test.ts --reporter=verbose
