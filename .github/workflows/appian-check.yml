@@ -33,4 +33,12 @@ jobs:
         env:
           APPIAN_BASE: ${{ github.event.inputs.site }}
           APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
-        run: npx vitest run functions/platforms.test.ts --reporter=verbose
+        run: |
+          npx vitest run functions/platforms.test.ts --reporter=verbose --reporter=json --outputFile=contract.json || true
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('contract.json', 'utf8'));
+            const live = r.testResults.flatMap((f) => f.assertionResults).filter((t) => t.ancestorTitles.some((a) => a.includes('real simulator')));
+            const ok = live.filter((t) => t.status === 'passed').length;
+            for (const t of live.filter((t) => t.status !== 'passed')) console.log('::error title=Contract ' + t.status + '::' + t.title + ': ' + (t.failureMessages[0] || '').split('\n')[0].slice(0, 300));
+            console.log('::notice title=Plug-in contract against the real simulator::' + ok + ' of ' + live.length + ' passed; all tests ' + r.numPassedTests + ' passed, ' + r.numFailedTests + ' failed');
+            process.exit(r.success && live.length > 0 && ok === live.length ? 0 : 1);"
