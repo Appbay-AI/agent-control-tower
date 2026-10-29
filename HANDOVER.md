@@ -355,7 +355,7 @@ Example for 2.4 (from the user's own wording): "FX agent wants to release £2m t
 
 Next steps, in order:
 1. Release 2.10 to 2.12 to demo when the user says so (migrations → demo, fast-forward `demo`, then *Seed demo data* → demo with reset: four-eyes on Hartwell, the rota bulk demo, the silent Cash Forecast Agent, the £2m payment's log).
-2. Phase 3 starts with **3.1, the Microsoft spike**, which needs the user (a free Microsoft 365 trial tenant, an app registration's tenant ID and client ID, and a device-code sign-in). 3.2 (platform plug-in interface, Appian simulator first) can start without it.
+2. **Decision (29 Oct, user's go-ahead): 3.1, the Microsoft spike, is deferred** (no Microsoft 365 trial for now). Phase 3 proceeds with **3.2 on the Appian simulator only**. The Microsoft plug-in is built later, to Microsoft's documented APIs, and verified against a client tenant in the pilot. Planned dates in the build plan are unchanged. Revisit 3.1 if a Microsoft test tenant becomes available. The trial's limits (no publishing, so no test of blocking published agents) are noted as the reason to verify on a client tenant.
 
 Earlier, not yet done:
 - **Task 0.6**: email DNS for `notify.appbaytech.com` at **Hostinger** (hPanel → the domain → DNS zone editor). Steps given to the user on 26 Oct: the domain is added in Resend (region Tokyo, receiving off); copy its 3 records into Hostinger (or use Resend's "Go to Hostinger" button) (Name = only the part before `.appbaytech.com`, e.g. `send.notify`), then Verify in Resend. Hostinger records only work if appbaytech.com uses Hostinger's nameservers; the sandbox cannot do DNS lookups to check. Needs whoever holds the Hostinger login, or a screenshot of the Resend records.
