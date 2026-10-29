@@ -51,6 +51,16 @@ describe('four-eyes and bulk approval (task 2.10)', () => {
   const row = async (id: string) => (await db.query<Row>(
     `select status, required_approvals, assigned_to, decision_reason, routing_note, decided_by from public.action_requests where id = $1`, [id])).rows[0]
 
+  it('approvals are visible to those who can see the request, and to nobody else', async () => {
+    const { request_id: id } = await ask(await liveAgent('critical'))
+    await decide(u.ravi, id, 'approve', 'Invoice checked')
+    const seen = (who: string) => asUser(db, who, async (tx) => (await tx.query<{ note: string }>(
+      `select note from public.action_request_approvals where request_id = $1`, [id])).rows.map((r) => r.note))
+    expect(await seen(u.daniel)).toEqual(['Invoice checked'])
+    expect(await seen(u.omar)).toEqual([]) // Operations approver: cannot see a Payments agent's request
+    await expect(asRole(db, 'anon', (tx) => tx.query(`select * from public.action_request_approvals`))).rejects.toThrow(/permission denied/)
+  })
+
   it('a Critical agent\'s action needs two approvals; other agents need one', async () => {
     expect((await row((await ask(await liveAgent('critical'))).request_id)).required_approvals).toBe(2)
     expect((await row((await ask(await liveAgent('medium'))).request_id)).required_approvals).toBe(1)
