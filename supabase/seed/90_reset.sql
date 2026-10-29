@@ -17,7 +17,8 @@ alter table public.audit_events disable trigger audit_events_no_update;
 alter table public.audit_events disable trigger audit_events_no_truncate;
 
 -- Alert history goes with the requests it was about; people's devices (push_subscriptions) are kept.
-truncate public.agent_logs, public.agent_contact, public.action_request_approvals,public.demo_agent_events, public.callback_outbox, public.email_outbox, public.push_outbox, public.push_dispatch_tokens, public.routing_rules, public.action_requests, public.alerts, public.agent_reviews, public.registration_decisions,
+-- Agents found on platforms (task 3.3) go too; the next sync finds them again.
+truncate public.platform_agents, public.agent_logs, public.agent_contact, public.action_request_approvals,public.demo_agent_events, public.callback_outbox, public.email_outbox, public.push_outbox, public.push_dispatch_tokens, public.routing_rules, public.action_requests, public.alerts, public.agent_reviews, public.registration_decisions,
          public.agent_registrations, public.agent_api_keys, public.agents, public.audit_events
   restart identity;
 alter sequence public.agent_code_seq restart;

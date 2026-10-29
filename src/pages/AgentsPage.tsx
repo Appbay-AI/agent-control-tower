@@ -2,6 +2,7 @@ import { Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
+import { PlatformAgents } from '@/components/PlatformAgents'
 import { ErrorBox, LoadingRows, PageHeader, selectClass } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -197,6 +198,8 @@ export function AgentsPage() {
           </ul>
         </>
       )}
+
+      {data && <PlatformAgents query={query} agentCodes={new Map(data.agents.map((a) => [a.id, a.agent_code]))} />}
     </div>
   )
 }

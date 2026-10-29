@@ -210,20 +210,39 @@ export interface PlatformConnection {
   name: string
   base_url: string
   secret_set_at: string | null
+  /** Task 3.3: fetch the agent list this often; null = automatic sync off. */
+  sync_every_minutes: number | null
   created_at: string
+}
+
+/** Task 3.3: an agent as a connected platform lists it. */
+export interface PlatformAgentRow {
+  id: string
+  connection_id: string
+  external_id: string
+  name: string
+  status: 'active' | 'blocked'
+  owner_email: string | null
+  owner_name: string | null
+  department: string | null
+  environment: string | null
+  agent_id: string | null
+  first_seen_at: string
+  last_seen_at: string
+  missing_since: string | null
 }
 
 /** Task 3.2: work our API did on a platform, such as "Test connection". */
 export interface PlatformJob {
   id: number
   connection_id: string
-  kind: 'check'
+  kind: 'check' | 'sync'
   created_at: string
   claimed_at: string | null
   finished_at: string | null
   ok: boolean | null
   message: string | null
-  result: { agents?: number; blocked?: number; ownerless?: number; names?: string[]; error?: string } | null
+  result: { agents?: number; blocked?: number; ownerless?: number; names?: string[]; error?: string; new?: number; missing?: number } | null
 }
 
 export interface RoutingRule {

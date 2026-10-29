@@ -280,19 +280,24 @@ describe.runIf(LIVE_BASE && LIVE_KEY)('Appian plug-in against the real simulator
 describe('platform jobs run by our API', () => {
   const TOKEN = 'pjt_' + 'a'.repeat(64)
   /** Supabase (claim and report) and the stand-in Appian simulator, behind one fetch. */
-  function world(secret: string) {
+  function world(secret: string, kind = 'check', applyAnswer: Response | null = null) {
     const appian = fakeAppian()
     const reports: Record<string, unknown>[] = []
+    const applied: { p_token: string; p_agents: { externalId: string; status: string }[] }[] = []
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/rpc/platform_job_claim')) {
-        return new Response(JSON.stringify({ job: 7, kind: 'check',
+        return new Response(JSON.stringify({ job: 7, kind,
           connection: { id: 'c1', kind: 'appian_simulator', name: 'Northbridge Agent Platform (simulated)', base_url: SITE, secret } }), { status: 200 })
       }
       if (url.endsWith('/rpc/platform_job_report')) { reports.push(JSON.parse(String(init?.body))); return new Response('null', { status: 200 }) }
+      if (url.endsWith('/rpc/platform_sync_apply')) {
+        applied.push(JSON.parse(String(init?.body)))
+        return applyAnswer ?? new Response(JSON.stringify({ agents: 3, new: 1, status_changed: 0, back: 0, missing: 1, blocked: 1 }), { status: 200 })
+      }
       return appian.fetch(input, init)
     }) as unknown as typeof fetch
-    return { fetchImpl, reports }
+    return { fetchImpl, reports, applied }
   }
 
   it('checks the connection and reports how many agents it found', async () => {
@@ -311,6 +316,29 @@ describe('platform jobs run by our API', () => {
     const out = await runPlatformJob(TOKEN, w.fetchImpl)
     expect(out).toEqual({ ok: false, message: 'The Appian simulator refused the API key (HTTP 401).', result: { error: 'unauthorized', http_status: 401 } })
     expect(JSON.stringify(w.reports)).not.toContain('wrong-key')
+  })
+
+  it('a sync hands every agent to the database, in Control Tower words, and reports what changed', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const w = world(KEY, 'sync')
+    const out = await runPlatformJob(TOKEN, w.fetchImpl)
+    expect(w.applied).toHaveLength(1)
+    expect(w.applied[0].p_token).toBe(TOKEN)
+    expect(w.applied[0].p_agents.map((a) => [a.externalId, a.status])).toEqual([['NAP-001', 'active'], ['NAP-004', 'active'], ['NAP-007', 'blocked']])
+    expect(out).toEqual({ ok: true, message: 'Synced 3 agents from Northbridge Agent Platform (simulated): 1 new, 1 missing at source',
+      result: { agents: 3, new: 1, status_changed: 0, back: 0, missing: 1, blocked: 1 } })
+    expect(w.reports[0]).toMatchObject({ p_ok: true, p_message: out!.message })
+  })
+
+  it('a sync that the platform or the database refuses is reported as failed, and nothing is half-stored', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const refused = world('wrong-key', 'sync')
+    expect(await runPlatformJob(TOKEN, refused.fetchImpl)).toMatchObject({ ok: false, result: { error: 'unauthorized' } })
+    expect(refused.applied).toHaveLength(0) // a failed list never marks agents missing
+    const dbSaysNo = world(KEY, 'sync', new Response(JSON.stringify({ code: '23514', message: 'Agent NAP-001 is listed twice' }), { status: 400 }))
+    expect(await runPlatformJob(TOKEN, dbSaysNo.fetchImpl)).toEqual({ ok: false,
+      message: 'The agent list could not be stored: Agent NAP-001 is listed twice', result: { error: 'store_failed' } })
+    expect(dbSaysNo.reports[0]).toMatchObject({ p_ok: false })
   })
 
   it('does nothing when the token is refused', async () => {
