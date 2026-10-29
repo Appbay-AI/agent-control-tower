@@ -1,5 +1,6 @@
 import { Copy, KeyRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { PlatformConnections } from '@/components/PlatformConnections'
 import { ErrorBox, LoadingRows, PageHeader } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -39,6 +40,9 @@ export function IntegrationsPage() {
       <PageHeader title="Integrations"
         subtitle="Integration keys let an agent platform register agents through the API. Each agent then gets its own key." />
 
+      <PlatformConnections />
+
+      <h2 className="font-semibold">Integration keys</h2>
       <form onSubmit={create} className="bg-card flex flex-col gap-2 rounded-lg border p-4 sm:flex-row">
         <Input placeholder="Who will use this key, e.g. LangChain platform" value={name} onChange={(e) => setName(e.target.value)}
           aria-label="Key name" />

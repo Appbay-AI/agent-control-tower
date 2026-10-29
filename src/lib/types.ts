@@ -203,6 +203,29 @@ export interface IntegrationKey {
   last_used_at: string | null
 }
 
+/** Task 3.2: a connection to an agent platform (its secret never leaves the database). */
+export interface PlatformConnection {
+  id: string
+  kind: 'appian_simulator'
+  name: string
+  base_url: string
+  secret_set_at: string | null
+  created_at: string
+}
+
+/** Task 3.2: work our API did on a platform, such as "Test connection". */
+export interface PlatformJob {
+  id: number
+  connection_id: string
+  kind: 'check'
+  created_at: string
+  claimed_at: string | null
+  finished_at: string | null
+  ok: boolean | null
+  message: string | null
+  result: { agents?: number; blocked?: number; ownerless?: number; names?: string[]; error?: string } | null
+}
+
 export interface RoutingRule {
   id: string
   name: string

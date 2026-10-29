@@ -112,3 +112,15 @@ jobs:
           cat out.log
           echo "::notice title=Phone alerts::$(grep '^Alerts:' out.log | tail -n 1)"
           echo "::notice title=Email::$(grep '^Email:' out.log | tail -n 1)"
+      # Task 3.2: the connection to the Appian agent-platform simulator. The API key comes from the repository secret
+      # APPIAN_API_KEY and goes straight into the database; the site address from the variable APPIAN_BASE if set.
+      - name: Platform connections
+        env:
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+          APPIAN_BASE: ${{ vars.APPIAN_BASE }}
+        run: |
+          [ -n "$SUPABASE_DB_URL" ] || { echo "::warning title=Platforms::SUPABASE_DB_URL is not set, so the platform connection was not stored"; exit 0; }
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          node scripts/platform-setup.mjs > out.log 2>&1 || { cat out.log; echo "::error title=Platform connections::$(tail -n 3 out.log | tr '\n' ' ')"; exit 1; }
+          cat out.log
+          echo "::notice title=Platforms::$(grep '^Platforms:' out.log | tail -n 1)"

@@ -273,3 +273,59 @@ describe.runIf(LIVE_BASE && LIVE_KEY)('Appian plug-in against the real simulator
     wrongCredentials: pluginFor({ id: 'live', kind: 'appian_simulator', base_url: LIVE_BASE, secret: 'not-a-real-key' }),
   }))
 })
+
+// ---------------------------------------------------------------------------------------------------------------
+// Running a job handed over by the database ("Test connection")
+// ---------------------------------------------------------------------------------------------------------------
+describe('platform jobs run by our API', () => {
+  const TOKEN = 'pjt_' + 'a'.repeat(64)
+  /** Supabase (claim and report) and the stand-in Appian simulator, behind one fetch. */
+  function world(secret: string) {
+    const appian = fakeAppian()
+    const reports: Record<string, unknown>[] = []
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/rpc/platform_job_claim')) {
+        return new Response(JSON.stringify({ job: 7, kind: 'check',
+          connection: { id: 'c1', kind: 'appian_simulator', name: 'Northbridge Agent Platform (simulated)', base_url: SITE, secret } }), { status: 200 })
+      }
+      if (url.endsWith('/rpc/platform_job_report')) { reports.push(JSON.parse(String(init?.body))); return new Response('null', { status: 200 }) }
+      return appian.fetch(input, init)
+    }) as unknown as typeof fetch
+    return { fetchImpl, reports }
+  }
+
+  it('checks the connection and reports how many agents it found', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const w = world(KEY)
+    const out = await runPlatformJob(TOKEN, w.fetchImpl)
+    expect(out).toMatchObject({ ok: true,
+      message: 'Connected to Northbridge Agent Platform (simulated): 3 agents found (1 blocked, 1 without an owner)' })
+    expect(w.reports).toEqual([{ p_token: TOKEN, p_ok: true, p_message: out!.message,
+      p_result: { agents: 3, blocked: 1, ownerless: 1, names: ['NAP-001 Agent NAP-001', 'NAP-004 Agent NAP-004', 'NAP-007 Agent NAP-007'] } }])
+  })
+
+  it('reports a refused key plainly, without the key', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const w = world('wrong-key')
+    const out = await runPlatformJob(TOKEN, w.fetchImpl)
+    expect(out).toEqual({ ok: false, message: 'The Appian simulator refused the API key (HTTP 401).', result: { error: 'unauthorized', http_status: 401 } })
+    expect(JSON.stringify(w.reports)).not.toContain('wrong-key')
+  })
+
+  it('does nothing when the token is refused', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ code: '28000', message: 'Invalid or used job token' }), { status: 401 }))
+    expect(await runPlatformJob(TOKEN, fetchImpl as unknown as typeof fetch)).toBeNull()
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('the endpoint only accepts a job token, and answers at once', async () => {
+    const { onRequestPost } = await import('./api/v1/platforms/run')
+    const later: Promise<unknown>[] = []
+    const post = (body: unknown) => onRequestPost({ request: new Request('https://x.test/api/v1/platforms/run', { method: 'POST', body: JSON.stringify(body) }),
+      waitUntil: (p) => { later.push(p) } })
+    expect((await post({ token: 'pdt_' + 'a'.repeat(64) })).status).toBe(400)
+    expect(later).toHaveLength(0)
+  })
+})

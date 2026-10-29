@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  BulkResult, RequestApproval, SlaSetting, UserDraft, UserRow,
+  BulkResult, PlatformConnection, PlatformJob, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -15,7 +15,9 @@ const REQUEST_COLUMNS = 'id, request_code, agent_id, action, description, target
   + 'decided_by, decided_at, requested_at, assigned_to, routing_note, hold_reason, escalated_by, escalated_at, escalation_reason, '
   + 'due_at, sla_minutes, sla_escalate_to, sla_escalated_at, required_approvals'
 
-const NOT_VISIBLE = "This record doesn't exist, or you don't have access to it."
+const PLATFORM_JOB_COLUMNS = 'id, connection_id, kind, created_at, claimed_at, finished_at, ok, message, result'
+
+const NOT_VISIBLE ="This record doesn't exist, or you don't have access to it."
 
 /** Throws the database's own message (our SQL raises plain-English errors). */
 function check<T>(res: { data: T | null; error: { message: string; code?: string } | null }): T {
@@ -103,6 +105,17 @@ export const api = {
     check(await db().from('integration_keys').select('id, name, key_prefix, created_at, revoked_at, last_used_at')
       .order('created_at', { ascending: false })) as IntegrationKey[],
   createIntegrationKey: async (name: string) => check(await db().rpc('create_integration_key', { p_name: name })) as string,
+  /** Task 3.2: platform connections (admins only; others get an empty list). */
+  platformConnections: async () =>
+    check(await db().from('platform_connections').select('id, kind, name, base_url, secret_set_at, created_at').order('name')) as PlatformConnection[],
+  /** The latest job on a connection, if any. */
+  latestPlatformJob: async (connectionId: string) =>
+    check(await db().from('platform_jobs').select(PLATFORM_JOB_COLUMNS).eq('connection_id', connectionId)
+      .order('id', { ascending: false }).limit(1).maybeSingle()) as PlatformJob | null,
+  platformJob: async (id: number) =>
+    check(await db().from('platform_jobs').select(PLATFORM_JOB_COLUMNS).eq('id', id).single()) as PlatformJob,
+  startPlatformCheck: async (connectionId: string) =>
+    check(await db().rpc('platform_job_start', { p_connection: connectionId, p_kind: 'check' })) as number,
   users: async () => check(await db().rpc('admin_list_users')) as UserRow[],
   createUser: async (d: UserDraft) =>
     check(await db().rpc('admin_create_user', {
