@@ -398,7 +398,7 @@ Example for 2.4 (from the user's own wording): "FX agent wants to release £2m t
 
 | Task | What | Status |
 |---|---|---|
-| 3.1 | Microsoft spike | **Deferred** (user's decision, 29 Oct): no Microsoft 365 trial for now |
+| 3.1 | Microsoft spike | **Not doing for now** (user's decision, 30 Oct): Appian-only. Tried on 30 Oct in a colleague's Microsoft 365 account (arpitkhandelwalappbaytech.onmicrosoft.com, Global admin Arpit Khandelwal): a separate Trial environment "ACT test" with Dataverse could not be created ("A self-service signup plan is required": the user had no Power Platform trial licence, and no self-service trial was offered). The user then decided to drop Microsoft and keep the Appian approach. Nothing was billed or linked to Azure; no app registration was made. If resumed: own user with Power Platform Administrator role, a Copilot Studio or Power Apps trial licence on it, Trial environment with Dataverse and a security group, no pay-as-you-go billing plan, and point the spike only at that environment's ID |
 | 3.2 | Platform plug-in interface | **Done for Appian**, on main (29 Oct) and demo (30 Oct); Microsoft plug-in not built |
 | 3.3 | Scheduled fetch and Sync now | **Done**, on main and demo (30 Oct); every **30 minutes** by default (user's decision, not 5) |
 | 3.4 | Capture platform fields | Skipped for now: Appian fields are already stored (`platform_agents.details`); the rest is Microsoft/Entra (waits for 3.1) |
