@@ -215,6 +215,20 @@ export interface PlatformConnection {
   created_at: string
 }
 
+/** Task 3.5: where a registry agent was found (for its page). */
+export interface PlatformRecord {
+  platform: string
+  kind: string
+  external_id: string
+  status: 'active' | 'blocked'
+  environment: string | null
+  owner_email: string | null
+  department: string | null
+  first_seen_at: string
+  last_seen_at: string
+  missing_since: string | null
+}
+
 /** Task 3.3: an agent as a connected platform lists it. */
 export interface PlatformAgentRow {
   id: string

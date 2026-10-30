@@ -22,6 +22,11 @@ export function RegistrationBadge({ status }: { status: RegistrationStatus }) {
   return <span className={cn(pill, style[status])}>{REGISTRATION_LABEL[status]}</span>
 }
 
+/** Task 3.5: found on an agent platform and not yet approved in Control Tower. */
+export function DiscoveredBadge() {
+  return <span className={cn(pill, 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200')}>Discovered</span>
+}
+
 export function WarningBadge({ children }: { children: React.ReactNode }) {
   return <span className={cn(pill, 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200')}>{children}</span>
 }

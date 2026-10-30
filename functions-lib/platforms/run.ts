@@ -20,7 +20,7 @@ async function check(connection: Claimed['connection'], fetchImpl: typeof fetch)
   }
 }
 
-interface SyncCounts { agents: number; new: number; status_changed: number; back: number; missing: number; blocked: number }
+interface SyncCounts { agents: number; new: number; status_changed: number; back: number; missing: number; blocked: number; registered?: number; linked?: number }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 
@@ -35,7 +35,8 @@ async function sync(token: string, connection: Claimed['connection'], fetchImpl:
   }
   const c = stored.data
   const changes = [c.new && `${c.new} new`, c.status_changed && `${plural(c.status_changed, 'status change')}`,
-    c.missing && `${c.missing} missing at source`, c.back && `${c.back} back`].filter(Boolean)
+    c.missing && `${c.missing} missing at source`, c.back && `${c.back} back`,
+    c.registered && `${c.registered} added to the registry as Discovered`, c.linked && `${c.linked} linked to the registry`].filter(Boolean)
   return {
     ok: true,
     message: `Synced ${plural(c.agents, 'agent')} from ${plugin.label}: ${changes.length ? changes.join(', ') : 'no changes'}`,

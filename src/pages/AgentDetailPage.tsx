@@ -2,7 +2,7 @@ import { ArrowLeft, Copy, KeyRound, Pencil, Rocket, Send } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
-import { RegistrationBadge, RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
+import { DiscoveredBadge, RegistrationBadge, RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -28,16 +28,16 @@ export function AgentDetailPage() {
   const [newKey, setNewKey] = useState<string | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs] = await Promise.all([
+    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform] = await Promise.all([
       api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
-      api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!),
+      api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!), api.platformRecord(id!),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
     const keys = canSeeKeys ? await api.apiKeys(id!) : []
     const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
-      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs,
+      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform,
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
     }
@@ -54,7 +54,7 @@ export function AgentDetailPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform } = data
   const silent = alerts.some((al) => al.kind === 'agent_silent')
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
@@ -91,6 +91,7 @@ export function AgentDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{a.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <StatusBadge status={a.status} />
+            {a.registration_source === 'discovered' && a.status === 'proposed' && <DiscoveredBadge />}
             <RiskBadge tier={a.risk_tier} />
             <span className="text-muted-foreground text-xs">Level {a.autonomy_level} · {AUTONOMY[a.autonomy_level].name}</span>
             {(!a.business_owner_id || people.get(a.business_owner_id)?.is_active === false) && <WarningBadge>No business owner</WarningBadge>}
@@ -199,6 +200,25 @@ export function AgentDetailPage() {
               <Field label="Cost centre">{a.cost_centre ?? department?.cost_centre ?? '—'}</Field>
             </dl>
           </Card>
+          {platform && (
+            <Card title="On an agent platform">
+              <dl className="space-y-3" data-testid="platform-record">
+                <Field label="Platform">{platform.platform}</Field>
+                <Field label="Its id there"><span className="font-mono">{platform.external_id}</span>{platform.environment ? ` · ${platform.environment}` : ''}</Field>
+                <Field label="Status there">
+                  {platform.status === 'blocked' ? 'Blocked on the platform' : 'Active on the platform'}
+                  {platform.missing_since && <> <WarningBadge>Missing at source</WarningBadge></>}
+                </Field>
+                <Field label="Owner there">{platform.owner_email ?? <WarningBadge>None</WarningBadge>}{platform.department ? ` · ${platform.department}` : ''}</Field>
+                <Field label="Seen">
+                  First {formatDateTime(platform.first_seen_at)}
+                  <div className="text-muted-foreground text-xs">
+                    {platform.missing_since ? `Not listed since ${formatDateTime(platform.missing_since)}` : `Last listed ${formatDateTime(platform.last_seen_at)}`}
+                  </div>
+                </Field>
+              </dl>
+            </Card>
+          )}
           <Card title="Check-ins">
             <CheckinsBody key={a.silent_after_minutes ?? 'off'} limit={a.silent_after_minutes} contact={contact} live={a.status === 'live'}
               canChange={perms.canManageKeys && a.status !== 'retired'}
@@ -209,7 +229,7 @@ export function AgentDetailPage() {
               <Field label="Approved">{a.approved_at ? `${formatDate(a.approved_at)} by ${name(a.approved_by) ?? '—'}` : '—'}</Field>
               <Field label="Last review">{formatDate(a.last_review_date)}</Field>
               <Field label="Next review"><span className={overdue ? 'font-medium text-red-700 dark:text-red-400' : ''}>{formatDate(a.next_review_date)}{overdue && ' (overdue)'}</span></Field>
-              <Field label="Registered">{formatDate(a.created_at)} · {a.registration_source === 'api' ? 'via API' : a.registration_source === 'discovered' ? 'discovered unregistered' : 'manually'}</Field>
+              <Field label="Registered">{formatDate(a.created_at)} · {a.registration_source === 'api' ? 'via API' : a.registration_source === 'discovered' ? (platform ? `found on ${platform.platform}` : 'discovered unregistered') : 'manually'}</Field>
             </dl>
           </Card>
           <Card title="Identity">

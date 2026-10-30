@@ -146,7 +146,7 @@ describe('platform sync (task 3.3)', () => {
   it('Sync now stores every agent the platform listed, and records each new one in the audit trail', async () => {
     await syncNow()
     expect(await run([agent('NAP-001'), agent('NAP-004'), agent('NAP-007', 'blocked')]))
-      .toEqual({ agents: 3, new: 3, status_changed: 0, back: 0, missing: 0, blocked: 1 })
+      .toMatchObject({ agents: 3, new: 3, status_changed: 0, back: 0, missing: 0, blocked: 1 })
     expect(await stored()).toEqual([
       { external_id: 'NAP-001', status: 'active', missing: false, owner_email: 'lucy.grant@northbridge.demo' },
       { external_id: 'NAP-004', status: 'active', missing: false, owner_email: null },
@@ -162,11 +162,11 @@ describe('platform sync (task 3.3)', () => {
   it('the next sync notices new, changed, missing and returning agents', async () => {
     await syncNow()
     expect(await run([agent('NAP-001', 'blocked', { statusChangedBy: 'appian.admin' }), agent('NAP-007', 'blocked'), agent('NAP-009')]))
-      .toEqual({ agents: 3, new: 1, status_changed: 1, back: 0, missing: 1, blocked: 2 })
+      .toMatchObject({ agents: 3, new: 1, status_changed: 1, back: 0, missing: 1, blocked: 2 })
     expect((await stored()).find((a) => a.external_id === 'NAP-004')).toMatchObject({ missing: true })
     await syncNow()
     expect(await run([agent('NAP-001'), agent('NAP-004'), agent('NAP-007', 'blocked'), agent('NAP-009')]))
-      .toEqual({ agents: 4, new: 0, status_changed: 1, back: 1, missing: 0, blocked: 1 })
+      .toMatchObject({ agents: 4, new: 0, status_changed: 1, back: 1, missing: 0, blocked: 1 })
     expect((await audit()).slice(3).map((a) => [a.action, a.summary])).toEqual([
       ['platform_agents.status_changed', 'NAP-001 Agent NAP-001 is blocked on Northbridge Agent Platform (simulated) (was active) by appian.admin'],
       ['platform_agents.discovered', 'NAP-009 Agent NAP-009 found on Northbridge Agent Platform (simulated)'],

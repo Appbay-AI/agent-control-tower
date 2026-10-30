@@ -1,7 +1,7 @@
 import { Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
+import { DiscoveredBadge, RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { PlatformAgents } from '@/components/PlatformAgents'
 import { ErrorBox, LoadingRows, PageHeader, selectClass } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,7 @@ export function AgentsPage() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<AgentStatus | ''>('')
   const [risk, setRisk] = useState<RiskTier | ''>('')
-  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent'>('')
+  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent' | 'discovered'>('')
 
   const { data, error, loading } = useAsync(async () => {
     const [agents, departments, profiles, pending, alerts] = await Promise.all([
@@ -36,6 +36,9 @@ export function AgentsPage() {
     }
   })
 
+  // Task 3.5: found on a platform and not yet approved.
+  const isDiscovered = (a: { registration_source: string; status: AgentStatus }) => a.registration_source === 'discovered' && a.status === 'proposed'
+
   const ownerMissing = (a: { business_owner_id: string | null }) =>
     !a.business_owner_id || (data?.gone.has(a.business_owner_id) ?? false)
 
@@ -49,6 +52,7 @@ export function AgentsPage() {
       if (flag === 'overdue' && !isReviewOverdue(a.next_review_date, a.status)) return false
       if (flag === 'pending' && !data.pending.has(a.id)) return false
       if (flag === 'silent' && !data.silent.has(a.id)) return false
+      if (flag === 'discovered' && !isDiscovered(a)) return false
       if (!q) return true
       return [a.name, a.agent_code, a.vendor_name, data.dept.get(a.department_id ?? ''), data.people.get(a.business_owner_id ?? '')]
         .some((v) => v?.toLowerCase().includes(q))
@@ -65,6 +69,7 @@ export function AgentsPage() {
       overdue: agents.filter((a) => isReviewOverdue(a.next_review_date, a.status)).length,
       pending: data?.pending.size ?? 0,
       silent: data?.silent.size ?? 0,
+      discovered: agents.filter(isDiscovered).length,
     }
   }, [data])
 
@@ -79,7 +84,7 @@ export function AgentsPage() {
       />
 
       {data && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Stat label="Active agents" value={counts.total} onClick={() => setFlag('')} active={flag === ''} />
           <Stat label="No owner" value={counts.noOwner} tone={counts.noOwner ? 'bad' : undefined}
             onClick={() => setFlag('no_owner')} active={flag === 'no_owner'} />
@@ -87,6 +92,8 @@ export function AgentsPage() {
             onClick={() => setFlag('overdue')} active={flag === 'overdue'} />
           <Stat label="Silent" value={counts.silent} tone={counts.silent ? 'bad' : undefined}
             onClick={() => setFlag('silent')} active={flag === 'silent'} />
+          <Stat label="Discovered, not registered" value={counts.discovered} tone={counts.discovered ? 'warn' : undefined}
+            onClick={() => setFlag('discovered')} active={flag === 'discovered'} />
           <Stat label="Waiting for approval" value={counts.pending} onClick={() => setFlag('pending')} active={flag === 'pending'} />
         </div>
       )}
@@ -158,6 +165,7 @@ export function AgentsPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex flex-wrap gap-1">
                           <StatusBadge status={a.status} />
+                          {isDiscovered(a) && <DiscoveredBadge />}
                           {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}
                           {data.pending.has(a.id) && <span className="text-muted-foreground text-xs">awaiting approval</span>}
                         </div>
@@ -182,7 +190,7 @@ export function AgentsPage() {
                       <div className="truncate font-medium">{a.name}</div>
                       <div className="text-muted-foreground text-xs">{a.agent_code} · {data.dept.get(a.department_id ?? '') ?? 'No department'}</div>
                     </div>
-                    <StatusBadge status={a.status} />
+                    <div className="flex shrink-0 flex-col items-end gap-1"><StatusBadge status={a.status} />{isDiscovered(a) && <DiscoveredBadge />}</div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                     <RiskBadge tier={a.risk_tier} />
@@ -199,7 +207,8 @@ export function AgentsPage() {
         </>
       )}
 
-      {data && <PlatformAgents query={query} agentCodes={new Map(data.agents.map((a) => [a.id, a.agent_code]))} />}
+      {data && <PlatformAgents query={query}
+        registry={new Map(data.agents.map((a) => [a.id, { code: a.agent_code, status: a.status, discovered: isDiscovered(a) }]))} />}
     </div>
   )
 }

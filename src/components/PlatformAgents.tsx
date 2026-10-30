@@ -1,12 +1,12 @@
 // Task 3.3: on the Agent registry page, the agents found on connected platforms by the last sync. Seen by those who
 // see the whole registry (admins, executives, auditors). Making a found agent a governed registry entry is task 3.5.
 import { Link } from 'react-router-dom'
-import { WarningBadge } from '@/components/badges'
+import { DiscoveredBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { ErrorBox, LoadingRows } from '@/components/ui-bits'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { formatDateTime } from '@/lib/format'
-import type { PlatformAgentRow } from '@/lib/types'
+import type { AgentStatus, PlatformAgentRow } from '@/lib/types'
 import { useAsync } from '@/lib/useAsync'
 import { cn } from '@/lib/utils'
 
@@ -18,7 +18,9 @@ function PlatformStatus({ status }: { status: PlatformAgentRow['status'] }) {
     : <span className={cn(pill, 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200')}>Active on platform</span>
 }
 
-export function PlatformAgents({ query, agentCodes }: { query: string; agentCodes: Map<string, string> }) {
+export interface RegistryEntry { code: string; status: AgentStatus; discovered: boolean }
+
+export function PlatformAgents({ query, registry }: { query: string; registry: Map<string, RegistryEntry> }) {
   const { hasRole } = useAuth()
   const allowed = hasRole('admin', 'executive', 'auditor')
   const { data, error, loading } = useAsync(async () => {
@@ -32,7 +34,8 @@ export function PlatformAgents({ query, agentCodes }: { query: string; agentCode
   const rows = (data?.agents ?? []).filter((a) => !q || [a.name, a.external_id, a.owner_email, a.owner_name, a.department]
     .some((v) => v?.toLowerCase().includes(q)))
   const missing = rows.filter((a) => a.missing_since).length
-  const unregistered = rows.filter((a) => !a.agent_id && !a.missing_since).length
+  // Not governed: not in the registry yet, or there only as Discovered (not approved).
+  const unregistered = rows.filter((a) => !a.missing_since && (!a.agent_id || registry.get(a.agent_id)?.discovered !== false)).length
 
   return (
     <section className="space-y-2" data-testid="platform-agents">
@@ -72,9 +75,12 @@ export function PlatformAgents({ query, agentCodes }: { query: string; agentCode
                 <span className="text-muted-foreground">
                   {a.missing_since ? `Not listed since ${formatDateTime(a.missing_since)}` : `Last seen ${formatDateTime(a.last_seen_at)}`}
                 </span>
-                {a.agent_id
-                  ? <Link to={`/agents/${a.agent_id}`} className="hover:underline">Registered as {agentCodes.get(a.agent_id) ?? 'an agent'}</Link>
-                  : <span className="text-muted-foreground">Not yet governed in Control Tower</span>}
+                {a.agent_id && registry.has(a.agent_id)
+                  ? <Link to={`/agents/${a.agent_id}`} className="inline-flex items-center gap-1 hover:underline" data-testid="platform-agent-registry">
+                      {registry.get(a.agent_id)!.code}
+                      {registry.get(a.agent_id)!.discovered ? <DiscoveredBadge /> : <StatusBadge status={registry.get(a.agent_id)!.status} />}
+                    </Link>
+                  : <span className="text-muted-foreground">Not yet in the registry (added at the next sync)</span>}
               </div>
             </li>
           ))}

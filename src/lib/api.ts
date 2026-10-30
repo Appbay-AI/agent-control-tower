@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, RequestApproval, SlaSetting, UserDraft, UserRow,
+  BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -120,6 +120,9 @@ export const api = {
     check(await db().rpc('platform_job_start', { p_connection: connectionId, p_kind: kind })) as number,
   setPlatformSyncInterval: async (connectionId: string, minutes: number | null) =>
     check(await db().rpc('set_platform_sync_interval', { p_connection: connectionId, p_minutes: minutes })),
+  /** Task 3.5: where this agent was found, if it came from a platform. */
+  platformRecord: async (agentId: string) =>
+    check(await db().rpc('platform_record_for_agent', { p_agent: agentId })) as PlatformRecord | null,
   /** Task 3.3: agents found on connected platforms (admins, executives, auditors). */
   platformAgents: async () =>
     check(await db().from('platform_agents').select(PLATFORM_AGENT_COLUMNS).order('external_id')) as unknown as PlatformAgentRow[],

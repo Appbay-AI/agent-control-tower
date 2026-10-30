@@ -46,4 +46,16 @@ test('an admin syncs the Appian simulator and its agents are listed on the regis
   await expect(found.getByTestId('platform-agent').filter({ hasText: 'NAP-001' })).toContainText('Refund Processor')
   await expect(found.getByTestId('platform-agent').filter({ hasText: 'NAP-004' })).toContainText('No owner')
   await expect(found.getByTestId('platform-agent').filter({ hasText: 'NAP-007' })).toContainText(/Blocked on platform|Active on platform/)
+
+  // Task 3.5: each is in the registry. NAP-004 has no owner, so nobody can submit it: it stays Discovered, with an alert.
+  const rota = found.getByTestId('platform-agent').filter({ hasText: 'NAP-004' }).getByTestId('platform-agent-registry')
+  await expect(rota).toContainText(/AGT-\d{4}/)
+  await expect(rota).toContainText(/Discovered|Retired/)
+  if ((await rota.textContent())?.includes('Discovered')) {
+    await rota.click()
+    await expect(page.getByTestId('platform-record')).toContainText('NAP-004')
+    await expect(page.getByTestId('platform-record')).toContainText('Northbridge Agent Platform (simulated)')
+    await expect(page.getByTestId('alert-agent_discovered')).toContainText('was found on Northbridge Agent Platform (simulated) as NAP-004 and is not registered')
+    await expect(page.getByRole('button', { name: 'Put live' })).toHaveCount(0)
+  }
 })
