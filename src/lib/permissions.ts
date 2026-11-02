@@ -30,6 +30,8 @@ export function agentPermissions(params: {
     canReview: ['approved', 'live', 'suspended'].includes(a.status) && (isAdmin || a.business_owner_id === userId || inScope),
     canRetire: a.status !== 'retired' && (isAdmin || a.business_owner_id === userId),
     canManageKeys: isAdmin || isOwnerish,
+    /** Task 4.1: the kill switch (same rule as can_suspend_agent in the database). */
+    canSuspend: isAdmin || [a.business_owner_id, a.technical_owner_id].includes(userId) || inScope,
     /** Why submission would fail, so the button can explain instead of erroring. */
     submitBlockers: [
       !a.business_owner_id && 'a business owner',

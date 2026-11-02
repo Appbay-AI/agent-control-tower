@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
+import { KillSwitch } from '@/components/KillSwitch'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -28,16 +29,18 @@ export function AgentDetailPage() {
   const [newKey, setNewKey] = useState<string | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform] = await Promise.all([
+    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch] = await Promise.all([
       api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
       api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!), api.platformRecord(id!),
+      api.suspensions(id!), api.killSwitchSettings(),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
     const keys = canSeeKeys ? await api.apiKeys(id!) : []
     const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
-      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform,
+      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform, suspensions,
+      needsSecond: agent.risk_tier === 'critical' && Boolean(killSwitch?.critical_needs_second),
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
     }
@@ -54,7 +57,7 @@ export function AgentDetailPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, needsSecond } = data
   const silent = alerts.some((al) => al.kind === 'agent_silent')
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
@@ -110,6 +113,8 @@ export function AgentDetailPage() {
           )}
           {perms.canGoLive && <Button disabled={busy} onClick={() => run(() => api.goLive(a.id))}><Rocket /> Put live</Button>}
           {perms.canReview && <Button variant="outline" disabled={busy} onClick={() => setDialog('review')}>Record review</Button>}
+          <KillSwitch part="button" agent={a} suspensions={suspensions} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
+            isAdmin={roles.includes('admin')} onDone={reload} name={name} />
           {perms.canRetire && (
             <Button variant="ghost" className="text-red-700 dark:text-red-400" disabled={busy} onClick={() => setDialog('retire')}>Retire</Button>
           )}
@@ -146,6 +151,8 @@ export function AgentDetailPage() {
           <AlertDescription>{latest.decision_reason}</AlertDescription>
         </Alert>
       )}
+      <KillSwitch part="notices" agent={a} suspensions={suspensions} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
+        isAdmin={roles.includes('admin')} onDone={reload} name={name} />
       {alerts.map((al) => (
         <Alert key={al.id} variant="destructive" data-testid={`alert-${al.kind}`}><AlertDescription>{al.message}</AlertDescription></Alert>
       ))}
@@ -326,6 +333,8 @@ const ACTION_LABEL: Record<string, string> = {
   'alerts.update': 'Alert cleared',
   'agent_api_keys.insert': 'API key created',
   'agent_api_keys.update': 'API key revoked',
+  'agent_suspensions.insert': 'Kill switch pulled',
+  'agent_suspensions.update': 'Suspension updated',
 }
 
 function Activity({ events, name }: { events: AuditEvent[]; name: (id: string | null) => string | null }) {

@@ -55,6 +55,22 @@ jobs:
             select public.create_agent_api_key(id) from public.agents where name = 'Branch Rota Planner' and status = 'live';
             commit;" | grep '^act_' || true)
           if [ -n "$low" ]; then echo "::add-mask::$low"; echo "ACT_LOW_AGENT_KEY=$low" >> "$GITHUB_ENV"; else echo "::warning::Branch Rota Planner is not live; the bulk test will be skipped"; fi
+          # Kill switch test (task 4.1): the Mail Room Router, put back to Live first if an earlier run stopped half way,
+          # and a key so the test can ask, as the agent, whether it may act.
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -c "begin;
+            select set_config('act.allow_lifecycle', 'on', true), set_config('act.actor_type', 'system', true),
+                   set_config('act.reason', 'Kill switch test: put back to Live before the test run', true);
+            update public.agents set status = 'live' where name = 'Mail Room Router' and status = 'suspended';
+            commit;"
+          ks=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "begin;
+            select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+            from public.profiles where email = 'admin@northbridge.demo';
+            select public.create_agent_api_key(id) from public.agents where name = 'Mail Room Router' and status = 'live';
+            commit;" | grep '^act_' || true)
+          if [ -n "$ks" ]; then
+            echo "::add-mask::$ks"; echo "ACT_KS_AGENT_KEY=$ks" >> "$GITHUB_ENV"
+            echo "ACT_KS_AGENT_CODE=$(psql "$SUPABASE_DB_URL" -tA -c "select agent_code from public.agents where name = 'Mail Room Router'")" >> "$GITHUB_ENV"
+          else echo "::warning::Mail Room Router is not live; the kill switch test will be skipped"; fi
       - name: Run
         # xvfb-run gives the phone-alert test's Chrome window a virtual screen.
         run: xvfb-run --auto-servernum npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect|Received|Expected|unexpected value|waiting for' out.log | head -n 24 | tr '\n' ' ')"; exit 1; }
@@ -63,7 +79,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retire leftover test agents
         if: always()
@@ -83,6 +99,9 @@ jobs:
           from public.profiles where email = 'admin@northbridge.demo';
           select public.revoke_api_key(id) from public.agent_api_keys
            where key_hash in (public.secret_hash(:'agent_key'), public.secret_hash(:'low_key')) and revoked_at is null;
+          -- Kill switch test (task 4.1): revoke its keys, then put the Mail Room Router back to Live.
+          select public.revoke_api_key(k.id) from public.agent_api_keys k join public.agents a on a.id = k.agent_id
+           where a.name = 'Mail Room Router' and k.revoked_at is null;
           -- Silent-agent test (task 2.11): stop watching the Regulatory Change Summariser and revoke its test keys.
           select public.set_agent_silence_limit(id, null) from public.agents
            where name = 'Regulatory Change Summariser' and silent_after_minutes is not null;
@@ -92,6 +111,11 @@ jobs:
           update public.action_requests set status = 'cancelled', decided_at = now(), decision_reason = 'Test request left by an interrupted test run'
            where status = 'pending' and (description like 'Release £% to supplier E2E %'
                                          or description like 'Publish next week''s staff rota for the E2E %');
+          begin;
+          select set_config('act.allow_lifecycle', 'on', true), set_config('act.actor_type', 'system', true),
+                 set_config('act.reason', 'Kill switch test finished: put back to Live by the test run', true);
+          update public.agents set status = 'live' where name = 'Mail Room Router' and status = 'suspended';
+          commit;
           -- Phone-alert test (task 2.6): the test browser's device, if the test stopped before turning alerts off.
           delete from public.push_subscriptions s using public.profiles p
            where p.id = s.user_id and p.email = 'ravi.menon@northbridge.demo' and s.device like 'Linux · Chrome%';

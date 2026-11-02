@@ -35,6 +35,16 @@ describe('what each person may do with an agent', () => {
     expect(perms('tech', ['approver'], {}, pending).canDecide).toBe(false)
   })
 
+  it('the kill switch: admins, owners and approvers for the department, not executives or auditors (task 4.1)', () => {
+    expect(perms('admin', ['admin']).canSuspend).toBe(true)
+    expect(perms('owner', ['owner']).canSuspend).toBe(true)
+    expect(perms('tech', ['owner']).canSuspend).toBe(true)
+    expect(perms('approver', ['approver']).canSuspend).toBe(true)
+    expect(perms('approver', ['approver'], {}, null, ['lending']).canSuspend).toBe(false)
+    expect(perms('exec', ['executive']).canSuspend).toBe(false)
+    expect(perms('audit', ['auditor']).canSuspend).toBe(false)
+  })
+
   it('nothing is editable while waiting for approval', () => {
     expect(perms('owner', ['owner'], {}, pending)).toMatchObject({ canEdit: false, canSubmit: false })
   })

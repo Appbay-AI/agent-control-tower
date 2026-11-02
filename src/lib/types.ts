@@ -215,6 +215,23 @@ export interface PlatformConnection {
   created_at: string
 }
 
+/** Task 4.1: one press of the kill switch. */
+export interface AgentSuspension {
+  id: string
+  agent_id: string
+  status: 'waiting' | 'done' | 'withdrawn'
+  reason: string
+  requested_by: string
+  requested_at: string
+  confirmed_by: string | null
+  confirmed_at: string | null
+  confirm_note: string | null
+  withdrawn_by: string | null
+  withdrawn_at: string | null
+  withdraw_reason: string | null
+  suspended_at: string | null
+}
+
 /** Task 3.6: an agent's platform, for the registry's source badge. */
 export interface AgentPlatformSource { agent_id: string; platform: string; external_id: string; status: 'active' | 'blocked'; missing_since: string | null }
 

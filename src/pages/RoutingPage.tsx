@@ -19,11 +19,11 @@ export function RoutingPage() {
   const { hasRole } = useAuth()
   const isAdmin = hasRole('admin')
   const { data, error, loading, reload } = useAsync(async () => {
-    const [rules, agents, departments, approvers, sla] = await Promise.all([
-      api.routingRules(), api.agents(), api.departments(), api.approvers(), api.slaSettings(),
+    const [rules, agents, departments, approvers, sla, killSwitch] = await Promise.all([
+      api.routingRules(), api.agents(), api.departments(), api.approvers(), api.slaSettings(), api.killSwitchSettings(),
     ])
     return {
-      rules, agents, departments, approvers, sla,
+      rules, agents, departments, approvers, sla, killSwitch,
       names: {
         agents: new Map(agents.map((a) => [a.id, `${a.agent_code} ${a.name}`])),
         departments: new Map(departments.map((d) => [d.id, d.name])),
@@ -121,6 +121,7 @@ export function RoutingPage() {
       </ol>
 
       <TimeLimits settings={data.sla} canEdit={isAdmin} onSaved={reload} />
+      <KillSwitchSettings on={Boolean(data.killSwitch?.critical_needs_second)} canEdit={isAdmin} onSaved={reload} />
 
       <RoutingTester agents={data.agents} />
 
@@ -260,6 +261,32 @@ export function RoutingPage() {
 }
 
 /** Task 2.9: the default time to decide, by urgency. Used when a request's rule sets no time of its own. */
+// Task 4.1: whether suspending a Critical agent needs a second person.
+function KillSwitchSettings({ on, canEdit, onSaved }: { on: boolean; canEdit: boolean; onSaved: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function change(value: boolean) {
+    setBusy(true); setError(null)
+    try { await api.setKillSwitchSettings(value); await onSaved() } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) }
+  }
+  return (
+    <section className="bg-card space-y-3 rounded-lg border p-4" data-testid="kill-switch-settings">
+      <div>
+        <h2 className="font-semibold">Kill switch</h2>
+        <p className="text-muted-foreground text-xs">
+          Admins, an agent's owners and approvers for its department can suspend a Live agent at once, with a reason.
+          For Critical agents you can require a second person to confirm.
+        </p>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" className="size-4" checked={on} disabled={!canEdit || busy} onChange={(e) => change(e.target.checked)} />
+        Suspending a Critical agent needs a second person
+      </label>
+      <ErrorBox message={error} />
+    </section>
+  )
+}
+
 function TimeLimits({ settings, canEdit, onSaved }: { settings: SlaSetting[]; canEdit: boolean; onSaved: () => Promise<void> }) {
   const current = (u: ActionUrgency) => settings.find((s) => s.urgency === u)?.minutes ?? 0
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(URGENCIES.map((u) => [u, String(current(u))])))
