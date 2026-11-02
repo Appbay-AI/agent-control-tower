@@ -22,6 +22,14 @@ export function RegistrationBadge({ status }: { status: RegistrationStatus }) {
   return <span className={cn(pill, style[status])}>{REGISTRATION_LABEL[status]}</span>
 }
 
+/** Task 3.6: where the agent's record comes from: a platform (kept in step automatically), the API, or a person. */
+export function SourceBadge({ platform, source }: { platform: string | null | undefined; source: 'manual' | 'api' | 'discovered' }) {
+  const text = platform ? `${platform} (auto)` : source === 'api' ? 'API' : source === 'discovered' ? 'Found unregistered' : 'Manual'
+  const style = platform ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200' : 'bg-muted text-muted-foreground'
+  return <span className={cn(pill, style, 'whitespace-normal')} data-testid="source-badge"
+    title={platform ? `Name, description, systems and data come from ${platform}` : undefined}>{text}</span>
+}
+
 /** Task 3.5: found on an agent platform and not yet approved in Control Tower. */
 export function DiscoveredBadge() {
   return <span className={cn(pill, 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200')}>Discovered</span>

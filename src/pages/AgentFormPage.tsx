@@ -61,17 +61,20 @@ export function AgentFormPage() {
   const [busy, setBusy] = useState(false)
 
   const lookups = useAsync(async () => {
-    const [departments, profiles, agent] = await Promise.all([api.departments(), api.allProfiles(), id ? api.agent(id) : null])
+    const [departments, profiles, agent, platform] = await Promise.all([
+      api.departments(), api.allProfiles(), id ? api.agent(id) : null, id ? api.platformRecord(id) : null])
     if (agent) {
       setDraft(draftFromAgent(agent))
       setLists({ inScope: agent.in_scope_actions.join('\n'), outScope: agent.out_of_scope_actions.join('\n'), systems: agent.systems_accessed.join('\n') })
     }
-    return { departments, profiles, agent }
+    return { departments, profiles, agent, platform }
   }, [id])
 
   if (lookups.error) return <ErrorBox message={lookups.error} />
   if (!draft || !lookups.data) return <LoadingRows rows={6} />
-  const { departments, agent } = lookups.data
+  const { departments, agent, platform } = lookups.data
+  // Task 3.6: fields that come from an agent platform are read-only here.
+  const fromPlatform = platform !== null
   // Active people, plus a deactivated owner already on this record so the choice stays visible until it is changed.
   const profiles = lookups.data.profiles.filter((p) => p.is_active || p.id === draft.business_owner_id || p.id === draft.technical_owner_id)
   const label = (p: { full_name: string; is_active: boolean }) => `${p.full_name}${p.is_active ? '' : ' (deactivated)'}`
@@ -111,12 +114,20 @@ export function AgentFormPage() {
       <PageHeader title={isEdit ? `Edit ${agent?.agent_code}` : 'Register an agent'}
         subtitle="The agent is saved as Proposed. It cannot act until it is approved and put live." />
 
+      {platform && (
+        <p className="bg-muted rounded-lg border p-3 text-sm" data-testid="platform-fields-note">
+          This agent comes from <strong>{platform.platform}</strong> ({platform.external_id}). Its name, description, systems and data
+          types are read-only here: change them on the platform and the next sync brings them in. Everything else is yours to fill in.
+        </p>
+      )}
+
       <Section title="Identity">
-        <Row label="Name" htmlFor="name" required>
-          <Input id="name" required value={draft.name} onChange={(e) => set('name', e.target.value)} />
+        <Row label="Name" htmlFor="name" required hint={fromPlatform ? `From ${platform!.platform}` : undefined}>
+          <Input id="name" required value={draft.name} readOnly={fromPlatform} disabled={fromPlatform} onChange={(e) => set('name', e.target.value)} />
         </Row>
-        <Row label="Description" htmlFor="description">
-          <Textarea id="description" rows={2} value={draft.description ?? ''} onChange={(e) => set('description', nullIfBlank(e.target.value))} />
+        <Row label="Description" htmlFor="description" hint={fromPlatform ? `From ${platform!.platform}` : undefined}>
+          <Textarea id="description" rows={2} value={draft.description ?? ''} readOnly={fromPlatform} disabled={fromPlatform}
+            onChange={(e) => set('description', nullIfBlank(e.target.value))} />
         </Row>
         <div className="grid gap-4 sm:grid-cols-3">
           <Row label="Built by" htmlFor="origin">
@@ -182,14 +193,16 @@ export function AgentFormPage() {
       </Section>
 
       <Section title="Access">
-        <Row label="Systems it touches" htmlFor="systems" hint="One per line, e.g. SAP, Salesforce">
-          <Textarea id="systems" rows={3} value={lists.systems} onChange={(e) => setLists({ ...lists, systems: e.target.value })} />
+        <Row label="Systems it touches" htmlFor="systems" hint={fromPlatform ? `From ${platform!.platform}` : 'One per line, e.g. SAP, Salesforce'}>
+          <Textarea id="systems" rows={3} value={lists.systems} readOnly={fromPlatform} disabled={fromPlatform}
+            onChange={(e) => setLists({ ...lists, systems: e.target.value })} />
         </Row>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Data it touches</legend>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(DATA_LABEL) as DataClassification[]).map((c) => (
-              <Chip key={c} on={draft.data_classifications.includes(c)} onClick={() => set('data_classifications', toggle(draft.data_classifications, c))}>
+              <Chip key={c} on={draft.data_classifications.includes(c)} disabled={fromPlatform}
+                onClick={() => set('data_classifications', toggle(draft.data_classifications, c))}>
                 {DATA_LABEL[c]}
               </Chip>
             ))}
@@ -289,10 +302,10 @@ function Row({ label, htmlFor, hint, required, children }: {
   )
 }
 
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+function Chip({ on, onClick, disabled, children }: { on: boolean; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick}
-      className={`rounded-full border px-3 py-1 text-xs ${on ? 'bg-brand-charcoal border-brand-charcoal text-white dark:bg-brand-yellow dark:text-brand-charcoal' : 'hover:bg-muted'}`}>
+    <button type="button" aria-pressed={on} onClick={onClick} disabled={disabled}
+      className={`rounded-full border px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60 ${on ? 'bg-brand-charcoal border-brand-charcoal text-white dark:bg-brand-yellow dark:text-brand-charcoal' : 'hover:bg-muted'}`}>
       {children}
     </button>
   )

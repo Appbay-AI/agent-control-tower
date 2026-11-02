@@ -57,5 +57,12 @@ test('an admin syncs the Appian simulator and its agents are listed on the regis
     await expect(page.getByTestId('platform-record')).toContainText('Northbridge Agent Platform (simulated)')
     await expect(page.getByTestId('alert-agent_discovered')).toContainText('was found on Northbridge Agent Platform (simulated) as NAP-004 and is not registered')
     await expect(page.getByRole('button', { name: 'Put live' })).toHaveCount(0)
+    // Task 3.6: its source is the platform, and the platform's fields are read-only on the edit form.
+    await expect(page.getByTestId('source-badge').first()).toHaveText('Northbridge Agent Platform (simulated) (auto)')
+    await page.getByRole('link', { name: 'Edit' }).click()
+    await expect(page.getByTestId('platform-fields-note')).toContainText('NAP-004')
+    await expect(page.locator('#name')).toBeDisabled()
+    await expect(page.locator('#systems')).toBeDisabled()
+    await expect(page.locator('#purpose')).toBeEnabled()
   }
 })

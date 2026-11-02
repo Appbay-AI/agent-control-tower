@@ -2,7 +2,7 @@ import { ArrowLeft, Copy, KeyRound, Pencil, Rocket, Send } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
-import { DiscoveredBadge, RegistrationBadge, RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
+import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -93,6 +93,7 @@ export function AgentDetailPage() {
             <StatusBadge status={a.status} />
             {a.registration_source === 'discovered' && a.status === 'proposed' && <DiscoveredBadge />}
             <RiskBadge tier={a.risk_tier} />
+            <SourceBadge platform={platform?.platform} source={a.registration_source} />
             <span className="text-muted-foreground text-xs">Level {a.autonomy_level} · {AUTONOMY[a.autonomy_level].name}</span>
             {(!a.business_owner_id || people.get(a.business_owner_id)?.is_active === false) && <WarningBadge>No business owner</WarningBadge>}
             {overdue && <WarningBadge>Review overdue</WarningBadge>}

@@ -1,7 +1,7 @@
 import { Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { DiscoveredBadge, RiskBadge, StatusBadge, WarningBadge } from '@/components/badges'
+import { DiscoveredBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { PlatformAgents } from '@/components/PlatformAgents'
 import { ErrorBox, LoadingRows, PageHeader, selectClass } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
@@ -18,11 +18,13 @@ export function AgentsPage() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<AgentStatus | ''>('')
   const [risk, setRisk] = useState<RiskTier | ''>('')
+  const [source, setSource] = useState<'' | 'platform' | 'api' | 'manual'>('')
   const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent' | 'discovered'>('')
 
   const { data, error, loading } = useAsync(async () => {
-    const [agents, departments, profiles, pending, alerts] = await Promise.all([
+    const [agents, departments, profiles, pending, alerts, sources] = await Promise.all([
       api.agents(), api.departments(), api.allProfiles(), api.pendingRegistrations(), api.openAlerts(),
+      api.agentPlatformSources().catch(() => []),
     ])
     return {
       agents,
@@ -33,6 +35,8 @@ export function AgentsPage() {
       pending: new Set(pending.map((r) => r.agent_id)),
       // Task 2.11: agents flagged by the silent-agent check.
       silent: new Set(alerts.filter((al) => al.kind === 'agent_silent').map((al) => al.agent_id)),
+      // Task 3.6: the platform each agent comes from, if any.
+      platform: new Map(sources.map((s) => [s.agent_id, s.platform])),
     }
   })
 
@@ -53,11 +57,15 @@ export function AgentsPage() {
       if (flag === 'pending' && !data.pending.has(a.id)) return false
       if (flag === 'silent' && !data.silent.has(a.id)) return false
       if (flag === 'discovered' && !isDiscovered(a)) return false
+      const onPlatform = data.platform.has(a.id)
+      if (source === 'platform' && !onPlatform) return false
+      if (source === 'api' && (onPlatform || a.registration_source !== 'api')) return false
+      if (source === 'manual' && (onPlatform || a.registration_source === 'api')) return false
       if (!q) return true
-      return [a.name, a.agent_code, a.vendor_name, data.dept.get(a.department_id ?? ''), data.people.get(a.business_owner_id ?? '')]
+      return [a.name, a.agent_code, a.vendor_name, data.dept.get(a.department_id ?? ''), data.people.get(a.business_owner_id ?? ''), data.platform.get(a.id)]
         .some((v) => v?.toLowerCase().includes(q))
     })
-  }, [data, query, status, risk, flag])
+  }, [data, query, status, risk, flag, source])
 
   const counts = useMemo(() => {
     const agents = data?.agents ?? []
@@ -114,6 +122,13 @@ export function AgentsPage() {
           <option value="">All risk tiers</option>
           {Object.entries(RISK_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
+        <select className={`${selectClass} sm:w-40`} value={source} onChange={(e) => setSource(e.target.value as typeof source)}
+          aria-label="Filter by source">
+          <option value="">All sources</option>
+          <option value="platform">From a platform</option>
+          <option value="manual">Manual</option>
+          <option value="api">API</option>
+        </select>
       </div>
 
       <ErrorBox message={error} />
@@ -151,6 +166,7 @@ export function AgentsPage() {
                           {a.name}
                         </Link>
                         <div className="text-muted-foreground text-xs">{a.agent_code}{a.vendor_name ? ` · ${a.vendor_name}` : ''}</div>
+                        <div className="mt-0.5"><SourceBadge platform={data.platform.get(a.id)} source={a.registration_source} /></div>
                       </td>
                       <td className="px-3 py-2.5">
                         {!a.business_owner_id ? <WarningBadge>No owner</WarningBadge> : (
@@ -195,6 +211,7 @@ export function AgentsPage() {
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                     <RiskBadge tier={a.risk_tier} />
                     <span className="text-muted-foreground">Level {a.autonomy_level}</span>
+                    <SourceBadge platform={data.platform.get(a.id)} source={a.registration_source} />
                     {ownerMissing(a) && <WarningBadge>No owner</WarningBadge>}
                     {isReviewOverdue(a.next_review_date, a.status) && <WarningBadge>Review overdue</WarningBadge>}
                     {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}

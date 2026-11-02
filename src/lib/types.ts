@@ -215,6 +215,9 @@ export interface PlatformConnection {
   created_at: string
 }
 
+/** Task 3.6: an agent's platform, for the registry's source badge. */
+export interface AgentPlatformSource { agent_id: string; platform: string; external_id: string; status: 'active' | 'blocked'; missing_since: string | null }
+
 /** Task 3.5: where a registry agent was found (for its page). */
 export interface PlatformRecord {
   platform: string
