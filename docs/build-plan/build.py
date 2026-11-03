@@ -9,8 +9,8 @@ from datetime import date, timedelta
 from html import escape
 from pathlib import Path
 
-UPDATED = 'Nov 2, 2026'
-TODAY = date(2026, 11, 2)
+UPDATED = 'Nov 3, 2026'
+TODAY = date(2026, 11, 3)
 OUT = Path(__file__).with_name('plan.html')
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -129,7 +129,7 @@ PHASES = [
             ('4.9', '<b>Extended:</b> Rules: Critical incident auto-suspends; closure needs a named approver; repeat incidents, or 3 reactivations outside Control Tower, force a review; every drift recorded with expected, observed, actor ("unknown, outside Control Tower" unless the spike finds a source), action, result (R3.6, R3.7)', 'Postgres, pg_cron', '19 Nov', 'Each rule proven by a test'),
             ('4.10', '<b>Extended:</b> Credible-demo checkpoint', 'All', '20 Nov', 'Register, live approval, kill switch in the agent platform and re-block shown end to end'),
         ],
-        'outro': 'Notes on progress. 4.1: done on 2 Nov, ahead of its 10 Nov date, on its branch. Admins, an agent\'s owners and approvers for its department can suspend a Live agent in one action, with a reason; from that moment every check the agent makes with the Control Tower is refused, and what it was waiting for can no longer be approved. In the browser test the agent was refused at its next check within the same second (target: 30 seconds). Admins can choose to require a second person for Critical agents; the others who may confirm are alerted on their phones. Every press is on the record. Blocking the agent inside Appian comes next (4.2). Microsoft is waiting for a management decision; the kill switch is written so a Microsoft connection can be added later without rework.',
+        'outro': 'Notes on progress. 4.1: done on 2 Nov, ahead of its 10 Nov date, on its branch. Admins, an agent\'s owners and approvers for its department can suspend a Live agent in one action, with a reason; from that moment every check the agent makes with the Control Tower is refused, and what it was waiting for can no longer be approved. In the browser test the agent was refused at its next check within the same second (target: 30 seconds). Admins can choose to require a second person for Critical agents; the others who may confirm are alerted on their phones. Every press is on the record. 4.2: done on 3 Nov, ahead of its 11 Nov date, on its branch. When an agent is suspended, the Control Tower stops it every way it can reach it and shows each step on the agent\'s page: an agent on Appian is blocked there and read back (it counts only if Appian then says it is blocked; in the browser test this took under half a second); an agent that calls our API is refused from that moment; an agent with a control endpoint is sent a signed stop request; and an agent we cannot reach at all gets an email to its owner (or to every admin if it has none) asking them to switch it off. Each step is tried once; retrying failed steps and alerting admins is 4.3. Also fixed: the live approvals list had started missing its 2-second target on slow days; it now reads fewer lists on each live update (1.7 s desktop, 0.5 s phone in the last test). Microsoft is waiting for a management decision; the kill switch is written so a Microsoft connection can be added later without rework.',
     },
     {
         'title': 'Phase 5 — Alerts and routing', 'dates': '23–26 Nov (4 days)', 'badge': ('Planned', 'plan'),
@@ -180,7 +180,7 @@ PROGRESS = [
     ('Phase 2 — Approval engine', '15–28 Oct', ('Done', 'done'),
      '2.1 to 2.12 and the Appian simulator (2.13) done, on schedule. 2.1 to 2.9 are on the client demo (released 26 Oct), with the £2m payment request waiting for Ravi Menon; phone alerts were confirmed on a real phone. 2.7 (approval emails) works in temporary mode until the email domain is verified. 2.10 (four-eyes and bulk approval) is on the work-in-progress site; 2.11 (log API and silent-agent check) is on the work-in-progress site; 2.12 (the £2m payment test on desktop and phone) passes there on every change. Phase 2 is complete. Next: Phase 3, starting with the Microsoft spike (3.1).'),
     ('Phase 3 — Platform connection', '29 Oct – 9 Nov', ('In progress', 'now'), '3.1 (Microsoft) waiting for a management decision; Appian only for now. 3.2, 3.3 and 3.5 on the client demo since 30 Oct, 3.6 on the work-in-progress site. 3.4 not needed for Appian.'),
-    ('Phase 4 — Kill switch', '10–20 Nov', ('In progress', 'now'), '4.1 (kill switch) done on its branch on 2 Nov. Next: 4.2 (block the agent inside Appian).'),
+    ('Phase 4 — Kill switch', '10–20 Nov', ('In progress', 'now'), '4.1 (kill switch) on the work-in-progress site since 2 Nov; 4.2 (stop the agent in Appian, by API, stop request or owner email) done on its branch on 3 Nov. Next: 4.3 (retries and admin alerts).'),
     ('Phases 5–7', '23 Nov – 15 Dec', ('Planned', 'plan'), 'Seed data (7.1) already done.'),
 ]
 
