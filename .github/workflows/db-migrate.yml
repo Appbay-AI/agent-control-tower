@@ -93,7 +93,8 @@ jobs:
       - name: Apply migrations
         run: |
           if [ -n "$SUPABASE_DB_URL" ]; then target=(--db-url "$SUPABASE_DB_URL"); else target=(--password "$SUPABASE_DB_PASSWORD"); fi
-          supabase db push "${target[@]}" > out.log 2>&1 \
+          # --yes: since early Nov 2026 the CLI asks for confirmation and refuses when it cannot (no terminal here).
+          supabase db push --yes "${target[@]}" > out.log 2>&1 \
             || { cat out.log; echo "::error title=Migration failed::$(tail -n 8 out.log | sed -E 's#postgres(ql)?://[^ ]*#postgresql://***#g' | tr '\n' ' ')"; exit 1; }
           cat out.log
       # Tasks 2.6 and 2.7: phone alerts and approval emails. Points the database at this environment's site, creates the
