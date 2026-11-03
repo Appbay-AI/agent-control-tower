@@ -151,17 +151,21 @@ export function LiveProvider({ withApprovals, children }: { withApprovals: boole
 
   // The approvals list, read again after every change.
   const enabled = withApprovals && !!userId
+  // A live re-read may reuse agents, departments and people from the last minute; anything else reads them fresh.
+  const liveReread = useRef(false)
   const { data, error, loading, reload } = useAsync(
     async () => {
       if (!enabled) return null
-      const a = await loadApprovals({ userId: userId!, roles, scopeDepartmentIds })
+      const fresh = !liveReread.current
+      liveReread.current = false
+      const a = await loadApprovals({ userId: userId!, roles, scopeDepartmentIds, fresh })
       mark('act:live-loaded')
       return a
     },
     [enabled, userId, roles.join(), scopeDepartmentIds.join()],
   )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (tick > 0 && enabled) reload() }, [tick])
+  useEffect(() => { if (tick > 0 && enabled) { liveReread.current = true; reload() } }, [tick])
 
   // What is new since the last read.
   const [fresh, setFresh] = useState<Map<string, number>>(new Map())

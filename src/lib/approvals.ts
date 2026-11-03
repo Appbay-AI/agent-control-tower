@@ -1,14 +1,43 @@
 import { api } from '@/lib/api'
 import { agentPermissions } from '@/lib/permissions'
 import { requestPermissions } from '@/lib/requests'
-import type { AppRole } from '@/lib/types'
+import type { Agent, AppRole, Department, Profile } from '@/lib/types'
+
+// Agents, departments and people change rarely, but reading them made up most of each live re-read (three of seven reads,
+// the agent list the slowest), which pushed the live list past its 2-second target on slow days. A live re-read reuses
+// them for up to a minute; a first load or a manual refresh reads them fresh, and so does any re-read that meets an agent
+// it does not know yet. The database still checks every decision, so a minute-old agent record can never let one through.
+export const LOOKUP_TTL_MS = 60_000
+type Lookups = [Agent[], Department[], Profile[]]
+let lookups: { at: number; key: string; data: Promise<Lookups> } | null = null
+
+function readLookups(key: string, fresh: boolean, now = Date.now()): Promise<Lookups> {
+  if (fresh || !lookups || lookups.key !== key || now - lookups.at > LOOKUP_TTL_MS) {
+    const data = Promise.all([api.agents(), api.departments(), api.allProfiles()])
+    lookups = { at: now, key, data }
+    data.catch(() => { if (lookups?.data === data) lookups = null })
+  }
+  return lookups.data
+}
+
+/** For tests. */
+export function forgetLookups() { lookups = null }
 
 /** Everything the Approvals screen shows, split into what this person can decide and what waits for someone else. */
-export async function loadApprovals({ userId, roles, scopeDepartmentIds }: { userId: string; roles: AppRole[]; scopeDepartmentIds: string[] }) {
-  const [pending, agents, decisions, departments, profiles, waiting, approvals] = await Promise.all([
-    api.pendingRegistrations(), api.agents(), api.decisions(), api.departments(), api.allProfiles(), api.actionRequests('pending'),
-    api.pendingApprovals(),
+export async function loadApprovals({ userId, roles, scopeDepartmentIds, fresh = true }: {
+  userId: string; roles: AppRole[]; scopeDepartmentIds: string[]
+  /** false: a live re-read, which may reuse agents, departments and people read in the last minute. */
+  fresh?: boolean
+}) {
+  const key = userId
+  let [pending, [agents, departments, profiles], decisions, waiting, approvals] = await Promise.all([
+    api.pendingRegistrations(), readLookups(key, fresh), api.decisions(), api.actionRequests('pending'), api.pendingApprovals(),
   ])
+  // Something new refers to an agent we have not read yet (just registered or discovered): read them all again.
+  const known = new Set(agents.map((a) => a.id))
+  if (!fresh && [...waiting.map((r) => r.agent_id), ...pending.map((r) => r.agent_id)].some((id) => !known.has(id))) {
+    ;[agents, departments, profiles] = await readLookups(key, true)
+  }
   const byId = new Map(agents.map((a) => [a.id, a]))
   // Four-eyes (task 2.10): who has approved what so far.
   const approvedBy = new Map<string, string[]>()
