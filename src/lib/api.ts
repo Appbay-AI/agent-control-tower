@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentPlatformSource, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
+  AgentEnforcement, AgentPlatformSource, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -123,6 +123,9 @@ export const api = {
   // Kill switch (task 4.1)
   suspensions: async (agentId: string) =>
     check(await db().from('agent_suspensions').select('*').eq('agent_id', agentId).order('requested_at', { ascending: false })) as AgentSuspension[],
+  enforcements: async (agentId: string) =>
+    check(await db().from('agent_enforcements').select('id, agent_id, suspension_id, method, target, status, detail, attempts, created_at, finished_at')
+      .eq('agent_id', agentId).order('id')) as AgentEnforcement[],
   suspendAgent: async (agentId: string, reason: string) => check(await db().rpc('suspend_agent', { p_agent: agentId, p_reason: reason })) as 'suspended' | 'waiting',
   confirmSuspension: async (id: string, note: string | null) => check(await db().rpc('confirm_agent_suspension', { p_suspension: id, p_note: note })),
   withdrawSuspension: async (id: string, reason: string) => check(await db().rpc('withdraw_agent_suspension', { p_suspension: id, p_reason: reason })),

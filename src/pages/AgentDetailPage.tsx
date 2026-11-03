@@ -29,17 +29,17 @@ export function AgentDetailPage() {
   const [newKey, setNewKey] = useState<string | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch] = await Promise.all([
+    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch, enforcements] = await Promise.all([
       api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
       api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!), api.platformRecord(id!),
-      api.suspensions(id!), api.killSwitchSettings(),
+      api.suspensions(id!), api.killSwitchSettings(), api.enforcements(id!),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
     const keys = canSeeKeys ? await api.apiKeys(id!) : []
     const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
-      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform, suspensions,
+      agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform, suspensions, enforcements,
       needsSecond: agent.risk_tier === 'critical' && Boolean(killSwitch?.critical_needs_second),
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
@@ -57,7 +57,7 @@ export function AgentDetailPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, needsSecond } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, enforcements, needsSecond } = data
   const silent = alerts.some((al) => al.kind === 'agent_silent')
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
@@ -151,7 +151,7 @@ export function AgentDetailPage() {
           <AlertDescription>{latest.decision_reason}</AlertDescription>
         </Alert>
       )}
-      <KillSwitch part="notices" agent={a} suspensions={suspensions} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
+      <KillSwitch part="notices" agent={a} suspensions={suspensions} enforcements={enforcements} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
         isAdmin={roles.includes('admin')} onDone={reload} name={name} />
       {alerts.map((al) => (
         <Alert key={al.id} variant="destructive" data-testid={`alert-${al.kind}`}><AlertDescription>{al.message}</AlertDescription></Alert>

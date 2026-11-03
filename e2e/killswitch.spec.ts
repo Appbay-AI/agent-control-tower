@@ -46,4 +46,6 @@ test('an admin suspends a Live agent in one action, and the agent is refused at 
   await expect(page.getByTestId('suspension-done')).toContainText('Platform Admin')
   await expect(page.getByTestId('suspend-button')).toHaveCount(0)
   await expect(page.getByText('Kill switch pulled').first()).toBeVisible() // in the activity, from the audit trail
+  // Task 4.2: it calls our API, so that is how it is stopped: refused from now on, done at once.
+  await expect(page.getByTestId('enforcement-api')).toContainText('Refused from now on')
 })

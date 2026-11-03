@@ -71,6 +71,35 @@ jobs:
             echo "::add-mask::$ks"; echo "ACT_KS_AGENT_KEY=$ks" >> "$GITHUB_ENV"
             echo "ACT_KS_AGENT_CODE=$(psql "$SUPABASE_DB_URL" -tA -c "select agent_code from public.agents where name = 'Mail Room Router'")" >> "$GITHUB_ENV"
           else echo "::warning::Mail Room Router is not live; the kill switch test will be skipped"; fi
+      - name: Platform agent for the enforcement test
+        # Task 4.2: the registry agent linked to NAP-001 (Refund Processor) on the Appian simulator, made Live on this
+        # work-in-progress database only, and NAP-001 switched back on in Appian if an earlier run stopped half way.
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: |
+          [ -n "$APPIAN_API_KEY" ] || { echo "::warning::APPIAN_API_KEY is not set; the enforcement test will be skipped"; exit 0; }
+          curl -sS -o /dev/null -w "NAP-001 switched on: HTTP %{http_code}\n" -X POST "$APPIAN_BASE/suite/webapi/nap-agent-status-set" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'content-type: application/json' \
+            -d '{"externalId":"NAP-001","status":"active","reason":"Control Tower test run: switched back on before the test","requestedBy":"act-integration"}'
+          code=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 <<'SQL' | tail -n 1
+          begin;
+          select set_config('act.allow_lifecycle', 'on', true), set_config('act.actor_type', 'system', true),
+                 set_config('act.reason', 'Enforcement test: test agent made Live on the work-in-progress database', true);
+          update public.platform_agents set status = 'active' where external_id = 'NAP-001';
+          update public.agents set purpose_statement = 'Issue customer refunds under £500 (test agent for the kill switch)'
+           where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and btrim(purpose_statement) = '';
+          update public.agents set status = 'approved', approved_at = now(), next_review_date = current_date + 180
+           where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status = 'proposed';
+          update public.agents set status = 'live'
+           where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status in ('approved', 'suspended');
+          commit;
+          select a.agent_code from public.agents a join public.platform_agents pa on pa.agent_id = a.id
+           where pa.external_id = 'NAP-001' and a.status = 'live';
+          SQL
+          )
+          if echo "$code" | grep -qE '^AGT-[0-9]{4}$'; then echo "ACT_PLATFORM_AGENT_CODE=$code" >> "$GITHUB_ENV"; echo "Test agent: $code"
+          else echo "::warning::No Live agent linked to NAP-001; the enforcement test will be skipped"; fi
       - name: Run
         # xvfb-run gives the phone-alert test's Chrome window a virtual screen.
         run: xvfb-run --auto-servernum npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect|Received|Expected|unexpected value|waiting for' out.log | head -n 24 | tr '\n' ' ')"; exit 1; }
@@ -79,7 +108,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[enforcement\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retire leftover test agents
         if: always()
@@ -116,12 +145,30 @@ jobs:
                  set_config('act.reason', 'Kill switch test finished: put back to Live by the test run', true);
           update public.agents set status = 'live' where name = 'Mail Room Router' and status = 'suspended';
           commit;
+          -- Enforcement test (task 4.2): the NAP-001 agent back to Live (it is switched back on in Appian below).
+          begin;
+          select set_config('act.allow_lifecycle', 'on', true), set_config('act.actor_type', 'system', true),
+                 set_config('act.reason', 'Enforcement test finished: put back to Live by the test run', true);
+          update public.agents set status = 'live'
+           where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status = 'suspended';
+          update public.platform_agents set status = 'active' where external_id = 'NAP-001';
+          commit;
           -- Phone-alert test (task 2.6): the test browser's device, if the test stopped before turning alerts off.
           delete from public.push_subscriptions s using public.profiles p
            where p.id = s.user_id and p.email = 'ravi.menon@northbridge.demo' and s.device like 'Linux · Chrome%';
           -- Test people exist only on the work-in-progress database; remove them entirely.
           delete from auth.users where email like 'e2e.user.%@northbridge.demo';
           SQL
+      - name: Switch NAP-001 back on in Appian
+        if: always()
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: |
+          [ -n "$APPIAN_API_KEY" ] || exit 0
+          curl -sS -o /dev/null -w "NAP-001 switched on: HTTP %{http_code}\n" -X POST "$APPIAN_BASE/suite/webapi/nap-agent-status-set" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'content-type: application/json' \
+            -d '{"externalId":"NAP-001","status":"active","reason":"Control Tower test run finished: switched back on","requestedBy":"act-integration"}'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

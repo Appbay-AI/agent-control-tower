@@ -232,6 +232,20 @@ export interface AgentSuspension {
   suspended_at: string | null
 }
 
+/** Task 4.2: one way a suspended agent is stopped. */
+export interface AgentEnforcement {
+  id: number
+  agent_id: string
+  suspension_id: string | null
+  method: 'platform' | 'api' | 'webhook' | 'email'
+  target: string
+  status: 'pending' | 'done' | 'failed'
+  detail: string | null
+  attempts: number
+  created_at: string
+  finished_at: string | null
+}
+
 /** Task 3.6: an agent's platform, for the registry's source badge. */
 export interface AgentPlatformSource { agent_id: string; platform: string; external_id: string; status: 'active' | 'blocked'; missing_since: string | null }
 

@@ -1,6 +1,12 @@
 // Task 2.8: delivering a decision to the agent's callback_url. The database has already built and signed the body.
 
-export interface SignedCallback { id: number; url: string; body: string; signature: string; request_id: string }
+export interface SignedCallback {
+  id: number; url: string; body: string; request_id: string
+  /** Null when the agent has no key to sign with (task 4.2 stop requests); the header is then left out. */
+  signature: string | null
+  /** ACT-Event header: 'action.decided' (task 2.8, the default) or 'agent.stop' (task 4.2). */
+  event?: string
+}
 export interface CallbackResult { id: number; ok: boolean; status?: number; error?: string }
 
 /** Addresses we refuse to call: not https, or pointing at a machine name / private address instead of a public host. */
@@ -28,8 +34,8 @@ export async function deliverCallback(cb: SignedCallback, fetchImpl: typeof fetc
       headers: {
         'content-type': 'application/json',
         'user-agent': 'AgentControlTower-Callback/1',
-        'act-signature': cb.signature,
-        'act-event': 'action.decided',
+        ...(cb.signature ? { 'act-signature': cb.signature } : {}),
+        'act-event': cb.event ?? 'action.decided',
         'act-delivery': String(cb.id),
       },
       body: cb.body,
