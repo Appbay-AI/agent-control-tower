@@ -59,6 +59,8 @@ export function AgentDetailPage() {
 
   const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, enforcements, needsSecond } = data
   const silent = alerts.some((al) => al.kind === 'agent_silent')
+  // Task 4.3: suspended here, but not yet stopped everywhere.
+  const notStopped = alerts.some((al) => al.kind === 'enforcement_pending')
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
   const orList = (names: string[]) => names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
@@ -101,6 +103,7 @@ export function AgentDetailPage() {
             {(!a.business_owner_id || people.get(a.business_owner_id)?.is_active === false) && <WarningBadge>No business owner</WarningBadge>}
             {overdue && <WarningBadge>Review overdue</WarningBadge>}
             {silent && <WarningBadge>Silent</WarningBadge>}
+            {notStopped && <WarningBadge>Not stopped yet</WarningBadge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -9,7 +9,7 @@ export type DataClassification = 'public' | 'internal' | 'confidential' | 'restr
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'sent_back'
 export type RegistrationDecision = 'approve' | 'reject' | 'send_back'
 export type ReviewOutcome = 'no_change' | 'changes_required' | 'retire'
-export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent'
+export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent' | 'enforcement_pending'
 
 export interface Department {
   id: string
@@ -239,9 +239,12 @@ export interface AgentEnforcement {
   suspension_id: string | null
   method: 'platform' | 'api' | 'webhook' | 'email'
   target: string
-  status: 'pending' | 'done' | 'failed'
+  /** Task 4.3: pending with attempts > 0 = failed and waiting to be tried again; cancelled = no longer needed. */
+  status: 'pending' | 'done' | 'failed' | 'cancelled'
   detail: string | null
   attempts: number
+  /** Task 4.3: when it is tried (again). */
+  next_attempt_at: string
   created_at: string
   finished_at: string | null
 }

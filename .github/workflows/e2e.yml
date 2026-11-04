@@ -110,6 +110,59 @@ jobs:
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
           t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[enforcement\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
+      - name: Retry check (task 4.3)
+        # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not
+        # exist), the NAP-001 agent is suspended, and the block must wait for a retry with the admins alerted. Then Appian
+        # "comes back" and the retry must block NAP-001 by itself. The real address is always put back.
+        if: success() && env.ACT_PLATFORM_AGENT_CODE != ''
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: |
+          set -euo pipefail
+          q() { psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "$1"; }
+          conn=$(q "select connection_id from public.platform_agents where external_id = 'NAP-001'")
+          agent=$(q "select agent_id from public.platform_agents where external_id = 'NAP-001'")
+          real=$(q "select base_url from public.platform_connections where id = '$conn'")
+          point() { psql "$SUPABASE_DB_URL" -q -v ON_ERROR_STOP=1 -c "begin; select set_config('act.actor_type', 'system', true),
+            set_config('act.reason', 'Retry test: $2', true); update public.platform_connections set base_url = '$1' where id = '$conn'; commit;"; }
+          trap 'point "$real" "Appian address put back"' EXIT
+          curl -sS -o /dev/null -w "NAP-001 switched on: HTTP %{http_code}\n" -X POST "$APPIAN_BASE/suite/webapi/nap-agent-status-set" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'content-type: application/json' \
+            -d '{"externalId":"NAP-001","status":"active","reason":"Control Tower retry test: switched on before the test","requestedBy":"act-integration"}'
+          point 'https://act-retry-test.invalid' 'Appian made unreachable'
+          psql "$SUPABASE_DB_URL" -q -v ON_ERROR_STOP=1 <<SQL
+          begin;
+          select set_config('act.allow_lifecycle', 'on', true), set_config('act.actor_type', 'system', true),
+                 set_config('act.reason', 'Retry test: test agent made Live again', true);
+          update public.agents set status = 'live' where id = '$agent' and status = 'suspended';
+          update public.platform_agents set status = 'active' where external_id = 'NAP-001';
+          commit;
+          begin;
+          select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+            from public.profiles where email = 'admin@northbridge.demo';
+          select public.suspend_agent('$agent', 'E2E retry test: suspended while Appian cannot be reached');
+          commit;
+          SQL
+          step="select status || ' ' || attempts from public.agent_enforcements where agent_id = '$agent' and method = 'platform' order by id desc limit 1"
+          for i in $(seq 1 45); do s=$(q "$step"); [ "${s%% *}" = pending ] && [ "${s##* }" -ge 1 ] && break; sleep 2; done
+          echo "First try: $s; $(q "select detail from public.agent_enforcements where agent_id = '$agent' and method = 'platform' order by id desc limit 1")"
+          [ "${s%% *}" = pending ] && [ "${s##* }" -ge 1 ] || { echo "::error title=Retry check::the failed block was not kept for a retry ($s)"; exit 1; }
+          alert=$(q "select message from public.alerts where agent_id = '$agent' and kind = 'enforcement_pending' and resolved_at is null")
+          echo "Admin alert: $alert"
+          [ -n "$alert" ] || { echo "::error title=Retry check::no admin alert while the block waits for a retry"; exit 1; }
+          pushes=$(q "select count(*) from public.push_outbox where kind = 'enforcement' and created_at > now() - interval '5 minutes'")
+          point "$real" 'Appian reachable again'
+          back=$(date +%s)
+          for i in $(seq 1 60); do s=$(q "$step"); [ "${s%% *}" = done ] && break; sleep 5; done
+          took=$(( $(date +%s) - back ))
+          [ "${s%% *}" = done ] || { echo "::error title=Retry check::still not blocked ${took} s after Appian came back ($s)"; exit 1; }
+          left=$(q "select count(*) from public.alerts where agent_id = '$agent' and kind = 'enforcement_pending' and resolved_at is null")
+          [ "$left" = 0 ] || { echo "::error title=Retry check::the admin alert stayed open after the block worked"; exit 1; }
+          st=$(curl -sS "$APPIAN_BASE/suite/webapi/nap-agent-status?externalId=NAP-001" -H "Appian-API-Key: $APPIAN_API_KEY")
+          echo "Appian says: $st"
+          echo "$st" | grep -q '"quarantined"' || { echo "::error title=Retry check::Appian does not show NAP-001 blocked"; exit 1; }
+          echo "::notice title=Retry check::first try failed and was kept (${s##* } tries in all); $pushes admin phone alert(s) queued; blocked in Appian ${took} s after it came back; alert cleared"
       - name: Retire leftover test agents
         if: always()
         run: |

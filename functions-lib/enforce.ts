@@ -6,7 +6,8 @@ import { PlatformError, pluginFor, type PlatformConnection } from './platforms'
 
 interface PlatformWork { id: number; external_id: string; reason: string; connection: PlatformConnection & { name: string } }
 interface Claimed { platform: PlatformWork[]; webhooks: (SignedCallback & { event: string })[]; emails: StopEmail[]; email: EmailSettings | null }
-export interface StepResult { id: number; ok: boolean; detail: string }
+/** `retry` (task 4.3): false when trying again cannot help, so a person is alerted instead. Missing = try again. */
+export interface StepResult { id: number; ok: boolean; detail: string; retry?: boolean }
 
 /** Blocks the agent on its platform, then reads it back: it counts only if the platform says it is blocked. */
 export async function blockOnPlatform(w: PlatformWork, fetchImpl: typeof fetch = fetch): Promise<StepResult> {
@@ -19,7 +20,9 @@ export async function blockOnPlatform(w: PlatformWork, fetchImpl: typeof fetch =
     return { id: w.id, ok: true, detail: `Blocked on ${where}; read back as blocked` }
   } catch (e) {
     const msg = e instanceof PlatformError ? e.message : `Unexpected error: ${(e as Error).message}`
-    return { id: w.id, ok: false, detail: `Not blocked on ${where}: ${msg}`.slice(0, 500) }
+    // Gone from the platform: nothing left to block there, so asking again cannot help.
+    const retry = !(e instanceof PlatformError && e.code === 'not_found')
+    return { id: w.id, ok: false, retry, detail: `Not blocked on ${where}: ${msg}`.slice(0, 500) }
   }
 }
 
@@ -38,10 +41,12 @@ export async function runEnforcement(token: string, fetchImpl: typeof fetch = fe
   // One at a time, inside Resend's rate limit.
   const emails: StepResult[] = []
   for (const e of c.emails ?? []) {
-    if (!c.email) { emails.push({ id: e.id, ok: false, detail: 'Not sent: email is not set up for this site' }); continue }
-    const r = await sendStopEmail(e, c.email, fetchImpl).catch((err: Error) => ({ id: e.id, sent: false, error: err.message, sent_to: undefined }))
+    // Not set up: kept for a retry, which works once an admin sets email up.
+    if (!c.email) { emails.push({ id: e.id, ok: false, retry: true, detail: 'Not sent: email is not set up for this site' }); continue }
+    const r = await sendStopEmail(e, c.email, fetchImpl)
+      .catch((err: Error) => ({ id: e.id, sent: false, error: err.message, sent_to: undefined, retry: true }))
     const demo = c.email.redirect_to && r.sent_to === c.email.redirect_to ? ' (demo inbox)' : ''
-    emails.push({ id: e.id, ok: r.sent, detail: r.sent ? `Emailed ${e.to_name}, asking them to switch it off${demo}` : `Email to ${e.to_name} not sent: ${r.error}` })
+    emails.push({ id: e.id, ok: r.sent, ...(r.sent ? {} : { retry: r.retry !== false }), detail: r.sent ? `Emailed ${e.to_name}, asking them to switch it off${demo}` : `Email to ${e.to_name} not sent: ${r.error}` })
   }
   const results = [...platform, ...webhooks, ...emails]
   await rpc('enforcement_report', { p_token: token, p_results: results }, fetchImpl)

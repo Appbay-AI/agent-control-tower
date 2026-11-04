@@ -19,7 +19,7 @@ export function AgentsPage() {
   const [status, setStatus] = useState<AgentStatus | ''>('')
   const [risk, setRisk] = useState<RiskTier | ''>('')
   const [source, setSource] = useState<'' | 'platform' | 'api' | 'manual'>('')
-  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent' | 'discovered'>('')
+  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent' | 'discovered' | 'not_stopped'>('')
 
   const { data, error, loading } = useAsync(async () => {
     const [agents, departments, profiles, pending, alerts, sources] = await Promise.all([
@@ -35,6 +35,8 @@ export function AgentsPage() {
       pending: new Set(pending.map((r) => r.agent_id)),
       // Task 2.11: agents flagged by the silent-agent check.
       silent: new Set(alerts.filter((al) => al.kind === 'agent_silent').map((al) => al.agent_id)),
+      // Task 4.3: suspended, but stopping it somewhere has not worked yet.
+      notStopped: new Set(alerts.filter((al) => al.kind === 'enforcement_pending').map((al) => al.agent_id)),
       // Task 3.6: the platform each agent comes from, if any.
       platform: new Map(sources.map((s) => [s.agent_id, s.platform])),
     }
@@ -56,6 +58,7 @@ export function AgentsPage() {
       if (flag === 'overdue' && !isReviewOverdue(a.next_review_date, a.status)) return false
       if (flag === 'pending' && !data.pending.has(a.id)) return false
       if (flag === 'silent' && !data.silent.has(a.id)) return false
+      if (flag === 'not_stopped' && !data.notStopped.has(a.id)) return false
       if (flag === 'discovered' && !isDiscovered(a)) return false
       const onPlatform = data.platform.has(a.id)
       if (source === 'platform' && !onPlatform) return false
@@ -77,6 +80,7 @@ export function AgentsPage() {
       overdue: agents.filter((a) => isReviewOverdue(a.next_review_date, a.status)).length,
       pending: data?.pending.size ?? 0,
       silent: data?.silent.size ?? 0,
+      notStopped: data?.notStopped.size ?? 0,
       discovered: agents.filter(isDiscovered).length,
     }
   }, [data])
@@ -103,6 +107,10 @@ export function AgentsPage() {
           <Stat label="Discovered, not registered" value={counts.discovered} tone={counts.discovered ? 'warn' : undefined}
             onClick={() => setFlag('discovered')} active={flag === 'discovered'} />
           <Stat label="Waiting for approval" value={counts.pending} onClick={() => setFlag('pending')} active={flag === 'pending'} />
+          {(counts.notStopped > 0 || flag === 'not_stopped') && (
+            <Stat label="Suspended, not stopped yet" value={counts.notStopped} tone="bad"
+              onClick={() => setFlag('not_stopped')} active={flag === 'not_stopped'} />
+          )}
         </div>
       )}
 
@@ -183,6 +191,7 @@ export function AgentsPage() {
                           <StatusBadge status={a.status} />
                           {isDiscovered(a) && <DiscoveredBadge />}
                           {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}
+                    {data.notStopped.has(a.id) && <WarningBadge>Not stopped yet</WarningBadge>}
                           {data.pending.has(a.id) && <span className="text-muted-foreground text-xs">awaiting approval</span>}
                         </div>
                       </td>
@@ -215,6 +224,7 @@ export function AgentsPage() {
                     {ownerMissing(a) && <WarningBadge>No owner</WarningBadge>}
                     {isReviewOverdue(a.next_review_date, a.status) && <WarningBadge>Review overdue</WarningBadge>}
                     {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}
+                    {data.notStopped.has(a.id) && <WarningBadge>Not stopped yet</WarningBadge>}
                     {data.pending.has(a.id) && <span className="text-muted-foreground">· awaiting approval</span>}
                   </div>
                 </Link>

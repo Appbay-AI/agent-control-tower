@@ -88,15 +88,78 @@ describe('enforcement by source (task 4.2)', () => {
     await expect(report(token, [])).rejects.toThrow(/Invalid or used enforcement token/)
   })
 
-  it('a failed block is recorded as failed, with what the platform said', async () => {
+  it('a failed block stays pending and is tried again; the admins are alerted once (task 4.3)', async () => {
     const { id } = await liveAgent({ platform: 'NAP-005' })
+    await db.query(`delete from public.push_outbox`)
     await suspend(u.james, id)
     const { token } = await lastToken()
     const work = await claim(token)
     await report(token, [{ id: work.platform[0].id, ok: false, detail: 'The Appian simulator did not answer within 15 seconds.' }])
-    expect(await plan(id)).toEqual([{ method: 'platform', status: 'failed', target: `${PLATFORM} as NAP-005`,
-      detail: 'The Appian simulator did not answer within 15 seconds.' }])
+    const row = (await db.query<{ status: string; detail: string; attempts: number; wait: number; agent: string }>(
+      `select e.status, e.detail, e.attempts, extract(epoch from e.next_attempt_at - now())::int wait, a.status agent
+         from public.agent_enforcements e join public.agents a on a.id = e.agent_id where e.agent_id = $1`, [id])).rows[0]
+    expect(row).toMatchObject({ status: 'pending', detail: 'The Appian simulator did not answer within 15 seconds.', attempts: 1, agent: 'suspended' })
+    expect(row.wait).toBeGreaterThan(50) // about a minute
     expect((await db.query<{ status: string }>(`select status from public.platform_agents where agent_id = $1`, [id])).rows[0].status).toBe('active')
+    const alert = (await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows
+    expect(alert).toHaveLength(1)
+    expect(alert[0].message).toMatch(/^AGT-\d{4} is suspended, but stopping it on Northbridge Agent Platform \(simulated\) as NAP-005 has not worked yet: The Appian simulator did not answer within 15 seconds\. Trying again at \d\d:\d\d UTC\.$/)
+    const pushes = (await db.query<{ user_id: string; title: string }>(`select user_id, title from public.push_outbox where kind = 'enforcement'`)).rows
+    expect(pushes.map((p) => p.user_id).sort()).toEqual([u.admin, u.admin2].sort())
+    expect(pushes[0].title).toMatch(/^Not stopped yet · AGT-/)
+
+    // Not due yet: the clock does not ask again.
+    const calls = (await db.query<{ n: number }>(`select count(*)::int n from net.calls`)).rows[0].n
+    await db.query(`select public.enforcement_kick()`)
+    expect((await db.query<{ n: number }>(`select count(*)::int n from net.calls`)).rows[0].n).toBe(calls)
+
+    // Due: tried again; fails again (no second phone alert), then works: done, alert cleared.
+    await db.query(`update public.agent_enforcements set next_attempt_at = now() - interval '1 second' where agent_id = $1`, [id])
+    await db.query(`select public.enforcement_kick()`)
+    let t = (await lastToken()).token
+    let w = await claim(t)
+    await report(t, [{ id: w.platform[0].id, ok: false, detail: 'HTTP 503 from Appian' }])
+    expect((await db.query<{ attempts: number; status: string }>(`select attempts, status from public.agent_enforcements where agent_id = $1`, [id])).rows[0])
+      .toEqual({ attempts: 2, status: 'pending' })
+    expect((await db.query<{ n: number }>(`select count(*)::int n from public.push_outbox where kind = 'enforcement'`)).rows[0].n).toBe(2)
+    expect((await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0].message)
+      .toContain('HTTP 503 from Appian')
+
+    await db.query(`update public.agent_enforcements set next_attempt_at = now() - interval '1 second' where agent_id = $1`, [id])
+    await db.query(`select public.enforcement_kick()`)
+    t = (await lastToken()).token
+    w = await claim(t)
+    await report(t, [{ id: w.platform[0].id, ok: true, detail: `Blocked on ${PLATFORM} as NAP-005; read back as blocked` }])
+    expect(await plan(id)).toEqual([{ method: 'platform', status: 'done', target: `${PLATFORM} as NAP-005`, detail: `Blocked on ${PLATFORM} as NAP-005; read back as blocked` }])
+    expect((await db.query<{ n: number }>(`select count(*)::int n from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0].n).toBe(0)
+  })
+
+  it('backs off: 1, 2, 5, 15 and 30 minutes, then every hour', async () => {
+    const waits = (await db.query<{ m: number }>(
+      `select extract(epoch from public.enforcement_backoff(n))::int / 60 m from generate_series(1, 8) n order by n`)).rows.map((r) => r.m)
+    expect(waits).toEqual([1, 2, 5, 15, 30, 60, 60, 60])
+  })
+
+  it('a step that cannot work by retrying is failed and left to a person; the alert says so', async () => {
+    const { id } = await liveAgent()
+    await suspend(u.ravi, id)
+    const t = (await lastToken()).token
+    const w = await claim(t)
+    await report(t, [{ id: w.emails[0].id, ok: false, retry: false, detail: 'Email to James Whitfield not sent: james@bank.test is not a real mailbox' }])
+    expect((await plan(id))[0]).toMatchObject({ status: 'failed' })
+    expect((await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0].message)
+      .toMatch(/Trying again cannot fix this: a person needs to act\.$/)
+  })
+
+  it('stops trying, and clears the alert, once the agent is no longer suspended', async () => {
+    const { id } = await liveAgent({ platform: 'NAP-006' })
+    await suspend(u.james, id)
+    const t = (await lastToken()).token
+    const w = await claim(t)
+    await report(t, [{ id: w.platform[0].id, ok: false, detail: 'Could not connect' }])
+    await asUser(db, u.admin, (tx) => tx.query(`select public.retire_agent($1, 'Replaced')`, [id]))
+    expect((await plan(id))[0]).toMatchObject({ status: 'cancelled', detail: 'Could not connect. Stopped trying: the agent is now retired' })
+    expect((await db.query<{ n: number }>(`select count(*)::int n from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0].n).toBe(0)
   })
 
   it('an agent with a control endpoint gets a stop request, signed with its own key', async () => {

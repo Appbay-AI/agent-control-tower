@@ -48,7 +48,30 @@ describe('blocking a suspended agent on its platform (task 4.2)', () => {
     // The set call answers "quarantined" but a read-back still says active: the plug-in itself refuses to believe it.
     expect(await blockOnPlatform(work, appian({ stuck: true }).fetchImpl)).toMatchObject({ ok: false })
     const down = await blockOnPlatform(work, appian({ down: true }).fetchImpl)
-    expect(down).toMatchObject({ ok: false, detail: expect.stringMatching(/^Not blocked on Northbridge Agent Platform \(simulated\) as NAP-001: Could not connect/) })
+    expect(down).toMatchObject({ ok: false, retry: true, detail: expect.stringMatching(/^Not blocked on Northbridge Agent Platform \(simulated\) as NAP-001: Could not connect/) })
+  })
+})
+
+describe('which failures are worth trying again (task 4.3)', () => {
+  it('an agent the platform no longer has is not retried: a person must look', async () => {
+    const gone = vi.fn(async () => new Response(JSON.stringify({ error: 'Agent not found' }), { status: 404 })) as unknown as typeof fetch
+    expect(await blockOnPlatform(work, gone)).toMatchObject({ ok: false, retry: false })
+  })
+
+  it('an email Resend rejected outright is not retried; one it was too busy for is', async () => {
+    const reply = (status: number) => vi.fn(async () => new Response(JSON.stringify({ message: 'x' }), { status })) as unknown as typeof fetch
+    const run = async (send: typeof fetch) => {
+      const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith('/rpc/enforcement_claim')) return new Response(JSON.stringify({ platform: [], webhooks: [], emails: [email], email: settings }), { status: 200 })
+        if (url.endsWith('/rpc/enforcement_report')) return new Response('1', { status: 200 })
+        return send(input, init)
+      }) as unknown as typeof fetch
+      return (await runEnforcement('ent_' + 'b'.repeat(64), fetchImpl))![0]
+    }
+    expect(await run(reply(422))).toMatchObject({ ok: false, retry: false })
+    expect(await run(reply(429))).toMatchObject({ ok: false, retry: true })
+    expect(await run(reply(200))).toEqual({ id: 21, ok: true, detail: 'Emailed Lucy Grant, asking them to switch it off (demo inbox)' })
   })
 })
 
@@ -100,7 +123,7 @@ describe('running the work handed over by the database (task 4.2)', () => {
     expect(out).toEqual([
       { id: 11, ok: true, detail: 'Blocked on Northbridge Agent Platform (simulated) as NAP-001; read back as blocked' },
       { id: 22, ok: true, detail: 'Stop request delivered (HTTP 200)' },
-      { id: 23, ok: false, detail: 'Not sent: email is not set up for this site' },
+      { id: 23, ok: false, retry: true, detail: 'Not sent: email is not set up for this site' },
     ])
     expect(reports).toEqual([{ p_token: 'ent_' + 'a'.repeat(64), p_results: out }])
   })

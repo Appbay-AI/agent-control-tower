@@ -16,11 +16,26 @@ type Mode = 'suspend' | 'confirm' | 'withdraw'
 const STEP_LABEL: Record<AgentEnforcement['method'], string> = {
   platform: 'On its platform:', api: 'Its API key:', webhook: 'Stop request:', email: 'Owner told:',
 }
-const STEP_STATUS: Record<AgentEnforcement['status'], string> = { pending: 'Working…', done: 'Done', failed: 'Failed' }
-const STEP_STYLE: Record<AgentEnforcement['status'], string> = {
+type StepState = AgentEnforcement['status'] | 'retrying'
+const STEP_STATUS: Record<StepState, string> = { pending: 'Working…', retrying: 'Retrying', done: 'Done', failed: 'Failed', cancelled: 'Stopped' }
+const STEP_STYLE: Record<StepState, string> = {
   pending: 'bg-muted text-muted-foreground',
+  retrying: 'bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100',
   done: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200',
   failed: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200',
+  cancelled: 'bg-muted text-muted-foreground',
+}
+
+/** Task 4.3: a step that failed and waits to be tried again is still `pending` in the database. */
+export function stepState(e: Pick<AgentEnforcement, 'status' | 'attempts'>): StepState {
+  return e.status === 'pending' && e.attempts > 0 ? 'retrying' : e.status
+}
+
+/** "Try 2 failed. Next try at 14:05." */
+export function retryNote(e: Pick<AgentEnforcement, 'attempts' | 'next_attempt_at'>, now = Date.now()): string {
+  const at = new Date(e.next_attempt_at)
+  const when = at.getTime() <= now ? 'any moment now' : `at ${at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  return `Try ${e.attempts} failed. Next try ${when}.`
 }
 
 const TEXT: Record<Mode, { title: (code: string) => string; button: string; placeholder: string; required: boolean }> = {
@@ -51,14 +66,16 @@ export function KillSwitch({ part, agent, suspensions, enforcements = [], canSus
   const waiting = suspensions.find((s) => s.status === 'waiting') ?? null
   const last = agent.status === 'suspended' ? suspensions.find((s) => s.status === 'done') ?? null : null
   const steps = last ? enforcements.filter((e) => e.suspension_id === last.id) : []
-  const working = part === 'notices' && steps.some((e) => e.status === 'pending')
+  const working = part === 'notices' && steps.some((e) => stepState(e) === 'pending')
+  const retrying = part === 'notices' && steps.some((e) => stepState(e) === 'retrying')
 
-  // While a step is still running (blocking on the platform, sending), look again every 2 seconds.
+  // While a step is still running (blocking on the platform, sending), look again every 2 seconds;
+  // while one waits to be tried again (task 4.3), every 30 seconds.
   useEffect(() => {
-    if (!working) return
-    const t = window.setTimeout(() => { void onDone() }, 2000)
+    if (!working && !retrying) return
+    const t = window.setTimeout(() => { void onDone() }, working ? 2000 : 30_000)
     return () => window.clearTimeout(t)
-  }, [working, enforcements, onDone])
+  }, [working, retrying, enforcements, onDone])
 
   function open(m: Mode) { setMode(m); setText(''); setError(null) }
 
@@ -110,13 +127,18 @@ export function KillSwitch({ part, agent, suspensions, enforcements = [], canSus
             <p>By {name(last.requested_by)}{last.confirmed_by ? `, confirmed by ${name(last.confirmed_by)}` : ''}: “{last.reason}”.</p>
             {steps.length > 0 && (
               <ul className="mt-2 space-y-1" data-testid="enforcement-steps">
-                {steps.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-baseline gap-x-2 text-sm" data-testid={`enforcement-${e.method}`}>
-                    <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${STEP_STYLE[e.status]}`}>{STEP_STATUS[e.status]}</span>
-                    <span className="font-medium">{STEP_LABEL[e.method]}</span>
-                    <span>{e.detail ?? e.target}</span>
-                  </li>
-                ))}
+                {steps.map((e) => {
+                  const s = stepState(e)
+                  return (
+                    <li key={e.id} className="flex flex-wrap items-baseline gap-x-2 text-sm" data-testid={`enforcement-${e.method}`} data-state={s}>
+                      <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${STEP_STYLE[s]}`}>{STEP_STATUS[s]}</span>
+                      <span className="font-medium">{STEP_LABEL[e.method]}</span>
+                      <span>{e.detail ?? e.target}</span>
+                      {s === 'retrying' && <span className="text-muted-foreground">{retryNote(e)}</span>}
+                      {s === 'failed' && <span className="text-muted-foreground">Trying again cannot fix this: a person needs to act.</span>}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </AlertDescription>
