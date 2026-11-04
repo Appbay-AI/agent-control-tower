@@ -72,6 +72,6 @@ test('an admin suspends a Live agent in one action, and the agent is refused at 
   // Both are on the Incidents page.
   await page.getByRole('link', { name: 'Incidents' }).first().click()
   await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible()
-  await expect(page.locator(`[data-testid="incident-row"][data-code="${made.incident_code}"]`)).toContainText('Resolve within 24 h')
+  await expect(page.locator(`[data-testid="incident-row"][data-code="${made.incident_code}"]`)).toContainText('Resolve within 1 day')
   await expect(page.locator(`[data-testid="incident-row"][data-code="${code}"]`)).toContainText(CODE)
 })
