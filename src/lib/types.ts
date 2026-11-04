@@ -245,6 +245,8 @@ export interface AgentEnforcement {
   attempts: number
   /** Task 4.3: when it is tried (again). */
   next_attempt_at: string
+  /** Set while a try is in flight; cleared when a failed try is put back for a retry. */
+  claimed_at: string | null
   created_at: string
   finished_at: string | null
 }

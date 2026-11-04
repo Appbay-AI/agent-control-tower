@@ -26,9 +26,10 @@ const STEP_STYLE: Record<StepState, string> = {
   cancelled: 'bg-muted text-muted-foreground',
 }
 
-/** Task 4.3: a step that failed and waits to be tried again is still `pending` in the database. */
-export function stepState(e: Pick<AgentEnforcement, 'status' | 'attempts'>): StepState {
-  return e.status === 'pending' && e.attempts > 0 ? 'retrying' : e.status
+/** Task 4.3: a step that failed and waits to be tried again is still `pending` in the database. A try in flight
+ *  already counts as an attempt but is claimed, so it reads as working. */
+export function stepState(e: Pick<AgentEnforcement, 'status' | 'attempts' | 'claimed_at'>): StepState {
+  return e.status === 'pending' && e.attempts > 0 && !e.claimed_at ? 'retrying' : e.status
 }
 
 /** "Try 2 failed. Next try at 14:05." */

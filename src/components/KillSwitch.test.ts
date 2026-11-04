@@ -4,10 +4,16 @@ import { retryNote, stepState } from './KillSwitch'
 
 describe('enforcement steps (task 4.3)', () => {
   it('a pending step that has been tried already is shown as retrying', () => {
-    expect(stepState({ status: 'pending', attempts: 0 })).toBe('pending')
-    expect(stepState({ status: 'pending', attempts: 2 })).toBe('retrying')
-    expect(stepState({ status: 'failed', attempts: 1 })).toBe('failed')
-    expect(stepState({ status: 'cancelled', attempts: 1 })).toBe('cancelled')
+    const c = null
+    expect(stepState({ status: 'pending', attempts: 0, claimed_at: c })).toBe('pending')
+    expect(stepState({ status: 'pending', attempts: 2, claimed_at: c })).toBe('retrying')
+    expect(stepState({ status: 'failed', attempts: 1, claimed_at: c })).toBe('failed')
+    expect(stepState({ status: 'cancelled', attempts: 1, claimed_at: c })).toBe('cancelled')
+  })
+
+  it('a try in flight is working, not retrying, so the page keeps looking every 2 seconds', () => {
+    expect(stepState({ status: 'pending', attempts: 1, claimed_at: '2026-11-04T10:00:00Z' })).toBe('pending')
+    expect(stepState({ status: 'pending', attempts: 3, claimed_at: '2026-11-04T10:00:00Z' })).toBe('pending')
   })
 
   it('says which try failed and when the next one is', () => {

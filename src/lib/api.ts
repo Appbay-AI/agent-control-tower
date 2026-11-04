@@ -124,7 +124,7 @@ export const api = {
   suspensions: async (agentId: string) =>
     check(await db().from('agent_suspensions').select('*').eq('agent_id', agentId).order('requested_at', { ascending: false })) as AgentSuspension[],
   enforcements: async (agentId: string) =>
-    check(await db().from('agent_enforcements').select('id, agent_id, suspension_id, method, target, status, detail, attempts, next_attempt_at, created_at, finished_at')
+    check(await db().from('agent_enforcements').select('id, agent_id, suspension_id, method, target, status, detail, attempts, next_attempt_at, claimed_at, created_at, finished_at')
       .eq('agent_id', agentId).order('id')) as AgentEnforcement[],
   suspendAgent: async (agentId: string, reason: string) => check(await db().rpc('suspend_agent', { p_agent: agentId, p_reason: reason })) as 'suspended' | 'waiting',
   confirmSuspension: async (id: string, note: string | null) => check(await db().rpc('confirm_agent_suspension', { p_suspension: id, p_note: note })),
