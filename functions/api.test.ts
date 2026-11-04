@@ -6,6 +6,7 @@ import { onRequestPost as requestAction } from './api/v1/actions/request'
 import { onRequestGet as actionStatus } from './api/v1/actions/[id]'
 import { onRequestPost as heartbeat } from './api/v1/agents/[id]/heartbeat'
 import { onRequestPost as logs } from './api/v1/agents/[id]/logs'
+import { onRequestPost as reportIncident } from './api/v1/incidents'
 
 const db = (status: number, body: unknown) =>
   vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }))
@@ -185,5 +186,39 @@ describe('POST /api/v1/agents/{id}/logs', () => {
     const res = await post('[{"message": "a"}, {}]')
     expect(res.status).toBe(422)
     expect(await res.json()).toEqual({ error: 'invalid_request', message: 'Entry 2: message is required' })
+  })
+})
+
+describe('POST /api/v1/incidents (task 4.4)', () => {
+  const post = (body: unknown, headers: Record<string, string> = { authorization: 'Bearer act_int_k' }) =>
+    reportIncident({ request: req('/api/v1/incidents', { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body), headers }), params: {} })
+
+  it('needs a key and a JSON object', async () => {
+    expect((await post({ title: 'x' }, {})).status).toBe(401)
+    expect((await post('nope')).status).toBe(400)
+    expect((await post([1])).status).toBe(400)
+  })
+
+  it('passes either kind of key, the body and the idempotency header to the database', async () => {
+    const fetchMock = db(200, { incident_code: 'INC-0001', owner: 'James Whitfield', duplicate: false })
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await post({ agent: 'AGT-0001', title: 'Paid twice' }, { authorization: 'Bearer act_int_k', 'idempotency-key': 'evt-1' })
+    expect(res.status).toBe(201)
+    expect(await res.json()).toMatchObject({ incident_code: 'INC-0001', owner: 'James Whitfield' })
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toMatch(/\/rest\/v1\/rpc\/api_report_incident$/)
+    expect(JSON.parse(String(init.body))).toEqual({ p_key: 'act_int_k', p_payload: { agent: 'AGT-0001', title: 'Paid twice', idempotency_key: 'evt-1' } })
+  })
+
+  it('answers 200 for a retry, 422 for bad input and for header and body keys that differ', async () => {
+    vi.stubGlobal('fetch', db(200, { incident_code: 'INC-0001', duplicate: true }))
+    expect((await post({ title: 'x', idempotency_key: 'a' })).status).toBe(200)
+    expect((await post({ title: 'x', idempotency_key: 'a' }, { authorization: 'Bearer k', 'idempotency-key': 'b' })).status).toBe(422)
+    vi.stubGlobal('fetch', db(400, { code: '23514', message: 'title is required' }))
+    const bad = await post({})
+    expect(bad.status).toBe(422)
+    expect(await bad.json()).toEqual({ error: 'invalid_request', message: 'title is required' })
+    vi.stubGlobal('fetch', db(400, { code: 'P0002', message: 'No agent AGT-9999' }))
+    expect((await post({ agent: 'AGT-9999', title: 'x' })).status).toBe(404)
   })
 })

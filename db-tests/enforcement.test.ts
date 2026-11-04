@@ -47,7 +47,7 @@ describe('enforcement by source (task 4.2)', () => {
   const plan = async (id: string) => (await db.query<Row>(
     `select method, status, target, detail from public.agent_enforcements where agent_id = $1 order by id`, [id])).rows
   const lastToken = async () => (await db.query<{ url: string; token: string }>(
-    `select url, body ->> 'token' token from net.calls order by id desc limit 1`)).rows[0]
+    `select url, body ->> 'token' token from net.calls where url like '%/enforce/run' order by id desc limit 1`)).rows[0]
   const claim = (token: string) => asRole(db, 'anon', async (tx) => (await tx.query<{ r: Claimed }>(`select public.enforcement_claim($1) r`, [token])).rows[0].r)
   const report = (token: string, results: unknown[]) => asRole(db, 'anon', async (tx) =>
     (await tx.query<{ n: number }>(`select public.enforcement_report($1, $2::jsonb) n`, [token, JSON.stringify(results)])).rows[0].n)
@@ -59,11 +59,11 @@ describe('enforcement by source (task 4.2)', () => {
 
   it('an agent that only calls our API is refused from that moment; nothing needs sending', async () => {
     const { id } = await liveAgent({ key: true })
-    const calls = (await db.query<{ n: number }>(`select count(*)::int n from net.calls`)).rows[0].n
+    const calls = (await db.query<{ n: number }>(`select count(*)::int n from net.calls where url like '%/enforce/run'`)).rows[0].n
     await suspend(u.james, id)
     expect(await plan(id)).toEqual([{ method: 'api', status: 'done', target: 'Its API key',
       detail: 'Refused from now on: every check and request it makes with its key' }])
-    expect((await db.query<{ n: number }>(`select count(*)::int n from net.calls`)).rows[0].n).toBe(calls)
+    expect((await db.query<{ n: number }>(`select count(*)::int n from net.calls where url like '%/enforce/run'`)).rows[0].n).toBe(calls)
   })
 
   it('an agent on a platform is blocked there through our API, and it counts only once read back as blocked', async () => {
@@ -109,9 +109,9 @@ describe('enforcement by source (task 4.2)', () => {
     expect(pushes[0].title).toMatch(/^Not stopped yet · AGT-/)
 
     // Not due yet: the clock does not ask again.
-    const calls = (await db.query<{ n: number }>(`select count(*)::int n from net.calls`)).rows[0].n
+    const calls = (await db.query<{ n: number }>(`select count(*)::int n from net.calls where url like '%/enforce/run'`)).rows[0].n
     await db.query(`select public.enforcement_kick()`)
-    expect((await db.query<{ n: number }>(`select count(*)::int n from net.calls`)).rows[0].n).toBe(calls)
+    expect((await db.query<{ n: number }>(`select count(*)::int n from net.calls where url like '%/enforce/run'`)).rows[0].n).toBe(calls)
 
     // Due: tried again; fails again (no second phone alert), then works: done, alert cleared.
     await db.query(`update public.agent_enforcements set next_attempt_at = now() - interval '1 second' where agent_id = $1`, [id])

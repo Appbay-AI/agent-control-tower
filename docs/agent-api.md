@@ -134,6 +134,37 @@ are decided.
 - Entries appear on the agent's page for everyone who can see the agent. They can never be edited or deleted, and
   are kept for 90 days.
 
+## 6. Report an incident
+
+`POST /api/v1/incidents` with an `Idempotency-Key` header (recommended: a retry with the same key returns the same
+incident instead of opening a second one).
+
+- With the **agent key**, an agent reports something that went wrong in its own work (`agent` may be left out).
+- With an **integration key**, a connected system (for example a monitoring or ticketing tool) reports about any
+  agent; `agent` is then required.
+
+```json
+{ "agent": "AGT-0012", "title": "Invoice INV-77 was paid twice", "severity": "high",
+  "description": "The retry after a timeout posted the payment again.", "occurred_at": "2026-11-04T09:15:00Z",
+  "details": { "invoice": "INV-77" } }
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `title` | yes | Up to 200 characters. |
+| `severity` | no | `low`, `medium` (default), `high` or `critical`. Sets the time to resolve it. |
+| `agent` | with an integration key | The agent's id or code. With an agent key, it must be that agent if given. |
+| `description` | no | Up to 4,000 characters. |
+| `occurred_at` | no | When it happened, as an ISO date and time (not in the future). |
+| `details` | no | A JSON object, up to 16 KB. Do not put secrets here. |
+
+- `201` with `{ "incident_code": "INC-0007", "status": "open", "severity": "high", "owner": "James Whitfield",
+  "sla_minutes": 1440, "due_at": "…", "duplicate": false }`; `200` with the same answer for a retry.
+- The incident's owner is the agent's business owner (else its technical owner, else an admin) and is alerted on
+  their phone. Time to resolve by severity, until an admin changes it: Critical 4 hours, High 24 hours,
+  Medium 3 days, Low 7 days.
+- Reporting does not by itself suspend the agent. When someone suspends an agent, an incident opens by itself.
+
 ## See it working
 
 In the Control Tower, an admin can open **Agent console**. It plays the Payment Release Assistant and uses exactly this

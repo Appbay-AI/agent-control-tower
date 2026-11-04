@@ -48,4 +48,30 @@ test('an admin suspends a Live agent in one action, and the agent is refused at 
   await expect(page.getByText('Kill switch pulled').first()).toBeVisible() // in the activity, from the audit trail
   // Task 4.2: it calls our API, so that is how it is stopped: refused from now on, done at once.
   await expect(page.getByTestId('enforcement-api')).toContainText('Refused from now on')
+
+  // Task 4.4: the suspension opened an incident, owned by the agent's business owner (Tom Becker), due in 7 days (Low).
+  const opened = page.getByTestId('incident-row').filter({ hasText: reason })
+  await expect(opened).toBeVisible()
+  await expect(opened.getByTestId('incident-owner')).toHaveText('Owner: Tom Becker')
+  await expect(opened.getByTestId('incident-due')).toHaveText('Resolve within 7 days')
+  const code = await opened.getAttribute('data-code')
+  expect(code).toMatch(/^INC-\d{4}$/)
+  console.log(`[incident] ${code} opened by the suspension, owner Tom Becker, resolve within 7 days`)
+
+  // The agent reports an incident itself through the API; a retry with the same key gets the same incident.
+  const body = { title: `E2E reported incident ${Date.now()}`, severity: 'high', details: { test: true } }
+  const headers = { ...auth, 'idempotency-key': body.title }
+  const first = await request.post('/api/v1/incidents', { headers, data: body })
+  expect(first.status()).toBe(201)
+  const made = await first.json() as { incident_code: string; owner: string; severity: string; sla_minutes: number; due_at: string }
+  expect(made).toMatchObject({ owner: 'Tom Becker', severity: 'high', sla_minutes: 1440 })
+  const again = await request.post('/api/v1/incidents', { headers, data: body })
+  expect(again.status()).toBe(200)
+  expect((await again.json()).incident_code).toBe(made.incident_code)
+
+  // Both are on the Incidents page.
+  await page.getByRole('link', { name: 'Incidents' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible()
+  await expect(page.locator(`[data-testid="incident-row"][data-code="${made.incident_code}"]`)).toContainText('Resolve within 24 h')
+  await expect(page.locator(`[data-testid="incident-row"][data-code="${code}"]`)).toContainText(CODE)
 })

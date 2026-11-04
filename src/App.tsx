@@ -10,6 +10,7 @@ import { AgentConsolePage } from '@/pages/AgentConsolePage'
 import { AgentsPage } from '@/pages/AgentsPage'
 import { ApprovalsPage } from '@/pages/ApprovalsPage'
 import { IntegrationsPage } from '@/pages/IntegrationsPage'
+import { IncidentsPage } from '@/pages/IncidentsPage'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RequestPage } from '@/pages/RequestPage'
@@ -55,6 +56,7 @@ export function AppRoutes() {
         <Route path="/agents/:id/edit" element={<AgentFormPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/approvals/requests/:id" element={<RequestPage />} />
+        <Route path="/incidents" element={<IncidentsPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/routing" element={<RequireAdmin><RoutingPage /></RequireAdmin>} />
         <Route path="/demo/agent" element={<RequireAdmin><AgentConsolePage /></RequireAdmin>} />

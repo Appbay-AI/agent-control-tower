@@ -251,6 +251,31 @@ export interface AgentEnforcement {
   finished_at: string | null
 }
 
+/** Task 4.4: an incident case. */
+export type IncidentStatus = 'open' | 'contained' | 'resolved' | 'closed'
+export interface Incident {
+  id: string
+  incident_code: string
+  agent_id: string
+  source: 'suspension' | 'agent_report' | 'integration_report'
+  suspension_id: string | null
+  severity: RiskTier
+  status: IncidentStatus
+  title: string
+  description: string | null
+  details: Record<string, unknown>
+  reporter: string
+  reported_by: string | null
+  owner_id: string | null
+  owner_reason: string | null
+  sla_minutes: number
+  opened_at: string
+  occurred_at: string | null
+  due_at: string
+  closed_at: string | null
+}
+export interface IncidentSla { severity: RiskTier; minutes: number }
+
 /** Task 3.6: an agent's platform, for the registry's source badge. */
 export interface AgentPlatformSource { agent_id: string; platform: string; external_id: string; status: 'active' | 'blocked'; missing_since: string | null }
 

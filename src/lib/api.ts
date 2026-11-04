@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentEnforcement, AgentPlatformSource, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
+  AgentEnforcement, AgentPlatformSource, Incident, IncidentSla, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -173,6 +173,17 @@ export const api = {
     const row = check(await q.select('id').maybeSingle()) as { id: string } | null
     if (!row) throw new Error('The rule was not saved. Only admins can change routing.')
     return row
+  },
+  // Incidents (task 4.4)
+  incidents: async (agentId?: string) => {
+    let q = db().from('incidents').select('*').order('opened_at', { ascending: false }).limit(500)
+    if (agentId) q = q.eq('agent_id', agentId)
+    return check(await q) as Incident[]
+  },
+  incidentSla: async () => check(await db().from('incident_sla').select('severity, minutes')) as IncidentSla[],
+  saveIncidentSla: async (severity: RiskTier, minutes: number) => {
+    const row = check(await db().from('incident_sla').update({ minutes }).eq('severity', severity).select('severity').maybeSingle())
+    if (!row) throw new Error('Not saved. Only admins can change incident time limits.')
   },
   // Default time limits by urgency (task 2.9)
   slaSettings: async () => check(await db().from('sla_settings').select('urgency, minutes')) as SlaSetting[],

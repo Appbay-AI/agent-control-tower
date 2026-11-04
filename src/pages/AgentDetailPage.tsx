@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
+import { IncidentList } from '@/components/IncidentList'
 import { KillSwitch } from '@/components/KillSwitch'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -17,6 +18,7 @@ import {
 } from '@/lib/format'
 import { agentPermissions } from '@/lib/permissions'
 import type { AuditEvent, ReviewOutcome } from '@/lib/types'
+import { isOpen, sortIncidents } from '@/lib/incidents'
 import { useAsync } from '@/lib/useAsync'
 
 export function AgentDetailPage() {
@@ -29,10 +31,10 @@ export function AgentDetailPage() {
   const [newKey, setNewKey] = useState<string | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch, enforcements] = await Promise.all([
+    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch, enforcements, incidents] = await Promise.all([
       api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
       api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!), api.platformRecord(id!),
-      api.suspensions(id!), api.killSwitchSettings(), api.enforcements(id!),
+      api.suspensions(id!), api.killSwitchSettings(), api.enforcements(id!), api.incidents(id!),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
@@ -40,6 +42,7 @@ export function AgentDetailPage() {
     const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
       agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform, suspensions, enforcements,
+      incidents: sortIncidents(incidents),
       needsSecond: agent.risk_tier === 'critical' && Boolean(killSwitch?.critical_needs_second),
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
@@ -57,10 +60,11 @@ export function AgentDetailPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, enforcements, needsSecond } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, enforcements, needsSecond, incidents } = data
   const silent = alerts.some((al) => al.kind === 'agent_silent')
   // Task 4.3: suspended here, but not yet stopped everywhere.
   const notStopped = alerts.some((al) => al.kind === 'enforcement_pending')
+  const openIncidents = incidents.filter(isOpen).length
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
   const orList = (names: string[]) => names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
@@ -104,6 +108,7 @@ export function AgentDetailPage() {
             {overdue && <WarningBadge>Review overdue</WarningBadge>}
             {silent && <WarningBadge>Silent</WarningBadge>}
             {notStopped && <WarningBadge>Not stopped yet</WarningBadge>}
+            {openIncidents > 0 && <WarningBadge>{openIncidents === 1 ? '1 open incident' : `${openIncidents} open incidents`}</WarningBadge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -162,6 +167,11 @@ export function AgentDetailPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          {incidents.length > 0 && (
+            <Card title="Incidents" subtitle="Each has an owner and a time by which it should be resolved">
+              <IncidentList incidents={incidents} name={(uid) => name(uid)} showAgent={false} />
+            </Card>
+          )}
           <Card title="Purpose">
             <p className="text-sm whitespace-pre-wrap">{a.purpose_statement || <span className="text-muted-foreground">No purpose statement yet.</span>}</p>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">

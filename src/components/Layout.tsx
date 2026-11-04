@@ -1,4 +1,4 @@
-import { Activity, Bot, ClipboardCheck, KeyRound, Lock, LogOut, Route as RouteIcon, TerminalSquare, UserCog } from 'lucide-react'
+import { Activity, Bot, ClipboardCheck, KeyRound, Lock, LogOut, Route as RouteIcon, Siren, TerminalSquare, UserCog } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -35,11 +35,13 @@ function Shell() {
   const links = [
     { to: '/agents', label: 'Agents', icon: Bot, show: true },
     { to: '/approvals', label: 'Approvals', icon: ClipboardCheck, show: hasRole('approver', 'admin') },
+    // Task 4.4
+    { to: '/incidents', label: 'Incidents', icon: Siren, show: true },
     { to: '/integrations', label: 'Integrations', icon: KeyRound, show: hasRole('admin') },
     { to: '/routing', label: 'Routing', icon: RouteIcon, show: hasRole('admin') },
     { to: '/users', label: 'Users', icon: UserCog, show: hasRole('admin') },
     // Task 2.8: demo stand-in for an agent outside the Control Tower.
-    { to: '/demo/agent', label: 'Agent console', icon: TerminalSquare, show: hasRole('admin') },
+    { to: '/demo/agent', label: 'Agent console', icon: TerminalSquare, show: hasRole('admin'), desktopOnly: true },
   ].filter((l) => l.show)
 
   return (
@@ -86,7 +88,7 @@ function Shell() {
 
       {/* Phone navigation */}
       <nav className="bg-background fixed inset-x-0 bottom-0 z-20 flex border-t sm:hidden">
-        {links.map(({ to, label, icon: Icon }) => (
+        {links.filter((l) => !('desktopOnly' in l)).map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to}
             className={({ isActive }) => cn('flex flex-1 flex-col items-center gap-0.5 py-2 text-xs text-muted-foreground',
               isActive && 'text-foreground font-medium')}>
