@@ -168,7 +168,10 @@ function CheckResults({ check, running }: { check: MicrosoftCheck; running: bool
   return (
     <div className="space-y-2" data-testid="microsoft-check">
       <p className={cn('text-xs', check.ok === false ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground')}>
-        {running ? 'Running… (up to a minute)' : (
+        {running ? 'Running… (up to a minute). Answers appear as they come in.' : !check.finished_at ? (
+          <><XCircle className="mr-1 inline size-3.5" aria-hidden />Did not finish: our server stopped part way ({formatDateTime(check.created_at)}).
+            {check.results?.length ? ' The answers it found are below.' : ' It found nothing before stopping.'}</>
+        ) : (
           <>{check.ok ? <CheckCircle2 className="mr-1 inline size-3.5" aria-hidden /> : <XCircle className="mr-1 inline size-3.5" aria-hidden />}
             {check.message} · {formatDateTime(check.finished_at ?? check.created_at)}{check.test_agent ? ` · test agent "${check.test_agent}"` : ''}</>
         )}

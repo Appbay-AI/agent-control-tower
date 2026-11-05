@@ -99,11 +99,19 @@ async function call(fetchImpl: typeof fetch, token: string, method: string, url:
   }
 }
 
-export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch, opts: { pauseMs?: number } = {}):
+export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch,
+  opts: { pauseMs?: number; onProgress?: (results: CheckResult[]) => Promise<unknown> } = {}):
   Promise<{ results: CheckResult[]; refreshToken: string | null }> {
   const results: CheckResult[] = []
-  const record = (id: string, question: string, verdict: string, detail: string) => results.push({ id, question, verdict, detail: trim(detail, 500) })
-  const pause = opts.pauseMs ?? 3000
+  const order = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'C3', 'C4', 'D1', 'D2', 'D3']
+  // Each answer is saved as soon as it is known (our API may be cut off part way); kept in a fixed order.
+  let saving: Promise<unknown> = Promise.resolve()
+  const record = (id: string, question: string, verdict: string, detail: string) => {
+    results.push({ id, question, verdict, detail: trim(detail, 500) })
+    results.sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id))
+    if (opts.onProgress) { const snapshot = [...results]; saving = saving.then(() => opts.onProgress!(snapshot)).catch(() => undefined) }
+  }
+  const pause = opts.pauseMs ?? 1000
   let rt: string | null = null
 
   record('A1', 'Can an admin connect with one normal browser sign-in (MFA, consent), as security defaults require?', 'YES',
@@ -142,7 +150,8 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch, opt
     record('B1', 'Can we list Copilot Studio agents (inventory)?', 'NO', `HTTP ${q.status}: ${trim(q.text)}`)
   }
 
-  // C: blocked status, and block / unblock of the named test agent
+  // C (blocked status; block and unblock the named test agent) and D (Microsoft Graph) run side by side.
+  const partC = async () => {
   const test = c.test_agent?.trim() || null
   const pick = agents.find((a) => test && String(a.properties?.displayName ?? '').toLowerCase() === test.toLowerCase()) ?? (test ? undefined : agents[0])
   const envId = pick?.properties?.environmentId as string | undefined
@@ -154,18 +163,22 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch, opt
     const name = String(pick.properties?.displayName ?? botId)
     const base = `${PP}/copilotstudio/environments/${envId}/bots/${botId}/api/botQuarantine`
     const status = () => call(fetchImpl, ppToken, 'GET', `${base}?api-version=1`)
+    /** Read the status until it shows `want` (up to 4 tries, `pause` apart). */
+    const readBack = async (want: boolean) => {
+      let s = await status()
+      for (let i = 0; i < 3 && s.json?.isBotQuarantined !== want; i++) { await sleep(pause); s = await status() }
+      return s
+    }
     const s0 = await status()
     record('C1', 'Can we read an agent\'s blocked (quarantine) status?', s0.status === 200 ? 'YES' : 'NO', `"${name}": HTTP ${s0.status} ${trim(s0.text, 200)}`)
     if (test) {
       const q1 = await call(fetchImpl, ppToken, 'POST', `${base}/SetAsQuarantined?api-version=1`, {})
-      await sleep(pause)
-      const s1 = await status()
+      const s1 = q1.status < 300 ? await readBack(true) : await status()
       const blocked = q1.status < 300 && s1.json?.isBotQuarantined === true
       record('C2', 'Can we block (quarantine) an agent and confirm it by reading it back?', blocked ? 'YES' : 'NO',
         `Block: HTTP ${q1.status}${q1.status >= 300 ? ` ${trim(q1.text, 200)}` : ''}. Read back: ${trim(s1.text, 200)}`)
       const q2 = await call(fetchImpl, ppToken, 'POST', `${base}/SetAsUnquarantined?api-version=1`, {})
-      await sleep(pause)
-      const s2 = await status()
+      const s2 = q2.status < 300 ? await readBack(false) : await status()
       record('C3', 'Can we unblock it again (reactivation after approval)?', q2.status < 300 && s2.json?.isBotQuarantined === false ? 'YES' : 'NO',
         `Unblock: HTTP ${q2.status}${q2.status >= 300 ? ` ${trim(q2.text, 200)}` : ''}. Read back: ${trim(s2.text, 200)}`)
       record('C4', 'Does blocking work on an agent that was never published (all a trial can make)?',
@@ -175,8 +188,9 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch, opt
       record('C2', 'Can we block (quarantine) an agent and confirm it by reading it back?', 'NOT TESTED', 'No test agent named, so nothing was blocked.')
     }
   }
+  }
 
-  // D: Microsoft Graph with the same sign-in
+  const partD = async () => {
   const g = await tokenRequest(c, { grant_type: 'refresh_token', refresh_token: rt ?? c.refresh_token, scope: `${GRAPH}/.default offline_access` }, fetchImpl)
     .catch((e: Error) => ({ status: 0, json: { error_description: e.message } as Tokens }))
   if (g.status !== 200 || !g.json.access_token) {
@@ -202,6 +216,10 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch, opt
     record('D3', 'Can we search the audit log (to find who unblocked an agent)?', a.status < 300 ? 'STARTED' : 'NO',
       a.status < 300 ? `Search started (ID ${String(a.json?.id ?? '?')}); results take minutes to hours.` : `HTTP ${a.status}: ${trim(a.text, 200)}`)
   }
+  }
+
+  await Promise.all([partC(), partD()])
+  await saving
   return { results, refreshToken: rt }
 }
 
@@ -210,7 +228,8 @@ export async function runMicrosoftChecks(token: string, fetchImpl: typeof fetch 
   if (!claimed.ok) return null
   let out: { results: CheckResult[]; refreshToken: string | null }
   try {
-    out = await runChecks(claimed.data, fetchImpl, opts)
+    out = await runChecks(claimed.data, fetchImpl, {
+      ...opts, onProgress: (results) => rpc('microsoft_check_progress', { p_token: token, p_results: results }, fetchImpl) })
   } catch (e) {
     out = { results: [{ id: 'X', question: 'Run', verdict: 'ERROR', detail: (e as Error).message.slice(0, 300) }], refreshToken: null }
   }

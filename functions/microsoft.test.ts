@@ -99,6 +99,10 @@ describe('Run Microsoft checks (task 3.1)', () => {
     expect(out!.find((r) => r.id === 'D1')!.detail).toBe('2 user(s) read; 1 with a job title, 1 with a department.')
     const report = w.rpcs.find((r) => r.fn === 'microsoft_check_report')!.body
     expect(report).toMatchObject({ p_token: TOKEN, p_ok: true, p_message: '11 checks: 8 yes, 1 no, 2 other', p_refresh_token: 'rt-2' })
+    // Answers were saved as they came (one save per answer, the last holding all of them, in order).
+    const saves = w.rpcs.filter((r) => r.fn === 'microsoft_check_progress').map((r) => (r.body.p_results as { id: string }[]).map((x) => x.id))
+    expect(saves).toHaveLength(11)
+    expect(saves.at(-1)).toEqual(['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'C3', 'C4', 'D1', 'D2', 'D3'])
     // The second renewal (for Graph) used the newest sign-in from the first.
     expect(w.forms[1].get('refresh_token')).toBe('rt-1')
   })

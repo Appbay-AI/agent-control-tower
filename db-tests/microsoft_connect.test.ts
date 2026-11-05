@@ -81,11 +81,16 @@ describe('Connect Microsoft (task 3.1)', () => {
     expect(work).toMatchObject({ check: id, test_agent: 'Control Tower Test Agent', tenant_id: TENANT, client_secret: 'shh', refresh_token: 'rt-1' })
     await expect(anon(`select public.microsoft_check_claim($1) r`, [call.token])).rejects.toThrow(/Invalid or used/)
     const results = [{ id: 'C2', question: 'Can we block?', verdict: 'YES', detail: 'Read back as quarantined' }]
+    // Answers so far are saved while it runs, and visible to admins.
+    await anon(`select public.microsoft_check_progress($1, $2::jsonb) r`, [call.token, JSON.stringify(results.slice(0, 1))])
+    expect((await asUser(db, u.admin, (tx) => tx.query<{ results: unknown }>(`select results from public.microsoft_checks where id = $1`, [id]))).rows[0].results)
+      .toEqual(results.slice(0, 1))
     await anon(`select public.microsoft_check_report($1, true, 'Checks finished', $2::jsonb, 'rt-2') r`, [call.token, JSON.stringify(results)])
     const row = (await asUser(db, u.admin, (tx) => tx.query<{ ok: boolean; message: string; results: unknown }>(
       `select ok, message, results from public.microsoft_checks where id = $1`, [id]))).rows[0]
     expect(row).toEqual({ ok: true, message: 'Checks finished', results })
     expect((await db.query<{ t: string }>(`select refresh_token t from public.microsoft_connection`)).rows[0].t).toBe('rt-2')
+    await expect(anon(`select public.microsoft_check_progress($1, '[]'::jsonb) r`, [call.token])).rejects.toThrow(/Invalid or used/) // finished
     // The token's hash is not readable; non-admins see no checks.
     await expect(asUser(db, u.admin, (tx) => tx.query(`select token_hash from public.microsoft_checks`))).rejects.toThrow(/permission denied/)
     expect((await asUser(db, u.ravi, (tx) => tx.query(`select id from public.microsoft_checks`))).rows).toHaveLength(0)
