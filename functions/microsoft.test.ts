@@ -10,10 +10,10 @@ const idToken = (claims: object) => `x.${Buffer.from(JSON.stringify(claims)).toS
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status })
 
 /** A stand-in for the database (rpc) and Microsoft. `quarantined` follows block / unblock calls. */
-function world(opts: { tokenStatus?: number; noRefresh?: boolean; claimFails?: boolean; agents?: object[]; blockStatus?: number } = {}) {
+function world(opts: { tokenStatus?: number; noRefresh?: boolean; claimFails?: boolean; agents?: object[]; blockStatus?: number; slowListMs?: number; startBlocked?: boolean } = {}) {
   const rpcs: { fn: string; body: Record<string, unknown> }[] = []
   const forms: URLSearchParams[] = []
-  let quarantined = false
+  let quarantined = opts.startBlocked ?? false
   const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     const rpcName = url.match(/\/rest\/v1\/rpc\/(\w+)$/)?.[1]
@@ -35,6 +35,7 @@ function world(opts: { tokenStatus?: number; noRefresh?: boolean; claimFails?: b
         id_token: idToken({ preferred_username: 'arpit@tenant.test', name: 'Arpit Khandelwal' }) })
     }
     if (url.includes('/resourcequery/')) {
+      if (opts.slowListMs) await new Promise((r) => setTimeout(r, opts.slowListMs))
       return reply(200, { totalRecords: 1, data: opts.agents ?? [{ name: 'bot-1', properties: { displayName: 'Control Tower Test Agent', environmentId: 'env-1',
         botId: 'bot-1', ownerId: 'u1', isQuarantined: false } }] })
     }
@@ -46,7 +47,7 @@ function world(opts: { tokenStatus?: number; noRefresh?: boolean; claimFails?: b
     if (url.includes('/auditLog/queries')) return reply(201, { id: 'q-1' })
     return reply(404, {})
   }) as unknown as typeof fetch
-  return { fetchImpl, rpcs, forms }
+  return { fetchImpl, rpcs, forms, isBlocked: () => quarantined }
 }
 
 describe('Connect Microsoft: the browser comes back from Microsoft (task 3.1)', () => {
@@ -114,6 +115,21 @@ describe('Run Microsoft checks (task 3.1)', () => {
     const out = await runMicrosoftChecks(TOKEN, w.fetchImpl, { pauseMs: 0 })
     expect(out!.find((r) => r.id === 'C1')).toMatchObject({ verdict: 'NOT TESTED' })
     expect(w.fetchImpl).not.toHaveBeenCalledWith(expect.stringContaining('SetAsQuarantined'), expect.anything())
+  })
+
+  it('wraps up at the time limit and still reports what it found (people checks are not held up by a slow agent list)', async () => {
+    const w = world({ slowListMs: 400 })
+    const out = await runMicrosoftChecks(TOKEN, w.fetchImpl, { pauseMs: 0, budgetMs: 150 })
+    expect(out!.map((r) => r.id)).toEqual(['A1', 'A2', 'D1', 'D2', 'D3'])
+    expect(w.rpcs.find((r) => r.fn === 'microsoft_check_report')!.body.p_message).toBe('Stopped at the time limit; 5 checks: 3 yes, 1 no, 1 other')
+    expect(out!.every((r) => typeof r.seconds === 'number')).toBe(true)
+  })
+
+  it('a test agent left blocked by a run that was cut off is unblocked first, and ends unblocked', async () => {
+    const w = world({ startBlocked: true })
+    const out = await runMicrosoftChecks(TOKEN, w.fetchImpl, { pauseMs: 0 })
+    expect(out!.find((r) => r.id === 'C2')).toMatchObject({ verdict: 'YES' })
+    expect(w.isBlocked()).toBe(false)
   })
 
   it('stops early and says so when the stored sign-in no longer renews', async () => {

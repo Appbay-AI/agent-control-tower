@@ -180,7 +180,7 @@ function CheckResults({ check, running }: { check: MicrosoftCheck; running: bool
         <ul className="divide-y rounded-md border">
           {check.results.map((r) => (
             <li key={r.id} className="grid gap-1 p-2 sm:grid-cols-[3rem_1fr_6rem]" data-testid={`microsoft-result-${r.id}`}>
-              <span className="text-muted-foreground font-mono text-xs">{r.id}</span>
+              <span className="text-muted-foreground font-mono text-xs">{r.id}{r.seconds !== undefined && <span className="block">{r.seconds} s</span>}</span>
               <div>
                 <div>{r.question}</div>
                 <div className="text-muted-foreground text-xs break-words">{r.detail}</div>

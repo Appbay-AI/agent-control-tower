@@ -266,7 +266,7 @@ export interface MicrosoftStatus {
   connected_at: string | null
   refreshed_at: string | null
 }
-export interface MicrosoftCheckResult { id: string; question: string; verdict: string; detail: string }
+export interface MicrosoftCheckResult { id: string; question: string; verdict: string; detail: string; seconds?: number }
 export interface MicrosoftCheck {
   id: number
   requested_by: string | null

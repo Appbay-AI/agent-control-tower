@@ -77,7 +77,8 @@ export async function finishSignIn(params: URLSearchParams, fetchImpl: typeof fe
 // ---------------------------------------------------------------------------
 // The checks (what the Microsoft requirements rely on), run with the stored sign-in
 // ---------------------------------------------------------------------------
-export interface CheckResult { id: string; question: string; verdict: string; detail: string }
+/** `seconds`: how long after the start the answer came (to see where time goes). */
+export interface CheckResult { id: string; question: string; verdict: string; detail: string; seconds?: number }
 interface Claimed extends App { check: number; test_agent: string | null; refresh_token: string }
 
 const trim = (s: string, n = 300) => (s.length > n ? `${s.slice(0, n)}…` : s)
@@ -100,14 +101,17 @@ async function call(fetchImpl: typeof fetch, token: string, method: string, url:
 }
 
 export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch,
-  opts: { pauseMs?: number; onProgress?: (results: CheckResult[]) => Promise<unknown> } = {}):
-  Promise<{ results: CheckResult[]; refreshToken: string | null }> {
+  opts: { pauseMs?: number; budgetMs?: number; onProgress?: (results: CheckResult[]) => Promise<unknown> } = {}):
+  Promise<{ results: CheckResult[]; refreshToken: string | null; stopped: boolean }> {
+  const started = Date.now()
+  // Our API has about 30 seconds of background time; wrap up by 24 seconds so the report always gets through.
+  const budget = opts.budgetMs ?? 24_000
   const results: CheckResult[] = []
   const order = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'C3', 'C4', 'D1', 'D2', 'D3']
   // Each answer is saved as soon as it is known (our API may be cut off part way); kept in a fixed order.
   let saving: Promise<unknown> = Promise.resolve()
   const record = (id: string, question: string, verdict: string, detail: string) => {
-    results.push({ id, question, verdict, detail: trim(detail, 500) })
+    results.push({ id, question, verdict, detail: trim(detail, 500), seconds: Math.round((Date.now() - started) / 100) / 10 })
     results.sort((x, y) => order.indexOf(x.id) - order.indexOf(y.id))
     if (opts.onProgress) { const snapshot = [...results]; saving = saving.then(() => opts.onProgress!(snapshot)).catch(() => undefined) }
   }
@@ -122,13 +126,14 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch,
     .catch((e: Error) => ({ status: 0, json: { error_description: e.message } as Tokens }))
   if (pp.status !== 200 || !pp.json.access_token) {
     record('A2', 'Does the stored sign-in renew without anyone present?', 'NO', `Renewal failed: ${microsoftError(pp.json, pp.status)}`)
-    return { results, refreshToken: null }
+    return { results, refreshToken: null, stopped: false }
   }
   rt = pp.json.refresh_token ?? null
   record('A2', 'Does the stored sign-in renew without anyone present?', 'YES', 'A new Power Platform token was issued from the stored sign-in, with nobody signed in.')
   const ppToken = pp.json.access_token
 
-  // B: list Copilot Studio agents (Power Platform inventory)
+  // B (agent list) then C (blocked status; block and unblock the named test agent), and D (Microsoft Graph), side by side.
+  const partBC = async () => {
   const q = await call(fetchImpl, ppToken, 'POST', `${PP}/resourcequery/resources/query?api-version=2024-10-01`, {
     TableName: 'PowerPlatformResources',
     Clauses: [{ $type: 'where', FieldName: 'type', Operator: '==', Values: ["'microsoft.copilotstudio/agents'"] }],
@@ -150,8 +155,6 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch,
     record('B1', 'Can we list Copilot Studio agents (inventory)?', 'NO', `HTTP ${q.status}: ${trim(q.text)}`)
   }
 
-  // C (blocked status; block and unblock the named test agent) and D (Microsoft Graph) run side by side.
-  const partC = async () => {
   const test = c.test_agent?.trim() || null
   const pick = agents.find((a) => test && String(a.properties?.displayName ?? '').toLowerCase() === test.toLowerCase()) ?? (test ? undefined : agents[0])
   const envId = pick?.properties?.environmentId as string | undefined
@@ -169,7 +172,12 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch,
       for (let i = 0; i < 3 && s.json?.isBotQuarantined !== want; i++) { await sleep(pause); s = await status() }
       return s
     }
-    const s0 = await status()
+    let s0 = await status()
+    // A test agent left blocked by an earlier run that was cut off is unblocked first.
+    if (test && s0.json?.isBotQuarantined === true) {
+      await call(fetchImpl, ppToken, 'POST', `${base}/SetAsUnquarantined?api-version=1`, {})
+      s0 = await readBack(false)
+    }
     record('C1', 'Can we read an agent\'s blocked (quarantine) status?', s0.status === 200 ? 'YES' : 'NO', `"${name}": HTTP ${s0.status} ${trim(s0.text, 200)}`)
     if (test) {
       const q1 = await call(fetchImpl, ppToken, 'POST', `${base}/SetAsQuarantined?api-version=1`, {})
@@ -218,24 +226,25 @@ export async function runChecks(c: Claimed, fetchImpl: typeof fetch = fetch,
   }
   }
 
-  await Promise.all([partC(), partD()])
-  await saving
-  return { results, refreshToken: rt }
+  const all = Promise.all([partBC(), partD()]).then(() => true)
+  const finished = await Promise.race([all, sleep(Math.max(0, budget - (Date.now() - started))).then(() => false)])
+  await Promise.race([saving, sleep(1500)])
+  return { results, refreshToken: rt, stopped: !finished }
 }
 
-export async function runMicrosoftChecks(token: string, fetchImpl: typeof fetch = fetch, opts: { pauseMs?: number } = {}): Promise<CheckResult[] | null> {
+export async function runMicrosoftChecks(token: string, fetchImpl: typeof fetch = fetch, opts: { pauseMs?: number; budgetMs?: number } = {}): Promise<CheckResult[] | null> {
   const claimed = await rpc<Claimed>('microsoft_check_claim', { p_token: token }, fetchImpl)
   if (!claimed.ok) return null
-  let out: { results: CheckResult[]; refreshToken: string | null }
+  let out: { results: CheckResult[]; refreshToken: string | null; stopped: boolean }
   try {
     out = await runChecks(claimed.data, fetchImpl, {
       ...opts, onProgress: (results) => rpc('microsoft_check_progress', { p_token: token, p_results: results }, fetchImpl) })
   } catch (e) {
-    out = { results: [{ id: 'X', question: 'Run', verdict: 'ERROR', detail: (e as Error).message.slice(0, 300) }], refreshToken: null }
+    out = { results: [{ id: 'X', question: 'Run', verdict: 'ERROR', detail: (e as Error).message.slice(0, 300) }], refreshToken: null, stopped: false }
   }
   const verdicts = out.results.map((r) => r.verdict)
   const ok = !verdicts.includes('ERROR') && !(out.results.find((r) => r.id === 'A2')?.verdict === 'NO')
-  const msg = `${out.results.length} checks: ${verdicts.filter((v) => v === 'YES').length} yes, ${verdicts.filter((v) => v === 'NO').length} no, ${verdicts.filter((v) => !['YES', 'NO'].includes(v)).length} other`
+  const msg = `${out.stopped ? 'Stopped at the time limit; ' : ''}${out.results.length} checks: ${verdicts.filter((v) => v === 'YES').length} yes, ${verdicts.filter((v) => v === 'NO').length} no, ${verdicts.filter((v) => !['YES', 'NO'].includes(v)).length} other`
   await rpc('microsoft_check_report', { p_token: token, p_ok: ok, p_message: msg, p_results: out.results, p_refresh_token: out.refreshToken }, fetchImpl)
   return out.results
 }
