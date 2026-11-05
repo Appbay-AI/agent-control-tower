@@ -251,6 +251,34 @@ export interface AgentEnforcement {
   finished_at: string | null
 }
 
+/** Task 3.1 (resumed): the Microsoft connection as the Integrations page sees it (never the secret or the sign-in). */
+export interface MicrosoftStatus {
+  app: boolean
+  tenant_id: string | null
+  client_id: string | null
+  secret_set: boolean
+  secret_set_at: string | null
+  redirect_uri: string | null
+  connected: boolean
+  account: string | null
+  account_name: string | null
+  connected_by: string | null
+  connected_at: string | null
+  refreshed_at: string | null
+}
+export interface MicrosoftCheckResult { id: string; question: string; verdict: string; detail: string }
+export interface MicrosoftCheck {
+  id: number
+  requested_by: string | null
+  test_agent: string | null
+  created_at: string
+  claimed_at: string | null
+  finished_at: string | null
+  ok: boolean | null
+  message: string | null
+  results: MicrosoftCheckResult[] | null
+}
+
 /** Task 4.4: an incident case. */
 export type IncidentStatus = 'open' | 'contained' | 'resolved' | 'closed'
 export interface Incident {

@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentEnforcement, AgentPlatformSource, Incident, IncidentSla, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
+  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -174,6 +174,17 @@ export const api = {
     if (!row) throw new Error('The rule was not saved. Only admins can change routing.')
     return row
   },
+  // Connect Microsoft (task 3.1, resumed)
+  microsoftStatus: async () => check(await db().rpc('microsoft_status')) as MicrosoftStatus,
+  microsoftConnectStart: async () => check(await db().rpc('microsoft_connect_start')) as {
+    authorize_url: string; client_id: string; redirect_uri: string; scope: string; state: string; code_challenge: string; code_challenge_method: string },
+  microsoftDisconnect: async () => { check(await db().rpc('microsoft_disconnect')) },
+  microsoftCheckStart: async (testAgent: string | null) => check(await db().rpc('microsoft_check_start', { p_test_agent: testAgent })) as number,
+  microsoftCheck: async (id: number) =>
+    check(await db().from('microsoft_checks').select('id, requested_by, test_agent, created_at, claimed_at, finished_at, ok, message, results').eq('id', id).single()) as MicrosoftCheck,
+  latestMicrosoftCheck: async () =>
+    check(await db().from('microsoft_checks').select('id, requested_by, test_agent, created_at, claimed_at, finished_at, ok, message, results')
+      .order('id', { ascending: false }).limit(1).maybeSingle()) as MicrosoftCheck | null,
   // Incidents (task 4.4)
   incidents: async (agentId?: string) => {
     let q = db().from('incidents').select('*').order('opened_at', { ascending: false }).limit(500)

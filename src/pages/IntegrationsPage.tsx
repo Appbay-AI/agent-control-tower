@@ -1,5 +1,6 @@
 import { Copy, KeyRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { MicrosoftConnect } from '@/components/MicrosoftConnect'
 import { PlatformConnections } from '@/components/PlatformConnections'
 import { ErrorBox, LoadingRows, PageHeader } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,8 @@ export function IntegrationsPage() {
         subtitle="Integration keys let an agent platform register agents through the API. Each agent then gets its own key." />
 
       <PlatformConnections />
+
+      <MicrosoftConnect />
 
       <h2 className="font-semibold">Integration keys</h2>
       <form onSubmit={create} className="bg-card flex flex-col gap-2 rounded-lg border p-4 sm:flex-row">

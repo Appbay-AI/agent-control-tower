@@ -125,3 +125,17 @@ jobs:
           node scripts/platform-setup.mjs > out.log 2>&1 || { cat out.log; echo "::error title=Platform connections::$(tail -n 3 out.log | tr '\n' ' ')"; exit 1; }
           cat out.log
           echo "::notice title=Platforms::$(grep '^Platforms:' out.log | tail -n 1)"
+      # Task 3.1 (resumed): the Microsoft app registration for "Connect Microsoft". IDs from the variables MS_TENANT_ID and
+      # MS_CLIENT_ID, the client secret from the secret MS_CLIENT_SECRET; straight into the database's locked store.
+      - name: Microsoft app registration
+        env:
+          # IDs, not secrets: the test app registration in Arpit's Microsoft tenant, unless the variables say otherwise.
+          MS_TENANT_ID: ${{ vars.MS_TENANT_ID || '7535ea2c-3e9b-42b7-b942-d208757b8bb9' }}
+          MS_CLIENT_ID: ${{ vars.MS_CLIENT_ID || '5d517613-a18d-4664-bc24-cd9c406c8669' }}
+          MS_CLIENT_SECRET: ${{ secrets.MS_CLIENT_SECRET }}
+        run: |
+          [ -n "$SUPABASE_DB_URL" ] || exit 0
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          node scripts/microsoft-setup.mjs > out.log 2>&1 || { cat out.log; echo "::error title=Microsoft::$(tail -n 3 out.log | tr '\n' ' ')"; exit 1; }
+          cat out.log
+          echo "::notice title=Microsoft::$(grep '^Microsoft:' out.log | tail -n 1)"
