@@ -83,8 +83,8 @@ describe('Connect Microsoft: the browser comes back from Microsoft (task 3.1)', 
   })
 
   it('the return address redirects to the Integrations page, never caching', async () => {
-    const { onRequestGet } = await import('./api/v1/microsoft/callback')
-    const res = await onRequestGet({ request: new Request('https://main.example.dev/api/v1/microsoft/callback?error=access_denied&state=x') })
+    const { handleCallback } = await import('./api/v1/microsoft/callback')
+    const res = await handleCallback(new Request('https://main.example.dev/api/v1/microsoft/callback?error=access_denied&state=x'))
     expect(res.status).toBe(302)
     expect(res.headers.get('location')).toMatch(/^https:\/\/main\.example\.dev\/integrations\?microsoft=error&reason=/)
     expect(res.headers.get('cache-control')).toBe('no-store')
@@ -141,11 +141,31 @@ describe('Run Microsoft checks (task 3.1)', () => {
   })
 
   it('the endpoint accepts only a Microsoft checks token', async () => {
-    const { onRequestPost } = await import('./api/v1/microsoft/run')
+    const { handleRun } = await import('./api/v1/microsoft/run')
     const later: Promise<unknown>[] = []
-    const res = await onRequestPost({ request: new Request('https://x.test/api/v1/microsoft/run', { method: 'POST', body: JSON.stringify({ token: 'pjt_' + 'a'.repeat(64) }) }),
+    const res = await handleRun({ request: new Request('https://x.test/api/v1/microsoft/run', { method: 'POST', body: JSON.stringify({ token: 'pjt_' + 'a'.repeat(64) }) }),
       waitUntil: (p) => { later.push(p) } })
     expect(res.status).toBe(400)
     expect(later).toHaveLength(0)
+  })
+})
+
+describe('Microsoft switched off (11 Nov 2026)', () => {
+  it('both addresses answer 404 and touch nothing while MICROSOFT_ENABLED is false', async () => {
+    const { MICROSOFT_ENABLED } = await import('../functions-lib/features')
+    expect(MICROSOFT_ENABLED).toBe(false)
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const { onRequestGet } = await import('./api/v1/microsoft/callback')
+    const { onRequestPost } = await import('./api/v1/microsoft/run')
+    const back = await onRequestGet({ request: new Request('https://x.test/api/v1/microsoft/callback?code=c&state=mss_' + 'a'.repeat(64)) })
+    expect(back.status).toBe(404)
+    const later: Promise<unknown>[] = []
+    const run = await onRequestPost({ request: new Request('https://x.test/api/v1/microsoft/run', { method: 'POST', body: JSON.stringify({ token: 'mct_' + 'a'.repeat(64) }) }),
+      waitUntil: (p) => { later.push(p) } })
+    expect(run.status).toBe(404)
+    expect(later).toHaveLength(0)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })

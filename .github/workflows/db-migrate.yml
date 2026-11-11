@@ -127,7 +127,10 @@ jobs:
           echo "::notice title=Platforms::$(grep '^Platforms:' out.log | tail -n 1)"
       # Task 3.1 (resumed): the Microsoft app registration for "Connect Microsoft". IDs from the variables MS_TENANT_ID and
       # MS_CLIENT_ID, the client secret from the secret MS_CLIENT_SECRET; straight into the database's locked store.
+      # Switched off 11 Nov 2026 (Appian only for now). To switch on: set the repository variable MICROSOFT_ENABLED to
+      # true, plus the two code switches (HANDOVER.md, "Switching Microsoft back on").
       - name: Microsoft app registration
+        if: vars.MICROSOFT_ENABLED == 'true'
         env:
           # IDs, not secrets: the test app registration in Arpit's Microsoft tenant, unless the variables say otherwise.
           MS_TENANT_ID: ${{ vars.MS_TENANT_ID || '7535ea2c-3e9b-42b7-b942-d208757b8bb9' }}
