@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
+  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -124,8 +124,27 @@ export const api = {
   suspensions: async (agentId: string) =>
     check(await db().from('agent_suspensions').select('*').eq('agent_id', agentId).order('requested_at', { ascending: false })) as AgentSuspension[],
   enforcements: async (agentId: string) =>
-    check(await db().from('agent_enforcements').select('id, agent_id, suspension_id, method, target, status, detail, attempts, next_attempt_at, claimed_at, created_at, finished_at')
+    check(await db().from('agent_enforcements').select('id, agent_id, suspension_id, action, reactivation_id, method, target, status, detail, attempts, next_attempt_at, claimed_at, created_at, finished_at')
       .eq('agent_id', agentId).order('id')) as AgentEnforcement[],
+  // Task 4.6: switching a suspended agent back on, only through approval
+  reactivations: async (agentId?: string) => {
+    let q = db().from('agent_reactivations').select('*').order('requested_at', { ascending: false }).limit(200)
+    if (agentId) q = q.eq('agent_id', agentId)
+    return check(await q) as AgentReactivation[]
+  },
+  pendingReactivations: async () =>
+    check(await db().from('agent_reactivations').select('*').eq('status', 'pending').order('requested_at')) as AgentReactivation[],
+  reactivationApprovals: async (agentId?: string) => {
+    let q = db().from('agent_reactivation_approvals').select('*').order('approved_at')
+    if (agentId) q = q.eq('agent_id', agentId)
+    return check(await q) as ReactivationApproval[]
+  },
+  requestReactivation: async (agentId: string, reason: string) =>
+    check(await db().rpc('request_reactivation', { p_agent: agentId, p_reason: reason })) as string,
+  approveReactivation: async (id: string, note: string | null) =>
+    check(await db().rpc('approve_reactivation', { p_reactivation: id, p_note: note })) as 'approved' | 'waiting',
+  rejectReactivation: async (id: string, reason: string) => { check(await db().rpc('reject_reactivation', { p_reactivation: id, p_reason: reason })) },
+  withdrawReactivation: async (id: string, reason: string | null) => { check(await db().rpc('withdraw_reactivation', { p_reactivation: id, p_reason: reason })) },
   suspendAgent: async (agentId: string, reason: string) => check(await db().rpc('suspend_agent', { p_agent: agentId, p_reason: reason })) as 'suspended' | 'waiting',
   confirmSuspension: async (id: string, note: string | null) => check(await db().rpc('confirm_agent_suspension', { p_suspension: id, p_note: note })),
   withdrawSuspension: async (id: string, reason: string) => check(await db().rpc('withdraw_agent_suspension', { p_suspension: id, p_reason: reason })),

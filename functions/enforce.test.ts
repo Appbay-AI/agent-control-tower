@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { deliverCallback } from '../functions-lib/callback'
 import { buildStopEmail, sendStopEmail, type EmailSettings, type StopEmail } from '../functions-lib/email'
-import { blockOnPlatform, runEnforcement } from '../functions-lib/enforce'
+import { blockOnPlatform, unblockOnPlatform, runEnforcement } from '../functions-lib/enforce'
 
 const SITE = 'https://appbay-demo.appiancloud.com'
 const conn = { id: 'c1', kind: 'appian_simulator', name: 'Northbridge Agent Platform (simulated)', base_url: SITE, secret: 'k' }
@@ -135,5 +135,48 @@ describe('running the work handed over by the database (task 4.2)', () => {
       waitUntil: (p) => { later.push(p) } })
     expect(res.status).toBe(400)
     expect(later).toHaveLength(0)
+  })
+})
+
+describe('switching an agent back on after approval (task 4.6)', () => {
+  const back = { ...work, id: 12, action: 'restore' as const, reason: 'Switched back on in Agent Control Tower (AGT-0041) after approval: Fixed' }
+
+  it('unblocks it, reads it back as active, and records the reason in the platform', async () => {
+    const a = appian()
+    await blockOnPlatform(work, a.fetchImpl)
+    expect(await unblockOnPlatform(back, a.fetchImpl)).toEqual({ id: 12, ok: true,
+      detail: 'Switched back on at Northbridge Agent Platform (simulated) as NAP-001; read back as active' })
+    expect(a.sets.at(-1)).toMatchObject({ externalId: 'NAP-001', status: 'active', requestedBy: 'act-integration',
+      reason: 'Switched back on in Agent Control Tower (AGT-0041) after approval: Fixed' })
+  })
+
+  it('retries an unblock that never reached the platform', async () => {
+    const down = await unblockOnPlatform(back, appian({ down: true }).fetchImpl)
+    expect(down).toMatchObject({ ok: false, retry: true })
+    expect(down.detail).toMatch(/^Not switched back on at Northbridge Agent Platform \(simulated\) as NAP-001: /)
+  })
+
+  it('the run picks unblock for restore steps; the owner email says it may be switched back on', async () => {
+    const a = appian()
+    const claimed = { platform: [back], webhooks: [], emails: [{ ...email, id: 22, action: 'restore' as const, suspended_by: 'Ravi Menon' }], email: settings }
+    const sent: { url: string; body: Record<string, unknown>; headers: Record<string, string> }[] = []
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/rpc/enforcement_claim')) return new Response(JSON.stringify(claimed), { status: 200 })
+      if (url.endsWith('/rpc/enforcement_report')) return new Response('2', { status: 200 })
+      if (url.includes('api.resend.com')) {
+        sent.push({ url, body: JSON.parse(String(init?.body)), headers: init?.headers as Record<string, string> })
+        return new Response(JSON.stringify({ id: 'e1' }), { status: 200 })
+      }
+      return a.fetchImpl(input, init)
+    }) as unknown as typeof fetch
+    const out = await runEnforcement('ent_' + 'c'.repeat(64), fetchImpl)
+    expect(out).toEqual([
+      { id: 12, ok: true, detail: 'Switched back on at Northbridge Agent Platform (simulated) as NAP-001; read back as active' },
+      { id: 22, ok: true, detail: 'Emailed Lucy Grant, saying it may be switched back on (demo inbox)' },
+    ])
+    expect(sent[0].body.subject).toBe('[For Lucy Grant] You can switch Shadow Bot back on (AGT-0050)')
+    expect(sent[0].headers['idempotency-key']).toBe('act-restore-22')
+    expect(String(sent[0].body.text)).toContain('Approved by: Ravi Menon')
   })
 })

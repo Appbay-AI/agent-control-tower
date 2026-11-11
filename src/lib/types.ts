@@ -238,6 +238,9 @@ export interface AgentEnforcement {
   agent_id: string
   suspension_id: string | null
   method: 'platform' | 'api' | 'webhook' | 'email'
+  /** Task 4.6: "restore" = switching it back on after an approved reactivation. */
+  action: 'stop' | 'restore'
+  reactivation_id: string | null
   target: string
   /** Task 4.3: pending with attempts > 0 = failed and waiting to be tried again; cancelled = no longer needed. */
   status: 'pending' | 'done' | 'failed' | 'cancelled'
@@ -278,6 +281,22 @@ export interface MicrosoftCheck {
   message: string | null
   results: MicrosoftCheckResult[] | null
 }
+
+/** Task 4.6: a request to switch a suspended agent back on. */
+export interface AgentReactivation {
+  id: string
+  agent_id: string
+  suspension_id: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn'
+  reason: string
+  requested_by: string
+  requested_at: string
+  required_approvals: 1 | 2
+  decided_by: string | null
+  decided_at: string | null
+  decision_reason: string | null
+}
+export interface ReactivationApproval { reactivation_id: string; agent_id: string; approver_id: string; note: string | null; approved_at: string }
 
 /** Task 4.4: an incident case. */
 export type IncidentStatus = 'open' | 'contained' | 'resolved' | 'closed'

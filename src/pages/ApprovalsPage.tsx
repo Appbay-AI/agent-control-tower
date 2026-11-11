@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { RiskBadge } from '@/components/badges'
 import { AlertsCard } from '@/components/AlertsCard'
+import { ReactivationRequests } from '@/components/ReactivationRequests'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { UrgencyBadge } from '@/components/requestBadges'
 import { ErrorBox, LoadingRows, PageHeader, TagList } from '@/components/ui-bits'
@@ -76,6 +77,8 @@ export function ApprovalsPage() {
       <PageHeader title="Approvals" subtitle="Actions agents want to take, and new agents waiting to go live" />
       <LiveIndicator status={status} />
       {hasRole('approver') && <AlertsCard />}
+      {/* Task 4.6 */}
+      {hasRole('approver', 'admin') && <ReactivationRequests />}
       {notice && <p className="rounded-md border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-950/40">{notice}</p>}
       <ErrorBox message={error} />
       {loading && !data && <LoadingRows />}

@@ -87,6 +87,11 @@ jobs:
           select set_config('act.allow_lifecycle', 'on', true), set_config('act.actor_type', 'system', true),
                  set_config('act.reason', 'Enforcement test: test agent made Live on the work-in-progress database', true);
           update public.platform_agents set status = 'active' where external_id = 'NAP-001';
+          -- Task 4.6: earlier runs' leftovers would block "Ask to switch back on".
+          update public.incidents set status = 'contained', containment = coalesce(containment, 'Earlier test run'), contained_at = now()
+           where agent_id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status = 'open';
+          update public.agent_reactivations set status = 'withdrawn', decided_at = now(), decision_reason = 'Earlier test run'
+           where agent_id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status = 'pending';
           update public.agents set purpose_statement = 'Issue customer refunds under £500 (test agent for the kill switch)'
            where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and btrim(purpose_statement) = '';
           update public.agents set status = 'approved', approved_at = now(), next_review_date = current_date + 180
@@ -108,7 +113,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[enforcement\] [^;]*' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[enforcement\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retry check (task 4.3)
         # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not

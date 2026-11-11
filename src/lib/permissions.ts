@@ -32,6 +32,8 @@ export function agentPermissions(params: {
     canManageKeys: isAdmin || isOwnerish,
     /** Task 4.1: the kill switch (same rule as can_suspend_agent in the database). */
     canSuspend: isAdmin || [a.business_owner_id, a.technical_owner_id].includes(userId) || inScope,
+    /** Task 4.6: approve switching it back on (can_approve_reactivation; never the person who asked). */
+    canApproveReactivation: isAdmin || inScope,
     /** Why submission would fail, so the button can explain instead of erroring. */
     submitBlockers: [
       !a.business_owner_id && 'a business owner',

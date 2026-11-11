@@ -5,6 +5,7 @@ import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { IncidentList } from '@/components/IncidentList'
+import { Reactivation } from '@/components/Reactivation'
 import { ReportIncident } from '@/components/ReportIncident'
 import { KillSwitch } from '@/components/KillSwitch'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
@@ -32,10 +33,11 @@ export function AgentDetailPage() {
   const [newKey, setNewKey] = useState<string | null>(null)
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch, enforcements, incidents] = await Promise.all([
+    const [agent, departments, profiles, registrations, decisions, reviews, activity, alerts, contact, logs, platform, suspensions, killSwitch, enforcements, incidents, reactivations, reactivationApprovals] = await Promise.all([
       api.agent(id!), api.departments(), api.allProfiles(), api.registrations(id!), api.decisions(id!),
       api.reviews(id!), api.activity(id!), api.openAlerts(), api.agentContact(id!), api.agentLogs(id!), api.platformRecord(id!),
       api.suspensions(id!), api.killSwitchSettings(), api.enforcements(id!), api.incidents(id!),
+      api.reactivations(id!), api.reactivationApprovals(id!),
     ])
     const people = new Map(profiles.map((p) => [p.id, p]))
     const canSeeKeys = roles.includes('admin') || [agent.business_owner_id, agent.technical_owner_id, agent.created_by].includes(userId)
@@ -43,7 +45,7 @@ export function AgentDetailPage() {
     const approvers = registrations.some((r) => r.status === 'pending') ? await api.approversFor(id!) : []
     return {
       agent, people, registrations, decisions, reviews, activity, keys, approvers, contact, logs, platform, suspensions, enforcements,
-      incidents: sortIncidents(incidents),
+      incidents: sortIncidents(incidents), reactivations, reactivationApprovals,
       needsSecond: agent.risk_tier === 'critical' && Boolean(killSwitch?.critical_needs_second),
       department: departments.find((d) => d.id === agent.department_id) ?? null,
       alerts: alerts.filter((a) => a.agent_id === agent.id),
@@ -61,7 +63,7 @@ export function AgentDetailPage() {
   if (loading && !data) return <LoadingRows rows={8} />
   if (!data) return null
 
-  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, enforcements, needsSecond, incidents } = data
+  const { agent: a, people, registrations, decisions, reviews, activity, keys, department, alerts, approvers, contact, logs, platform, suspensions, enforcements, needsSecond, incidents, reactivations, reactivationApprovals } = data
   const silent = alerts.some((al) => al.kind === 'agent_silent')
   // Task 4.3: suspended here, but not yet stopped everywhere.
   const notStopped = alerts.some((al) => al.kind === 'enforcement_pending')
@@ -124,6 +126,10 @@ export function AgentDetailPage() {
           {perms.canReview && <Button variant="outline" disabled={busy} onClick={() => setDialog('review')}>Record review</Button>}
           <KillSwitch part="button" agent={a} suspensions={suspensions} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
             isAdmin={roles.includes('admin')} onDone={reload} name={name} />
+          {/* Task 4.6: switching it back on, only through approval */}
+          <Reactivation part="button" agent={a} reactivations={reactivations} approvals={reactivationApprovals} enforcements={enforcements}
+            incidents={incidents} canAsk={perms.canSuspend} canApprove={perms.canApproveReactivation} userId={userId}
+            isAdmin={roles.includes('admin')} onDone={reload} name={name} />
           {/* Task 4.5: same people as the kill switch */}
           {perms.canSuspend && a.status !== 'retired' && <ReportIncident agent={a} />}
           {perms.canRetire && (
@@ -163,6 +169,9 @@ export function AgentDetailPage() {
         </Alert>
       )}
       <KillSwitch part="notices" agent={a} suspensions={suspensions} enforcements={enforcements} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
+        isAdmin={roles.includes('admin')} onDone={reload} name={name} />
+      <Reactivation part="notices" agent={a} reactivations={reactivations} approvals={reactivationApprovals} enforcements={enforcements}
+        incidents={incidents} canAsk={perms.canSuspend} canApprove={perms.canApproveReactivation} userId={userId}
         isAdmin={roles.includes('admin')} onDone={reload} name={name} />
       {alerts.map((al) => (
         <Alert key={al.id} variant="destructive" data-testid={`alert-${al.kind}`}><AlertDescription>{al.message}</AlertDescription></Alert>
