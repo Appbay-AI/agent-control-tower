@@ -285,7 +285,7 @@ export interface Incident {
   id: string
   incident_code: string
   agent_id: string
-  source: 'suspension' | 'agent_report' | 'integration_report'
+  source: 'suspension' | 'agent_report' | 'integration_report' | 'user_report'
   suspension_id: string | null
   severity: RiskTier
   status: IncidentStatus
@@ -301,6 +301,29 @@ export interface Incident {
   occurred_at: string | null
   due_at: string
   closed_at: string | null
+  // Task 4.5: the case
+  impact: string | null
+  customers_affected: number | null
+  financial_impact: number | null
+  financial_currency: string | null
+  personal_data: 'yes' | 'no' | 'unknown' | null
+  containment: string | null
+  contained_at: string | null
+  root_cause_category: RootCause | null
+  root_cause: string | null
+  remediation: string | null
+  resolved_at: string | null
+  updated_at: string
+}
+export type RootCause = 'model_error' | 'instructions' | 'data_quality' | 'integration' | 'access' | 'human_error' | 'vendor' | 'other'
+/** Task 4.5: one line of an incident's log. */
+export interface IncidentUpdate {
+  id: string
+  incident_id: string
+  kind: 'note' | 'fields' | 'status' | 'severity' | 'owner'
+  body: string
+  author_id: string | null
+  created_at: string
 }
 export interface IncidentSla { severity: RiskTier; minutes: number }
 

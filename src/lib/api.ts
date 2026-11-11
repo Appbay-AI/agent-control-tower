@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
+  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -191,6 +191,21 @@ export const api = {
     if (agentId) q = q.eq('agent_id', agentId)
     return check(await q) as Incident[]
   },
+  incident: async (id: string) => check(await db().from('incidents').select('*').eq('id', id).single()) as Incident,
+  incidentUpdates: async (id: string) =>
+    check(await db().from('incident_updates').select('*').eq('incident_id', id).order('created_at')) as IncidentUpdate[],
+  canWorkIncident: async (id: string) => check(await db().rpc('can_work_incident', { p_incident: id })) as boolean,
+  saveIncidentFields: async (id: string, fields: Record<string, string | null>, note: string | null = null) =>
+    check(await db().rpc('incident_save_fields', { p_incident: id, p_fields: fields, p_note: note })) as Incident,
+  setIncidentStatus: async (id: string, status: Incident['status'], note: string | null = null) =>
+    check(await db().rpc('incident_set_status', { p_incident: id, p_status: status, p_note: note })) as Incident,
+  setIncidentSeverity: async (id: string, severity: RiskTier, reason: string) =>
+    check(await db().rpc('incident_set_severity', { p_incident: id, p_severity: severity, p_reason: reason })) as Incident,
+  reassignIncident: async (id: string, owner: string, reason: string) =>
+    check(await db().rpc('incident_reassign', { p_incident: id, p_owner: owner, p_reason: reason })) as Incident,
+  addIncidentNote: async (id: string, body: string) => { check(await db().rpc('incident_add_note', { p_incident: id, p_body: body })) },
+  reportIncident: async (agentId: string, title: string, severity: RiskTier, description: string | null) =>
+    check(await db().rpc('report_incident', { p_agent: agentId, p_title: title, p_severity: severity, p_description: description })) as Incident,
   incidentSla: async () => check(await db().from('incident_sla').select('severity, minutes')) as IncidentSla[],
   saveIncidentSla: async (severity: RiskTier, minutes: number) => {
     const row = check(await db().from('incident_sla').update({ minutes }).eq('severity', severity).select('severity').maybeSingle())

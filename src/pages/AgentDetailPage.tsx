@@ -5,6 +5,7 @@ import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { IncidentList } from '@/components/IncidentList'
+import { ReportIncident } from '@/components/ReportIncident'
 import { KillSwitch } from '@/components/KillSwitch'
 import { ErrorBox, Field, LoadingRows, TagList } from '@/components/ui-bits'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -123,6 +124,8 @@ export function AgentDetailPage() {
           {perms.canReview && <Button variant="outline" disabled={busy} onClick={() => setDialog('review')}>Record review</Button>}
           <KillSwitch part="button" agent={a} suspensions={suspensions} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
             isAdmin={roles.includes('admin')} onDone={reload} name={name} />
+          {/* Task 4.5: same people as the kill switch */}
+          {perms.canSuspend && a.status !== 'retired' && <ReportIncident agent={a} />}
           {perms.canRetire && (
             <Button variant="ghost" className="text-red-700 dark:text-red-400" disabled={busy} onClick={() => setDialog('retire')}>Retire</Button>
           )}

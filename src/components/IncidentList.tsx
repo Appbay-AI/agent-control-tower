@@ -43,7 +43,7 @@ export function IncidentList({ incidents, agents, name, showAgent = true, now = 
                 </span>
               )}
             </div>
-            <div className="font-medium break-words">{i.title}</div>
+            <Link to={`/incidents/${i.id}`} className="block font-medium break-words hover:underline" data-testid="incident-link">{i.title}</Link>
             <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
               {showAgent && (
                 <Link to={`/agents/${i.agent_id}`} className="hover:underline">{agent ? `${agent.agent_code} ${agent.name}` : 'Agent'}</Link>
