@@ -7,7 +7,7 @@ const base = {
   purpose_statement: 'Do one thing', in_scope_actions: [], out_of_scope_actions: [], systems_accessed: [],
   data_classifications: [], credential_type: null, credential_owner: null, autonomy_level: 1, value_threshold: null,
   threshold_currency: 'GBP', volume_threshold: null, risk_tier: 'medium', regulatory_flags: [], status: 'proposed',
-  approved_by: null, approved_at: null, last_review_date: null, next_review_date: null, registration_source: 'manual',
+  approved_by: null, approved_at: null, last_review_date: null, next_review_date: null, review_required_reason: null, review_required_at: null, registration_source: 'manual',
   control_endpoint: null, silent_after_minutes: null, created_by: 'owner', created_at: '', updated_at: '',
 } satisfies Agent
 

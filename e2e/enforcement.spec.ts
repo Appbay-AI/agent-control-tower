@@ -51,6 +51,16 @@ test('suspending an agent that lives on Appian blocks it there; it comes back on
   await expect(page.getByRole('button', { name: 'Back to open' })).toBeVisible()
   await page.getByRole('link', { name: new RegExp(`^${CODE} Refund Processor$`) }).click()
 
+  // Task 4.9: the test agent has had incidents on earlier runs; repeats force a review before it can be asked back on.
+  await expect(page.getByTestId('ask-reactivation')).toBeVisible()
+  if (await page.getByTestId('reactivation-review-first').isVisible()) {
+    await expect(page.getByTestId('ask-reactivation')).toBeDisabled()
+    await page.getByRole('button', { name: 'Record review' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Save review' }).click()
+    await expect(page.getByTestId('reactivation-review-first')).toHaveCount(0)
+    console.log('[reactivation] review required first (repeat incidents); recorded')
+  }
+
   await page.getByTestId('ask-reactivation').click()
   await page.getByRole('dialog').getByLabel('Reason').fill('Refund rules fixed and tested')
   await page.getByTestId('reactivation-confirm').click()

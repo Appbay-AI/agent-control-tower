@@ -5,6 +5,7 @@ import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
 import { AgentAccess } from '@/components/AgentAccess'
+import { DriftList } from '@/components/DriftList'
 import { IncidentList } from '@/components/IncidentList'
 import { Reactivation } from '@/components/Reactivation'
 import { ReportIncident } from '@/components/ReportIncident'
@@ -114,6 +115,7 @@ export function AgentDetailPage() {
             <span className="text-muted-foreground text-xs">Level {a.autonomy_level} · {AUTONOMY[a.autonomy_level].name}</span>
             {(!a.business_owner_id || people.get(a.business_owner_id)?.is_active === false) && <WarningBadge>No business owner</WarningBadge>}
             {overdue && <WarningBadge>Review overdue</WarningBadge>}
+            {a.review_required_at && <WarningBadge>Review required</WarningBadge>}
             {silent && <WarningBadge>Silent</WarningBadge>}
             {notStopped && <WarningBadge>Not stopped yet</WarningBadge>}
             {switchedOnOutside && <WarningBadge>Switched on outside Control Tower</WarningBadge>}
@@ -192,6 +194,7 @@ export function AgentDetailPage() {
             </Card>
           )}
           <AgentAccess agentId={a.id} refreshKey={a.updated_at} />
+          <DriftList agentId={a.id} refreshKey={a.updated_at} />
           <Card title="Purpose">
             <p className="text-sm whitespace-pre-wrap">{a.purpose_statement || <span className="text-muted-foreground">No purpose statement yet.</span>}</p>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">

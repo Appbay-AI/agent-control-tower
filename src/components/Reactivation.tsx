@@ -86,7 +86,8 @@ export function Reactivation({ part, agent, reactivations, approvals, enforcemen
     <>
       {part === 'button' && agent.status === 'suspended' && canAsk && !pending && (
         <Button variant="outline" onClick={() => open('ask')} data-testid="ask-reactivation"
-          disabled={openIncidents.length > 0} title={openIncidents.length ? `Contain ${openIncidents.map((i) => i.incident_code).join(', ')} first` : undefined}>
+          disabled={openIncidents.length > 0 || !!agent.review_required_at}
+          title={openIncidents.length ? `Contain ${openIncidents.map((i) => i.incident_code).join(', ')} first` : agent.review_required_at ? 'Record the required review first' : undefined}>
           <Power /> Ask to switch back on
         </Button>
       )}
@@ -94,6 +95,12 @@ export function Reactivation({ part, agent, reactivations, approvals, enforcemen
       {part === 'notices' && agent.status === 'suspended' && canAsk && !pending && openIncidents.length > 0 && (
         <p className="text-muted-foreground text-sm" data-testid="reactivation-blocked">
           To ask for it to be switched back on, first mark {openIncidents.map((i) => i.incident_code).join(', ')} as Contained.
+        </p>
+      )}
+      {/* Task 4.9: repeat incidents force a review first. */}
+      {part === 'notices' && agent.status === 'suspended' && canAsk && !pending && openIncidents.length === 0 && agent.review_required_at && (
+        <p className="text-muted-foreground text-sm" data-testid="reactivation-review-first">
+          To ask for it to be switched back on, first record the required review ({agent.review_required_reason}).
         </p>
       )}
 

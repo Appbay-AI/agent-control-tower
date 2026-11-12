@@ -125,7 +125,7 @@ export function KillSwitch({ part, agent, suspensions, enforcements = [], canSus
         <Alert variant="destructive" data-testid="suspension-done">
           <AlertTitle>Suspended {formatDateTime(last.suspended_at)}</AlertTitle>
           <AlertDescription>
-            <p>By {name(last.requested_by)}{last.confirmed_by ? `, confirmed by ${name(last.confirmed_by)}` : ''}: “{last.reason}”.</p>
+            <p>By {last.requested_by ? name(last.requested_by) : 'Control Tower, automatically (a Critical incident)'}{last.confirmed_by ? `, confirmed by ${name(last.confirmed_by)}` : ''}: “{last.reason}”.</p>
             {steps.length > 0 && (
               <ul className="mt-2 space-y-1" data-testid="enforcement-steps">
                 {steps.map((e) => {

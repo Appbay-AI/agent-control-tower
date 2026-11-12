@@ -1,6 +1,6 @@
 // Task 4.5: one incident case. What happened, its owner and time to resolve, the case fields (impact, containment,
 // root cause, remediation), the status (Open → Contained → Resolved, or reopened), severity and hand-over with a
-// reason, and the log of notes and changes. Closing needs a named approver and comes with task 4.9.
+// reason, and the log of notes and changes. Task 4.9: closing needs a named approver (asked here; only they can close it).
 import { ArrowLeft } from 'lucide-react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -95,6 +95,8 @@ export function IncidentPage() {
 
       {editable && <Actions incident={i} open={setDialog} />}
 
+      <Closure incident={i} me={me} canAsk={canWork} name={name} onDone={reload} />
+
       <CaseFields key={i.updated_at} incident={i} editable={editable} onSaved={reload} />
 
       <Log updates={updates} name={name} incidentId={i.id} canNote={editable} onAdded={reload} />
@@ -127,8 +129,100 @@ function Actions({ incident: i, open }: { incident: Incident; open: (d: Dialogs)
           To mark it {i.status === 'open' && toContained.length > 0 ? 'contained, fill in containment; to mark it ' : ''}resolved, fill in: {toResolved.join(', ')}.
         </p>
       )}
-      <p className="text-muted-foreground text-xs">Closing an incident needs a named approver; that comes with the incident rules.</p>
     </section>
+  )
+}
+
+/** Task 4.9: closing needs a named approver. The person working it asks; only the named approver can close it. */
+export function closureState(i: Incident, me: string): 'closed' | 'decide' | 'waiting' | 'ask' | 'none' {
+  if (i.status === 'closed') return 'closed'
+  if (i.status !== 'resolved') return 'none'
+  if (i.closure_approver_id === me) return 'decide'
+  if (i.closure_approver_id) return 'waiting'
+  return 'ask'
+}
+
+function Closure({ incident: i, me, canAsk, name, onDone }: {
+  incident: Incident; me: string; canAsk: boolean; name: (id: string | null) => string; onDone: () => Promise<void>
+}) {
+  const state = closureState(i, me)
+  const [dialog, setDialog] = useState<'ask' | 'approve' | 'reject' | null>(null)
+  if (state === 'none' || (state === 'ask' && !canAsk)) return null
+  const asked = i.closure_requested_by && (
+    <>{name(i.closure_requested_by)} asked {name(i.closure_approver_id)} on {formatDateTime(i.closure_requested_at!)}{i.closure_note && <>: “{i.closure_note}”</>}</>
+  )
+  return (
+    <section className="bg-card space-y-2 rounded-lg border p-4 text-sm" data-testid="incident-closure" data-state={state}>
+      <h2 className="font-semibold">Closing</h2>
+      {state === 'closed' && (
+        <p data-testid="closure-done">Closed {i.closed_at && formatDateTime(i.closed_at)}{i.closed_by && <>, approved by <span className="font-medium">{name(i.closed_by)}</span></>}.</p>
+      )}
+      {state === 'ask' && (
+        <>
+          <p className="text-muted-foreground text-xs">The case is complete. Closing it needs a named approver: an admin or an approver for the agent's department, not you.</p>
+          <Button onClick={() => setDialog('ask')} data-testid="ask-close">Ask to close</Button>
+        </>
+      )}
+      {state === 'waiting' && <p data-testid="closure-waiting">Waiting for <span className="font-medium">{name(i.closure_approver_id)}</span> to approve closing. {asked}</p>}
+      {state === 'decide' && (
+        <>
+          <p>{asked}. You were named to approve closing it.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setDialog('approve')} data-testid="approve-close">Approve and close</Button>
+            <Button variant="outline" onClick={() => setDialog('reject')} data-testid="reject-close">Turn down</Button>
+          </div>
+        </>
+      )}
+      {dialog && <ClosureDialog kind={dialog} incident={i} close={() => setDialog(null)} onDone={onDone} />}
+    </section>
+  )
+}
+
+function ClosureDialog({ kind, incident: i, close, onDone }: { kind: 'ask' | 'approve' | 'reject'; incident: Incident; close: () => void; onDone: () => Promise<void> }) {
+  const { data: approvers } = useAsync(() => (kind === 'ask' ? api.incidentClosureApprovers(i.id) : Promise.resolve([])), [kind, i.id])
+  const [approver, setApprover] = useState('')
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const needsText = kind === 'reject'
+  async function go() {
+    setBusy(true); setErr(null)
+    try {
+      if (kind === 'ask') await api.requestIncidentClosure(i.id, approver, text.trim() || null)
+      else await api.decideIncidentClosure(i.id, kind === 'approve', text.trim() || null)
+      close()
+      await onDone()
+    } catch (e) { setErr(errorMessage(e)) } finally { setBusy(false) }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && close()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{kind === 'ask' ? 'Ask to close' : kind === 'approve' ? `Close ${i.incident_code}?` : 'Turn down closing?'}</DialogTitle>
+          <DialogDescription>
+            {kind === 'ask' && 'Choose who approves the closure. They are told on their phone; only they can close it.'}
+            {kind === 'approve' && 'The incident is closed and stays on record with your name as the approver.'}
+            {kind === 'reject' && 'It stays resolved. Say what is missing, so the log shows it.'}
+          </DialogDescription>
+        </DialogHeader>
+        {kind === 'ask' && (
+          <select className={selectClass} value={approver} onChange={(e) => setApprover(e.target.value)} aria-label="Approver">
+            <option value="">Choose an approver…</option>
+            {(approvers ?? []).map((p) => <option key={p.id} value={p.id}>{p.full_name}{p.job_title ? ` · ${p.job_title}` : ''}</option>)}
+          </select>
+        )}
+        <Field label={needsText ? 'Reason (recorded in the log)' : 'Note (optional)'}>
+          <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} aria-label={needsText ? 'Reason' : 'Note'} />
+        </Field>
+        <ErrorBox message={err} />
+        <DialogFooter>
+          <Button variant="outline" onClick={close}>Cancel</Button>
+          <Button onClick={go} disabled={busy || (kind === 'ask' && !approver) || (needsText && !text.trim())} data-testid="confirm-closure">
+            {kind === 'ask' ? 'Ask' : kind === 'approve' ? 'Approve and close' : 'Turn down'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -2,6 +2,7 @@
 // Admins set the time to resolve for each severity. The full case screen (impact, containment, root cause,
 // remediation) is task 4.5.
 import { useMemo, useState, type FormEvent } from 'react'
+import { DriftList } from '@/components/DriftList'
 import { IncidentList } from '@/components/IncidentList'
 import { ErrorBox, LoadingRows, PageHeader } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
@@ -62,6 +63,7 @@ export function IncidentsPage() {
         </div>
       )}
       {data && rows.length > 0 && <IncidentList incidents={rows} agents={data.agents} name={name} now={now} />}
+      {data && <DriftList agents={data.agents} limit={50} />}
       {data && <IncidentTimeLimits settings={data.sla} canEdit={hasRole('admin')} onSaved={reload} />}
     </div>
   )

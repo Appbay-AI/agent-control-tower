@@ -383,7 +383,9 @@ describe('reconciliation check run by our API (task 4.7)', () => {
       { platform_agent_id: 'p7', external_id: 'NAP-007', agent_code: 'AGT-0047' }, { platform_agent_id: 'p9', external_id: 'NAP-999', agent_code: 'AGT-0099' }],
       { checked: 3, reblocked: 1, agents: ['AGT-0122'] })
     const out = await runPlatformJob(TOKEN, w.fetchImpl)
-    expect(w.applied[0].p_results).toEqual([{ platform_agent_id: 'p1', status: 'active' }, { platform_agent_id: 'p7', status: 'blocked' },
+    // changed_by: Appian's own record of who last changed the status (task 4.9 drift records); the simulator may leave it empty.
+    expect(w.applied[0].p_results).toEqual([{ platform_agent_id: 'p1', status: 'active', changed_by: expect.toBeOneOf([expect.any(String), null]) },
+      { platform_agent_id: 'p7', status: 'blocked', changed_by: expect.toBeOneOf([expect.any(String), null]) },
       { platform_agent_id: 'p9', status: 'missing', error: expect.any(String) }])
     expect(out).toEqual({ ok: true, result: { checked: 3, reblocked: 1, agents: ['AGT-0122'], unreadable: 0 },
       message: 'Checked 3 suspended agents on Northbridge Agent Platform (simulated); AGT-0122 switched back on outside Control Tower: blocking again, Critical incident opened' })

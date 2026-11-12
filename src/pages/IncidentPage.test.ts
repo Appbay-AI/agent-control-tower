@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { missingFor } from '@/lib/incidents'
 import type { Incident } from '@/lib/types'
-import { changedFields, draftOf } from './IncidentPage'
+import { changedFields, closureState, draftOf } from './IncidentPage'
 
 const base = { impact: null, customers_affected: null, financial_impact: null, personal_data: null, containment: null,
   root_cause_category: null, root_cause: null, remediation: null } as unknown as Incident
@@ -21,5 +21,16 @@ describe('incident case form (task 4.5)', () => {
     expect(missingFor({ ...base, containment: 'x' }, 'resolved'))
       .toEqual(['impact', 'whether personal data was involved', 'root cause category', 'root cause', 'remediation'])
     expect(missingFor({ ...base, containment: 'x', impact: 'y', personal_data: 'no', root_cause_category: 'other', root_cause: 'z', remediation: 'w' }, 'resolved')).toEqual([])
+  })
+})
+
+describe('closing needs a named approver (task 4.9)', () => {
+  const i = (over: Partial<Incident>) => ({ ...base, status: 'resolved', closure_approver_id: null, ...over }) as Incident
+  it('shows the right step to each person', () => {
+    expect(closureState(i({ status: 'contained' }), 'me')).toBe('none')
+    expect(closureState(i({}), 'me')).toBe('ask')
+    expect(closureState(i({ closure_approver_id: 'ravi' }), 'me')).toBe('waiting')
+    expect(closureState(i({ closure_approver_id: 'me' }), 'me')).toBe('decide')
+    expect(closureState(i({ status: 'closed' }), 'me')).toBe('closed')
   })
 })

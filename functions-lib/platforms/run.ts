@@ -56,7 +56,8 @@ async function reconcile(token: string, connection: Claimed['connection'], targe
   const read = await Promise.all(targets.map(async (t) => {
     try {
       const s = await plugin.readStatus(t.external_id)
-      return { platform_agent_id: t.platform_agent_id, status: s.status as string }
+      // changed_by: the platform's own record of who last changed the status (task 4.9 drift records).
+      return { platform_agent_id: t.platform_agent_id, status: s.status as string, changed_by: s.changedBy }
     } catch (e) {
       return { platform_agent_id: t.platform_agent_id, status: e instanceof PlatformError && e.code === 'not_found' ? 'missing' : 'unreadable',
         error: (e as Error).message }

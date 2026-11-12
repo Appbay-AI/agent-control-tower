@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier,
+  AgentEnforcement, AgentPlatformSource, DriftEvent, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier,
   DataAuthorityRow, AgentAccessRow, AuthorityFinding, DataClassification, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
@@ -235,6 +235,20 @@ export const api = {
   addIncidentNote: async (id: string, body: string) => { check(await db().rpc('incident_add_note', { p_incident: id, p_body: body })) },
   reportIncident: async (agentId: string, title: string, severity: RiskTier, description: string | null) =>
     check(await db().rpc('report_incident', { p_agent: agentId, p_title: title, p_severity: severity, p_description: description })) as Incident,
+  // Task 4.9: closing needs a named approver; drift records
+  incidentClosureApprovers: async (id: string) =>
+    check(await db().rpc('incident_closure_approvers', { p_incident: id })) as { id: string; full_name: string; job_title: string | null }[],
+  requestIncidentClosure: async (id: string, approver: string, note: string | null) =>
+    check(await db().rpc('request_incident_closure', { p_incident: id, p_approver: approver, p_note: note })) as Incident,
+  decideIncidentClosure: async (id: string, approve: boolean, note: string | null) =>
+    check(await db().rpc('decide_incident_closure', { p_incident: id, p_approve: approve, p_note: note })) as Incident,
+  incidentsToClose: async (userId: string) =>
+    check(await db().from('incidents').select('*').eq('status', 'resolved').eq('closure_approver_id', userId).order('closure_requested_at')) as Incident[],
+  driftEvents: async (agentId?: string) => {
+    let q = db().from('drift_events').select('*').order('detected_at', { ascending: false }).limit(200)
+    if (agentId) q = q.eq('agent_id', agentId)
+    return check(await q) as DriftEvent[]
+  },
   incidentSla: async () => check(await db().from('incident_sla').select('severity, minutes')) as IncidentSla[],
   saveIncidentSla: async (severity: RiskTier, minutes: number) => {
     const row = check(await db().from('incident_sla').update({ minutes }).eq('severity', severity).select('severity').maybeSingle())

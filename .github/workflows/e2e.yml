@@ -206,9 +206,14 @@ jobs:
           audit=$(q "select summary from public.audit_events where action = 'agents.reactivated_outside' and agent_id = '$agent' and occurred_at > now() - interval '5 minutes' order by seq desc limit 1")
           echo "Audit: $audit"
           echo "$audit" | grep -q 'actor unknown' || { echo "::error title=Reconciliation check::no actor-unknown audit record"; exit 1; }
+          # Task 4.9: the drift is on record with expected, observed, actor, action and result.
+          drift=$(q "select concat_ws(' | ', expected, observed, actor, action, result) from public.drift_events where agent_id = '$agent' and kind = 'switched_on_outside' and detected_at > now() - interval '5 minutes' order by detected_at desc limit 1")
+          echo "Drift: $drift"
+          echo "$drift" | grep -q 'Blocked again and read back as blocked' || { echo "::error title=Reconciliation check::no drift record with the re-block result"; exit 1; }
+          echo "$drift" | grep -q 'Unknown, outside Control Tower' || { echo "::error title=Reconciliation check::drift actor is not 'Unknown, outside Control Tower'"; exit 1; }
           pushes=$(q "select count(*) from public.push_outbox where kind = 'reconciliation' and created_at > now() - interval '5 minutes'")
           echo "Job: $(q "select message from public.platform_jobs where kind = 'reconcile' order by id desc limit 1")"
-          echo "::notice title=Reconciliation check::switched on in Appian outside Control Tower; blocked again and read back as blocked ${took} s into the cycle; incident ${inc}; audit 'actor unknown'; ${pushes} admin phone alert(s)"
+          echo "::notice title=Reconciliation check::switched on in Appian outside Control Tower; blocked again and read back as blocked ${took} s into the cycle; incident ${inc}; audit 'actor unknown'; drift recorded; ${pushes} admin phone alert(s)"
       - name: Retire leftover test agents
         if: always()
         run: |

@@ -83,6 +83,9 @@ export interface Agent {
   approved_at: string | null
   last_review_date: string | null
   next_review_date: string | null
+  /** Task 4.9: set when repeat incidents force a review; cleared when a review is recorded. */
+  review_required_reason: string | null
+  review_required_at: string | null
   registration_source: 'manual' | 'api' | 'discovered'
   control_endpoint: string | null
   /** Task 2.11: flag the agent as silent when nothing is heard from it for this many minutes. Null = not watched. */
@@ -221,8 +224,10 @@ export interface AgentSuspension {
   agent_id: string
   status: 'waiting' | 'done' | 'withdrawn'
   reason: string
-  requested_by: string
+  /** Null when Control Tower suspended it itself (task 4.9: a Critical incident). */
+  requested_by: string | null
   requested_at: string
+  incident_id: string | null
   confirmed_by: string | null
   confirmed_at: string | null
   confirm_note: string | null
@@ -341,6 +346,12 @@ export interface Incident {
   remediation: string | null
   resolved_at: string | null
   updated_at: string
+  // Task 4.9: closing needs a named approver
+  closure_approver_id: string | null
+  closure_requested_by: string | null
+  closure_requested_at: string | null
+  closure_note: string | null
+  closed_by: string | null
 }
 export type RootCause = 'model_error' | 'instructions' | 'data_quality' | 'integration' | 'access' | 'human_error' | 'vendor' | 'other'
 /** Task 4.5: one line of an incident's log. */
@@ -351,6 +362,22 @@ export interface IncidentUpdate {
   body: string
   author_id: string | null
   created_at: string
+}
+/** Task 4.9: a change made outside Control Tower that its platform shows. */
+export type DriftKind = 'switched_on_outside' | 'blocked_outside' | 'owner_changed' | 'sharing_changed' | 'capabilities_changed'
+export interface DriftEvent {
+  id: string
+  agent_id: string
+  platform_agent_id: string | null
+  kind: DriftKind
+  expected: string
+  observed: string
+  actor: string
+  action: string
+  result: string
+  incident_id: string | null
+  enforcement_id: number | null
+  detected_at: string
 }
 export interface IncidentSla { severity: RiskTier; minutes: number }
 
