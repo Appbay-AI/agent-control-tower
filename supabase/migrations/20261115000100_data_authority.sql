@@ -340,11 +340,5 @@ revoke execute on function public.agent_access(uuid), public.set_data_authority(
 grant execute on function public.agent_access(uuid), public.set_data_authority(text, public.data_classification, boolean),
   public.known_job_titles() to authenticated;
 
--- First fill: today's findings, without phone alerts (they are not news).
-do $$
-declare x uuid;
-begin
-  for x in select id from public.agents where status <> 'retired' loop
-    perform public.authority_recheck(x, false);
-  end loop;
-end $$;
+-- The first fill is in 20261115000200_data_authority_fill.sql: a new enum value (alert kind data_authority) cannot be
+-- used in the transaction that adds it.
