@@ -220,7 +220,7 @@ describe('register API and keys (task 1.7)', () => {
     expect(status).toMatchObject({ status: 'proposed', may_act: false })
 
     const actor = await db.query<{ actor_type: string }>(
-      `select distinct actor_type from public.audit_events where agent_id = $1`, [res.agent_id])
+      `select distinct actor_type from public.audit_events where agent_id = $1 and action <> 'agents.access_without_authority'` /* 4.8 */, [res.agent_id])
     expect(actor.rows.map((r) => r.actor_type)).toEqual(['integration'])
   })
 

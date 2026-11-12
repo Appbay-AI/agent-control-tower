@@ -1,4 +1,5 @@
 import { Search, UserPlus } from 'lucide-react'
+import { DataAuthority } from '@/components/DataAuthority'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { UserStateBadge } from '@/components/TempPasswordDialog'
@@ -129,6 +130,8 @@ export function UsersPage() {
           {rows.length === 0 && <p className="text-muted-foreground py-6 text-center text-sm">No one matches these filters.</p>}
         </>
       )}
+      {/* Task 4.8 */}
+      <div className="border-t pt-6"><DataAuthority /></div>
     </div>
   )
 }

@@ -9,7 +9,7 @@ export type DataClassification = 'public' | 'internal' | 'confidential' | 'restr
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'sent_back'
 export type RegistrationDecision = 'approve' | 'reject' | 'send_back'
 export type ReviewOutcome = 'no_change' | 'changes_required' | 'retire'
-export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent' | 'enforcement_pending' | 'outside_reactivation'
+export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent' | 'enforcement_pending' | 'outside_reactivation' | 'data_authority'
 
 export interface Department {
   id: string
@@ -283,6 +283,12 @@ export interface MicrosoftCheck {
   message: string | null
   results: MicrosoftCheckResult[] | null
 }
+
+/** Task 4.8: one allowed (job title, data kind) in the data-authority matrix; "*" = everyone. */
+export interface DataAuthorityRow { job_title: string; classification: DataClassification }
+/** Task 4.8: someone who can use an agent, and the agent's data kinds their role is not authorised for. */
+export interface AgentAccessRow { email: string; name: string | null; job_title: string | null; how: string[]; missing: DataClassification[] }
+export interface AuthorityFinding extends AgentAccessRow { agent_id: string; first_seen_at: string }
 
 /** Task 4.6: a request to switch a suspended agent back on. */
 export interface AgentReactivation {

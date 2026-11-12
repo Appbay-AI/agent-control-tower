@@ -2,7 +2,8 @@ import { supabase } from '@/lib/supabase'
 import type {
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
-  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
+  AgentEnforcement, AgentPlatformSource, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier,
+  DataAuthorityRow, AgentAccessRow, AuthorityFinding, DataClassification, AgentSuspension, BulkResult, PlatformAgentRow, PlatformConnection, PlatformJob, PlatformRecord, RequestApproval, SlaSetting, UserDraft, UserRow,
 } from '@/lib/types'
 
 function db() {
@@ -126,6 +127,15 @@ export const api = {
   enforcements: async (agentId: string) =>
     check(await db().from('agent_enforcements').select('id, agent_id, suspension_id, action, cause, reactivation_id, method, target, status, detail, attempts, next_attempt_at, claimed_at, created_at, finished_at')
       .eq('agent_id', agentId).order('id')) as AgentEnforcement[],
+  // Task 4.8: the data-authority matrix and who can use each agent
+  dataAuthority: async () => check(await db().from('data_authority').select('job_title, classification')) as DataAuthorityRow[],
+  setDataAuthority: async (jobTitle: string, classification: DataClassification, allowed: boolean) => {
+    check(await db().rpc('set_data_authority', { p_job_title: jobTitle, p_classification: classification, p_allowed: allowed }))
+  },
+  knownJobTitles: async () => check(await db().rpc('known_job_titles')) as { job_title: string; people: number }[],
+  agentAccess: async (agentId: string) => check(await db().rpc('agent_access', { p_agent: agentId })) as AgentAccessRow[],
+  authorityFindings: async () =>
+    check(await db().from('agent_authority_findings').select('*').order('first_seen_at', { ascending: false })) as AuthorityFinding[],
   // Task 4.6: switching a suspended agent back on, only through approval
   reactivations: async (agentId?: string) => {
     let q = db().from('agent_reactivations').select('*').order('requested_at', { ascending: false }).limit(200)

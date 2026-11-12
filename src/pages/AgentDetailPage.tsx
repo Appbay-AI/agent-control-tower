@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AgentLogList, CheckinsBody } from '@/components/AgentCheckins'
 import { DiscoveredBadge, RegistrationBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { DecisionPanel } from '@/components/DecisionPanel'
+import { AgentAccess } from '@/components/AgentAccess'
 import { IncidentList } from '@/components/IncidentList'
 import { Reactivation } from '@/components/Reactivation'
 import { ReportIncident } from '@/components/ReportIncident'
@@ -69,6 +70,8 @@ export function AgentDetailPage() {
   const notStopped = alerts.some((al) => al.kind === 'enforcement_pending')
   // Task 4.7
   const switchedOnOutside = alerts.some((al) => al.kind === 'outside_reactivation')
+  // Task 4.8
+  const noAuthority = alerts.some((al) => al.kind === 'data_authority')
   const openIncidents = incidents.filter(isOpen).length
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
@@ -114,6 +117,7 @@ export function AgentDetailPage() {
             {silent && <WarningBadge>Silent</WarningBadge>}
             {notStopped && <WarningBadge>Not stopped yet</WarningBadge>}
             {switchedOnOutside && <WarningBadge>Switched on outside Control Tower</WarningBadge>}
+            {noAuthority && <WarningBadge>Access without authority</WarningBadge>}
             {openIncidents > 0 && <WarningBadge>{openIncidents === 1 ? '1 open incident' : `${openIncidents} open incidents`}</WarningBadge>}
           </div>
         </div>
@@ -187,6 +191,7 @@ export function AgentDetailPage() {
               <IncidentList incidents={incidents} name={(uid) => name(uid)} showAgent={false} />
             </Card>
           )}
+          <AgentAccess agentId={a.id} refreshKey={a.updated_at} />
           <Card title="Purpose">
             <p className="text-sm whitespace-pre-wrap">{a.purpose_statement || <span className="text-muted-foreground">No purpose statement yet.</span>}</p>
             <dl className="mt-4 grid gap-4 sm:grid-cols-2">

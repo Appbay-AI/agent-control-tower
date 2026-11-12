@@ -56,7 +56,7 @@ describe('discovered agents (task 3.5)', () => {
             a.systems_accessed, a.data_classifications::text, a.description
        from public.platform_agents pa join public.agents a on a.id = pa.agent_id where pa.external_id = $1`, [externalId])).rows[0]
   const openAlerts = async (agentId: string) => (await db.query<{ kind: string; message: string }>(
-    `select kind, message from public.alerts where agent_id = $1 and resolved_at is null`, [agentId])).rows
+    `select kind, message from public.alerts where agent_id = $1 and resolved_at is null and kind <> 'data_authority'` /* 4.8 has its own tests */, [agentId])).rows
   const pushes = async () => (await db.query<{ user_id: string; title: string; body: string; url: string }>(
     `select user_id, title, body, url from public.push_outbox where kind = 'agent_discovered' order by user_id`)).rows
 
