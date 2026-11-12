@@ -18,8 +18,7 @@ test('someone without authority for an agent\'s data is flagged, and the matrix 
 
   const allow = async (on: boolean) => {
     await page.goto('/users')
-    const box = page.getByTestId('authority-row').filter({ has: page.getByText('Sales Associate', { exact: true }) })
-      .getByLabel('Sales Associate may see Personal data')
+    const box = page.getByTestId('authority-matrix').getByLabel('Sales Associate may see Personal data', { exact: true })
     if ((await box.isChecked()) !== on) await box.setChecked(on)
     await expect(box).toBeChecked({ checked: on })
   }
