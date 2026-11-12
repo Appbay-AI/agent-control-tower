@@ -28,14 +28,18 @@ export function DataAuthority() {
     return { rows, titles, findings, agents: new Map(agents.map((a) => [a.id, a])) }
   })
   const [busy, setBusy] = useState<string | null>(null)
+  // The tick changes as soon as it is clicked; it is put back if saving fails.
+  const [shown, setShown] = useState<Record<string, boolean>>({})
   const [err, setErr] = useState<string | null>(null)
   const matrix = useMemo(() => (data ? matrixRows(data.rows, data.titles.map((t) => t.job_title)) : []), [data])
   const people = useMemo(() => new Map((data?.titles ?? []).map((t) => [t.job_title, t.people])), [data])
 
   async function toggle(title: string, kind: DataClassification, allowed: boolean) {
     const key = `${title}|${kind}`
-    setBusy(key); setErr(null)
-    try { await api.setDataAuthority(title, kind, allowed); await reload() } catch (e) { setErr(errorMessage(e)) } finally { setBusy(null) }
+    setBusy(key); setErr(null); setShown((s) => ({ ...s, [key]: allowed }))
+    try { await api.setDataAuthority(title, kind, allowed); await reload() } catch (e) { setErr(errorMessage(e)) } finally {
+      setBusy(null); setShown((s) => { const { [key]: _gone, ...rest } = s; return rest })
+    }
   }
 
   return (
@@ -89,7 +93,7 @@ export function DataAuthority() {
                     {m.title !== '*' && people.get(m.title) ? <span className="text-muted-foreground text-xs"> · {people.get(m.title)} {people.get(m.title) === 1 ? 'person' : 'people'}</span> : null}
                   </td>
                   {KINDS.map((k) => {
-                    const on = m.allowed.has(k)
+                    const on = shown[`${m.title}|${k}`] ?? m.allowed.has(k)
                     const viaEveryone = m.title !== '*' && matrix[0].allowed.has(k)
                     return (
                       <td key={k} className="p-2 text-center">
