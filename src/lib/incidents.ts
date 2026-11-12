@@ -9,6 +9,7 @@ export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
 export const INCIDENT_SOURCE_LABEL: Record<Incident['source'], string> = {
   suspension: 'Agent suspended', agent_report: 'Reported by the agent', integration_report: 'Reported by a connected system',
   user_report: 'Reported in Control Tower',
+  reconciliation: 'Found by the reconciliation check',
 }
 
 export const SEVERITIES: RiskTier[] = ['critical', 'high', 'medium', 'low']

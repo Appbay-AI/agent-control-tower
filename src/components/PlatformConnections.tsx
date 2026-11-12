@@ -73,6 +73,8 @@ function ConnectionRow({ connection, onChanged, onSynced }: {
 }) {
   const check = useJob(connection.id, 'check')
   const sync = useJob(connection.id, 'sync', onSynced)
+  // Task 4.7: the reconciliation check (every 5 minutes, only while agents on this platform are suspended).
+  const reconcile = useJob(connection.id, 'reconcile')
   const [every, setEvery] = useState(connection.sync_every_minutes === null ? '' : String(connection.sync_every_minutes))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -123,6 +125,14 @@ function ConnectionRow({ connection, onChanged, onSynced }: {
           <Button size="sm" variant="outline" disabled={saving || !changed} onClick={saveInterval}>Save</Button>
         </div>
         <p className="text-muted-foreground text-xs">Each sync is one call to the platform. Use Sync now when you need the list sooner.</p>
+      </div>
+      <div className="space-y-1 border-t pt-3" data-testid="reconcile">
+        <div className="font-medium">Suspended agents checked every 5 minutes</div>
+        <JobLine job={reconcile.job} never="Nothing to check yet: no agent here is suspended and confirmed blocked" testId="platform-reconcile" />
+        <p className="text-muted-foreground text-xs">
+          One call per suspended agent, and none when nothing is suspended. One switched back on outside Control Tower is blocked again,
+          with a Critical incident and an alert to admins.
+        </p>
       </div>
       <ErrorBox message={check.error ?? sync.error ?? saveError} />
     </li>

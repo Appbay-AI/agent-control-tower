@@ -119,7 +119,9 @@ jobs:
         # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not
         # exist), the NAP-001 agent is suspended, and the block must wait for a retry with the admins alerted. Then Appian
         # "comes back" and the retry must block NAP-001 by itself. The real address is always put back.
-        if: success() && env.ACT_PLATFORM_AGENT_CODE != ''
+        id: retry
+        # Runs even when a browser test failed (e.g. the 2-second live list on a slow day), so this check is not hidden.
+        if: "!cancelled() && env.ACT_PLATFORM_AGENT_CODE != ''"
         env:
           APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
           APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
@@ -168,6 +170,45 @@ jobs:
           echo "Appian says: $st"
           echo "$st" | grep -q '"quarantined"' || { echo "::error title=Retry check::Appian does not show NAP-001 blocked"; exit 1; }
           echo "::notice title=Retry check::first try failed and was kept (${s##* } tries in all); $pushes admin phone alert(s) queued; blocked in Appian ${took} s after it came back; alert cleared"
+      - name: Reconciliation check (task 4.7)
+        # The Retry check leaves the NAP-001 agent suspended and confirmed blocked in Appian. Here someone switches it back
+        # on directly in Appian (outside Control Tower); one reconciliation cycle must block it again, read back, with a
+        # Critical incident, an "actor unknown" audit record and admin alerts. The cycle is started at once here instead
+        # of waiting for the 5-minute clock (the step checks the clock is scheduled too).
+        if: "!cancelled() && steps.retry.outcome == 'success'"
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: |
+          set -euo pipefail
+          q() { psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "$1"; }
+          agent=$(q "select agent_id from public.platform_agents where external_id = 'NAP-001'")
+          conn=$(q "select connection_id from public.platform_agents where external_id = 'NAP-001'")
+          [ "$(q "select status from public.agents where id = '$agent'")" = suspended ] || { echo "::warning title=Reconciliation check::the test agent is not suspended; skipped"; exit 0; }
+          echo "Clock: $(q "select schedule from cron.job where jobname = 'platform-reconcile'")"
+          for i in $(seq 1 30); do n=$(q "select count(*) from public.reconcile_targets('$conn') where external_id = 'NAP-001'"); [ "$n" = 1 ] && break; sleep 2; done
+          [ "$n" = 1 ] || { echo "::error title=Reconciliation check::NAP-001 never became a reconciliation target (block not confirmed)"; exit 1; }
+
+          curl -sS -o /dev/null -w "NAP-001 switched on directly in Appian: HTTP %{http_code}\n" -X POST "$APPIAN_BASE/suite/webapi/nap-agent-status-set" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'content-type: application/json' \
+            -d '{"externalId":"NAP-001","status":"active","reason":"E2E: switched back on outside Control Tower","requestedBy":"act-integration"}'
+          started=$(date +%s)
+          q "select public.platform_reconcile_due()" >/dev/null
+          step="select status from public.agent_enforcements where agent_id = '$agent' and cause = 'reblock' and created_at > now() - interval '5 minutes' order by id desc limit 1"
+          for i in $(seq 1 45); do s=$(q "$step"); [ "$s" = done ] && break; sleep 2; done
+          took=$(( $(date +%s) - started ))
+          [ "$s" = done ] || { echo "::error title=Reconciliation check::not blocked again ${took} s into the cycle (re-block step: ${s:-none}; job: $(q "select message from public.platform_jobs where kind = 'reconcile' order by id desc limit 1"))"; exit 1; }
+          st=$(curl -sS "$APPIAN_BASE/suite/webapi/nap-agent-status?externalId=NAP-001" -H "Appian-API-Key: $APPIAN_API_KEY")
+          echo "Appian says: $st"
+          echo "$st" | grep -q '"quarantined"' || { echo "::error title=Reconciliation check::Appian does not show NAP-001 blocked again"; exit 1; }
+          inc=$(q "select incident_code || ' ' || severity from public.incidents where agent_id = '$agent' and source = 'reconciliation' and opened_at > now() - interval '5 minutes' order by opened_at desc limit 1")
+          [ -n "$inc" ] || { echo "::error title=Reconciliation check::no incident opened"; exit 1; }
+          audit=$(q "select summary from public.audit_events where action = 'agents.reactivated_outside' and agent_id = '$agent' and occurred_at > now() - interval '5 minutes' order by seq desc limit 1")
+          echo "Audit: $audit"
+          echo "$audit" | grep -q 'actor unknown' || { echo "::error title=Reconciliation check::no actor-unknown audit record"; exit 1; }
+          pushes=$(q "select count(*) from public.push_outbox where kind = 'reconciliation' and created_at > now() - interval '5 minutes'")
+          echo "Job: $(q "select message from public.platform_jobs where kind = 'reconcile' order by id desc limit 1")"
+          echo "::notice title=Reconciliation check::switched on in Appian outside Control Tower; blocked again and read back as blocked ${took} s into the cycle; incident ${inc}; audit 'actor unknown'; ${pushes} admin phone alert(s)"
       - name: Retire leftover test agents
         if: always()
         run: |

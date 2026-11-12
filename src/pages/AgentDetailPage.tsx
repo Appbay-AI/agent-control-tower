@@ -67,6 +67,8 @@ export function AgentDetailPage() {
   const silent = alerts.some((al) => al.kind === 'agent_silent')
   // Task 4.3: suspended here, but not yet stopped everywhere.
   const notStopped = alerts.some((al) => al.kind === 'enforcement_pending')
+  // Task 4.7
+  const switchedOnOutside = alerts.some((al) => al.kind === 'outside_reactivation')
   const openIncidents = incidents.filter(isOpen).length
   const decidedBy = new Set(decisions.filter((d) => d.registration_id === registrations.find((r) => r.status === 'pending')?.id).map((d) => d.approver_id))
   const stillToDecide = approvers.filter((p) => !decidedBy.has(p.id)).map((p) => p.full_name)
@@ -111,6 +113,7 @@ export function AgentDetailPage() {
             {overdue && <WarningBadge>Review overdue</WarningBadge>}
             {silent && <WarningBadge>Silent</WarningBadge>}
             {notStopped && <WarningBadge>Not stopped yet</WarningBadge>}
+            {switchedOnOutside && <WarningBadge>Switched on outside Control Tower</WarningBadge>}
             {openIncidents > 0 && <WarningBadge>{openIncidents === 1 ? '1 open incident' : `${openIncidents} open incidents`}</WarningBadge>}
           </div>
         </div>

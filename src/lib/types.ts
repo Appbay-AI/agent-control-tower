@@ -9,7 +9,7 @@ export type DataClassification = 'public' | 'internal' | 'confidential' | 'restr
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'sent_back'
 export type RegistrationDecision = 'approve' | 'reject' | 'send_back'
 export type ReviewOutcome = 'no_change' | 'changes_required' | 'retire'
-export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent' | 'enforcement_pending'
+export type AlertKind = 'review_overdue' | 'owner_missing' | 'agent_silent' | 'enforcement_pending' | 'outside_reactivation'
 
 export interface Department {
   id: string
@@ -240,6 +240,8 @@ export interface AgentEnforcement {
   method: 'platform' | 'api' | 'webhook' | 'email'
   /** Task 4.6: "restore" = switching it back on after an approved reactivation. */
   action: 'stop' | 'restore'
+  /** Task 4.7: "reblock" = blocked again after it was switched back on outside Control Tower. */
+  cause: 'suspension' | 'reblock'
   reactivation_id: string | null
   target: string
   /** Task 4.3: pending with attempts > 0 = failed and waiting to be tried again; cancelled = no longer needed. */
@@ -304,7 +306,7 @@ export interface Incident {
   id: string
   incident_code: string
   agent_id: string
-  source: 'suspension' | 'agent_report' | 'integration_report' | 'user_report'
+  source: 'suspension' | 'agent_report' | 'integration_report' | 'user_report' | 'reconciliation'
   suspension_id: string | null
   severity: RiskTier
   status: IncidentStatus
@@ -384,7 +386,7 @@ export interface PlatformAgentRow {
 export interface PlatformJob {
   id: number
   connection_id: string
-  kind: 'check' | 'sync'
+  kind: 'check' | 'sync' | 'reconcile'
   created_at: string
   claimed_at: string | null
   finished_at: string | null

@@ -133,7 +133,7 @@ export function KillSwitch({ part, agent, suspensions, enforcements = [], canSus
                   return (
                     <li key={e.id} className="flex flex-wrap items-baseline gap-x-2 text-sm" data-testid={`enforcement-${e.method}`} data-state={s}>
                       <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${STEP_STYLE[s]}`}>{STEP_STATUS[s]}</span>
-                      <span className="font-medium">{STEP_LABEL[e.method]}</span>
+                      <span className="font-medium">{e.cause === 'reblock' ? 'Blocked again (switched on outside Control Tower):' : STEP_LABEL[e.method]}</span>
                       <span>{e.detail ?? e.target}</span>
                       {s === 'retrying' && <span className="text-muted-foreground">{retryNote(e)}</span>}
                       {s === 'failed' && <span className="text-muted-foreground">Trying again cannot fix this: a person needs to act.</span>}

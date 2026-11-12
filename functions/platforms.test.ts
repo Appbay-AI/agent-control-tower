@@ -357,3 +357,48 @@ describe('platform jobs run by our API', () => {
     expect(later).toHaveLength(0)
   })
 })
+
+describe('reconciliation check run by our API (task 4.7)', () => {
+  const TOKEN = 'pjt_' + 'b'.repeat(64)
+  function world(targets: { platform_agent_id: string; external_id: string; agent_code: string }[], applyAnswer: object) {
+    const appian = fakeAppian()
+    const reports: Record<string, unknown>[] = []
+    const applied: { p_token: string; p_results: { platform_agent_id: string; status: string }[] }[] = []
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/rpc/platform_job_claim')) {
+        return new Response(JSON.stringify({ job: 9, kind: 'reconcile', targets,
+          connection: { id: 'c1', kind: 'appian_simulator', name: 'Northbridge Agent Platform (simulated)', base_url: SITE, secret: KEY } }), { status: 200 })
+      }
+      if (url.endsWith('/rpc/platform_job_report')) { reports.push(JSON.parse(String(init?.body))); return new Response('null', { status: 200 }) }
+      if (url.endsWith('/rpc/platform_reconcile_apply')) { applied.push(JSON.parse(String(init?.body))); return new Response(JSON.stringify(applyAnswer), { status: 200 }) }
+      return appian.fetch(input, init)
+    }) as unknown as typeof fetch
+    return { fetchImpl, reports, applied }
+  }
+
+  it('reads each suspended agent on the platform and hands the statuses to the database', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const w = world([{ platform_agent_id: 'p1', external_id: 'NAP-001', agent_code: 'AGT-0122' },
+      { platform_agent_id: 'p7', external_id: 'NAP-007', agent_code: 'AGT-0047' }, { platform_agent_id: 'p9', external_id: 'NAP-999', agent_code: 'AGT-0099' }],
+      { checked: 3, reblocked: 1, agents: ['AGT-0122'] })
+    const out = await runPlatformJob(TOKEN, w.fetchImpl)
+    expect(w.applied[0].p_results).toEqual([{ platform_agent_id: 'p1', status: 'active' }, { platform_agent_id: 'p7', status: 'blocked' },
+      { platform_agent_id: 'p9', status: 'missing', error: expect.any(String) }])
+    expect(out).toEqual({ ok: true, result: { checked: 3, reblocked: 1, agents: ['AGT-0122'], unreadable: 0 },
+      message: 'Checked 3 suspended agents on Northbridge Agent Platform (simulated); AGT-0122 switched back on outside Control Tower: blocking again, Critical incident opened' })
+    expect(w.reports[0]).toMatchObject({ p_token: TOKEN, p_ok: true })
+  })
+
+  it('all still blocked; an agent it cannot read is left for the next cycle and the job says so', async () => {
+    const { runPlatformJob } = await import('../functions-lib/platforms/run')
+    const quiet = world([{ platform_agent_id: 'p7', external_id: 'NAP-007', agent_code: 'AGT-0047' }], { checked: 1, reblocked: 0, agents: [] })
+    expect((await runPlatformJob(TOKEN, quiet.fetchImpl))!.message).toBe('Checked 1 suspended agent on Northbridge Agent Platform (simulated); all still blocked')
+    const w = world([{ platform_agent_id: 'p1', external_id: 'NAP-001', agent_code: 'AGT-0122' }], { checked: 1, reblocked: 0, agents: [] })
+    const down = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).includes('nap-agent-status') ? new Response('busy', { status: 503 }) : w.fetchImpl(input, init)) as unknown as typeof fetch
+    const out = await runPlatformJob(TOKEN, down)
+    expect(w.applied[0].p_results[0]).toMatchObject({ platform_agent_id: 'p1', status: 'unreadable' })
+    expect(out).toMatchObject({ ok: false, message: expect.stringMatching(/; 1 could not be read \(/) })
+  })
+})

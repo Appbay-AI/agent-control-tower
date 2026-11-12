@@ -37,6 +37,8 @@ export function AgentsPage() {
       silent: new Set(alerts.filter((al) => al.kind === 'agent_silent').map((al) => al.agent_id)),
       // Task 4.3: suspended, but stopping it somewhere has not worked yet.
       notStopped: new Set(alerts.filter((al) => al.kind === 'enforcement_pending').map((al) => al.agent_id)),
+      // Task 4.7
+      outside: new Set(alerts.filter((al) => al.kind === 'outside_reactivation').map((al) => al.agent_id)),
       // Task 3.6: the platform each agent comes from, if any.
       platform: new Map(sources.map((s) => [s.agent_id, s.platform])),
     }
@@ -192,6 +194,7 @@ export function AgentsPage() {
                           {isDiscovered(a) && <DiscoveredBadge />}
                           {data.silent.has(a.id) && <WarningBadge>Silent</WarningBadge>}
                     {data.notStopped.has(a.id) && <WarningBadge>Not stopped yet</WarningBadge>}
+                    {data.outside.has(a.id) && <WarningBadge>Switched on outside Control Tower</WarningBadge>}
                           {data.pending.has(a.id) && <span className="text-muted-foreground text-xs">awaiting approval</span>}
                         </div>
                       </td>
