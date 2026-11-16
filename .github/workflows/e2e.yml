@@ -122,7 +122,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retry check (task 4.3)
         # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not
@@ -256,6 +256,7 @@ jobs:
           from public.agents where status <> 'retired' and (name like 'E2E agent %' or name like 'API test agent %');
           commit;
           delete from public.routing_rules where name like 'E2E rule %';
+          delete from public.alert_routes where name like 'E2E route %'; -- task 5.2
           -- The key made for this run, and any test request left waiting.
           begin;
           select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)

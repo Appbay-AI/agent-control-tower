@@ -53,8 +53,8 @@ describe('alert emails (task 5.1)', () => {
     const d = rows[0].details
     expect(d.headline).toMatch(/^AGT-\d{4} Invoice Matcher was suspended$/)
     expect(facts(rows[0])).toMatchObject({ Why: 'Matching invoices to the wrong orders', 'Suspended by': 'James Whitfield' })
-    expect(rows.find((r) => r.user_id === u.james)!.details.because).toBe('owner')
-    expect(rows.find((r) => r.user_id === u.admin)!.details.because).toBe('admin')
+    expect(rows.find((r) => r.user_id === u.james)!.details.because).toBe('You are the business owner of Invoice Matcher.')
+    expect(rows.find((r) => r.user_id === u.admin)!.details.because).toBe('You are an admin of Agent Control Tower.')
     // What every alert email carries (R4.2).
     expect(d.agent).toMatchObject({ name: 'Invoice Matcher', status: 'suspended', risk_tier: 'high', department: 'Payments' })
     expect(d.owner).toEqual({ name: 'James Whitfield', email: 'james@bank.test', role: 'Head of Payments Product' })

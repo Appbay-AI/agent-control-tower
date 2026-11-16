@@ -217,7 +217,9 @@ export interface AlertDetails {
   headline: string
   facts: [string, string][]
   at: string
-  because: 'admin' | 'owner'
+  /** Why this person gets it (task 5.2: a sentence from their alert route; 'admin' / 'owner' on emails queued by 5.1). */
+  because: string
+  route?: string | null
   agent: { id: string; code: string; name: string; status: string; risk_tier: string; department: string | null; purpose: string | null }
   owner: { name: string; email: string | null; role: string | null } | null
   technical_owner: { name: string; email: string | null; role: string | null } | null
@@ -250,7 +252,8 @@ export function buildAlertEmail(e: AlertEmail, s: Pick<EmailSettings, 'site_url'
   const link = `${s.site_url}/agents/${x.agent.id}`
   const pii = x.pii || x.people.some((p) => p.missing.includes('personal'))
   const subject = `${redirected ? `[For ${e.to_name}] ` : ''}${pii ? '[Personal data] ' : ''}${x.headline}`.slice(0, 250)
-  const why = x.because === 'owner' ? `You are the business owner of ${x.agent.name}.` : 'You are an admin of Agent Control Tower.'
+  const why = x.because === 'owner' ? `You are the business owner of ${x.agent.name}.`
+    : x.because === 'admin' ? 'You are an admin of Agent Control Tower.' : x.because
   const person = (p: { name: string; role: string | null } | null) => (p ? `${p.name}${p.role ? `, ${p.role}` : ''}` : 'Nobody named')
   const agentRows: [string, string][] = [
     ['Agent', `${x.agent.name} (${x.agent.code})`],

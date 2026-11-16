@@ -506,3 +506,22 @@ export interface ActionRequest {
   sla_escalate_to: string | null
   sla_escalated_at: string | null
 }
+
+/** Task 5.2: alert routing. Events are task 5.1's alert emails. */
+export type AlertEvent = 'suspended' | 'reactivated' | 're_quarantined' | 'enforcement_pending' | 'discovered' | 'missing_at_source' | 'access_without_authority'
+export interface AlertRouteDraft {
+  name: string
+  scope: 'default' | 'department' | 'agent'
+  department_id: string | null
+  agent_id: string | null
+  /** Empty = every event. */
+  events: AlertEvent[]
+  to_admins: boolean
+  to_business_owner: boolean
+  to_technical_owner: boolean
+  people: string[]
+  also_default: boolean
+  is_active: boolean
+}
+export interface AlertRoute extends AlertRouteDraft { id: string; updated_at: string }
+export interface AlertRoutePreview { name: string; job_title: string | null; because: string; route: string }

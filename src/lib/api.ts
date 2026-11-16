@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
+  AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview,
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
   AgentEnforcement, AgentPlatformSource, DriftEvent, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier,
@@ -209,6 +210,17 @@ export const api = {
     if (!row) throw new Error('The rule was not saved. Only admins can change routing.')
     return row
   },
+  // Alert routing (task 5.2)
+  alertRoutes: async () => check(await db().from('alert_routes').select('*')) as AlertRoute[],
+  saveAlertRoute: async (id: string | null, draft: AlertRouteDraft) => {
+    const q = id ? db().from('alert_routes').update(draft).eq('id', id) : db().from('alert_routes').insert(draft)
+    const row = check(await q.select('id').maybeSingle()) as { id: string } | null
+    if (!row) throw new Error('The route was not saved. Only admins can change alert routing.')
+    return row
+  },
+  deleteAlertRoute: async (id: string) => check(await db().from('alert_routes').delete().eq('id', id)),
+  previewAlertRoute: async (agentId: string, event: AlertEvent) =>
+    check(await db().rpc('preview_alert_route', { p_agent: agentId, p_event: event })) as AlertRoutePreview[],
   // Connect Microsoft (task 3.1, resumed)
   microsoftStatus: async () => check(await db().rpc('microsoft_status')) as MicrosoftStatus,
   microsoftConnectStart: async () => check(await db().rpc('microsoft_connect_start')) as {

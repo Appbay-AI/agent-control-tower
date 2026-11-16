@@ -15,6 +15,7 @@ import { IncidentsPage } from '@/pages/IncidentsPage'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { RequestPage } from '@/pages/RequestPage'
+import { AlertRoutingPage } from '@/pages/AlertRoutingPage'
 import { RoutingPage } from '@/pages/RoutingPage'
 import { UserFormPage } from '@/pages/UserFormPage'
 import { UsersPage } from '@/pages/UsersPage'
@@ -61,6 +62,8 @@ export function AppRoutes() {
         <Route path="/incidents/:id" element={<IncidentPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/routing" element={<RequireAdmin><RoutingPage /></RequireAdmin>} />
+        {/* Task 5.2 */}
+        <Route path="/alert-routing" element={<RequireAdmin><AlertRoutingPage /></RequireAdmin>} />
         <Route path="/demo/agent" element={<RequireAdmin><AgentConsolePage /></RequireAdmin>} />
         <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="/users/new" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />
