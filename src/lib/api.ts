@@ -149,6 +149,12 @@ export const api = {
     if (agentId) q = q.eq('agent_id', agentId)
     return check(await q) as AgentReactivation[]
   },
+  /** Task 5.3: one request to switch an agent back on (the task page emails link to). */
+  reactivation: async (id: string) => {
+    const row = check(await db().from('agent_reactivations').select('*').eq('id', id).maybeSingle()) as AgentReactivation | null
+    if (!row) throw new Error("This request doesn't exist, or you don't have access to it.")
+    return row
+  },
   pendingReactivations: async () =>
     check(await db().from('agent_reactivations').select('*').eq('status', 'pending').order('requested_at')) as AgentReactivation[],
   reactivationApprovals: async (agentId?: string) => {

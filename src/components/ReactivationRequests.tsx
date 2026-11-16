@@ -34,12 +34,12 @@ export function ReactivationRequests() {
         {data.map(({ r, a, asker, done }) => (
           <li key={r.id} className="space-y-1 p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <Link to={`/agents/${a.id}`} className="font-medium hover:underline">{a.agent_code} {a.name}</Link>
+              <Link to={`/approvals/reactivations/${r.id}`} className="font-medium hover:underline">{a.agent_code} {a.name}</Link>
               <RiskBadge tier={a.risk_tier} />
               {r.required_approvals === 2 && <span className="text-muted-foreground text-xs">needs 2 approvals · {done} so far</span>}
             </div>
             <p>{asker} asks to switch it back on: “{r.reason}”</p>
-            <p className="text-muted-foreground text-xs">Asked {formatDateTime(r.requested_at)} · open the agent to approve or reject</p>
+            <p className="text-muted-foreground text-xs">Asked {formatDateTime(r.requested_at)} · open it to approve or reject</p>
           </li>
         ))}
       </ul>

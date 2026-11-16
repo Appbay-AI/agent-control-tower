@@ -14,6 +14,7 @@ import { IncidentPage } from '@/pages/IncidentPage'
 import { IncidentsPage } from '@/pages/IncidentsPage'
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { ReactivationTaskPage } from '@/pages/ReactivationTaskPage'
 import { RequestPage } from '@/pages/RequestPage'
 import { AlertRoutingPage } from '@/pages/AlertRoutingPage'
 import { RoutingPage } from '@/pages/RoutingPage'
@@ -58,6 +59,8 @@ export function AppRoutes() {
         <Route path="/agents/:id/edit" element={<AgentFormPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/approvals/requests/:id" element={<RequestPage />} />
+        {/* Task 5.3: the task an approver's email links to */}
+        <Route path="/approvals/reactivations/:id" element={<ReactivationTaskPage />} />
         <Route path="/incidents" element={<IncidentsPage />} />
         <Route path="/incidents/:id" element={<IncidentPage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
