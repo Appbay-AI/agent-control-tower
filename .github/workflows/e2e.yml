@@ -98,6 +98,15 @@ jobs:
            where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status = 'proposed';
           update public.agents set status = 'live'
            where id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and status in ('approved', 'suspended');
+          -- Task 4.9: reviews forced on the test agents by earlier runs' incidents (also settled after each run).
+          update public.agents set review_required_reason = null, review_required_at = null, next_review_date = current_date + 180
+           where review_required_at is not null
+             and (name in ('Mail Room Router', 'Invoice Matcher')
+                  or id = (select agent_id from public.platform_agents where external_id = 'NAP-001'));
+          update public.alerts set resolved_at = now()
+           where kind = 'review_required' and resolved_at is null
+             and agent_id in (select id from public.agents where name in ('Mail Room Router', 'Invoice Matcher')
+                              union select agent_id from public.platform_agents where external_id = 'NAP-001');
           commit;
           select a.agent_code from public.agents a join public.platform_agents pa on pa.agent_id = a.id
            where pa.external_id = 'NAP-001' and a.status = 'live';
@@ -226,15 +235,6 @@ jobs:
           from public.agents where status <> 'retired' and (name like 'E2E agent %' or name like 'API test agent %');
           commit;
           delete from public.routing_rules where name like 'E2E rule %';
-          -- Task 4.9: reviews forced on the test agents by earlier runs' incidents (also settled after each run).
-          update public.agents set review_required_reason = null, review_required_at = null, next_review_date = current_date + 180
-           where review_required_at is not null
-             and (name in ('Mail Room Router', 'Invoice Matcher')
-                  or id = (select agent_id from public.platform_agents where external_id = 'NAP-001'));
-          update public.alerts set resolved_at = now()
-           where kind = 'review_required' and resolved_at is null
-             and agent_id in (select id from public.agents where name in ('Mail Room Router', 'Invoice Matcher')
-                              union select agent_id from public.platform_agents where external_id = 'NAP-001');
           -- The key made for this run, and any test request left waiting.
           begin;
           select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
