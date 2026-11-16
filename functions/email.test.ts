@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import { buildApprovalEmail, chooseRecipient, formatAmount, sendApprovalEmail, TEST_INBOX, type EmailSettings, type QueuedEmail } from '../functions-lib/email'
+import { ALERT_EVENT, buildAlertEmail, buildApprovalEmail, chooseRecipient, formatAmount, sendAlertEmail, sendApprovalEmail, TEST_INBOX, type AlertEmail, type EmailSettings, type QueuedEmail } from '../functions-lib/email'
 import { dispatch } from './api/v1/push/dispatch'
 
 const TEMP_FROM = 'Agent Control Tower <onboarding@resend.dev>'
@@ -130,5 +130,68 @@ describe('sending through Resend', () => {
     const report = JSON.parse(calls.at(-1)!.body)
     expect(report.p_results.push).toEqual([])
     expect(report.p_results.email.map((e: { id: number; sent: boolean }) => [e.id, e.sent])).toEqual([[41, true], [42, true]])
+  })
+})
+
+// Task 5.1: alert emails. Each event's email carries the owner, the people with role and department, the data and the
+// personal-data red flag (R4.2).
+describe('alert emails (task 5.1)', () => {
+  const base: AlertEmail = {
+    id: 7, kind: 'alert', test: false, to_name: 'Platform Admin', to_email: 'admin@northbridge.demo',
+    alert: {
+      event: 'access_without_authority', headline: 'Ana Costa can use AGT-0042 Sales Lead Summariser without authority for Personal data',
+      facts: [['Person', 'Ana Costa (ana@northbridge.demo)'], ['Role', 'Sales Associate'], ['Not authorised for', 'Personal']],
+      at: '2026-11-16T10:00:00Z', because: 'admin',
+      agent: { id: 'a1', code: 'AGT-0042', name: 'Sales Lead Summariser', status: 'proposed', risk_tier: 'medium', department: 'Retail Lending', purpose: null },
+      owner: { name: 'Tom Becker', email: 'tom@northbridge.demo', role: 'Sales Director' }, technical_owner: null,
+      data: ['personal', 'internal'], systems: ['CRM'], pii: true,
+      platform: { name: 'Northbridge Agent Platform (simulated)', external_id: 'NAP-003', status: 'active', missing_since: null },
+      people: [
+        { name: 'Tom Becker', email: 'tom@northbridge.demo', role: 'Sales Director', department: 'Retail Lending', how: ['Owner on Appian'], missing: [] },
+        { name: 'Ana Costa', email: 'ana@northbridge.demo', role: 'Sales Associate', department: 'Retail Lending', how: ['Shared on Appian'], missing: ['personal'] },
+      ],
+    },
+  }
+  const S = { site_url: 'https://agent-control-tower-56p.pages.dev' }
+
+  it('carries the owner, everyone with role and department, the data, and flags personal data in the subject and body', () => {
+    const { subject, html, text } = buildAlertEmail(base, S, false)
+    expect(subject).toBe('[Personal data] Ana Costa can use AGT-0042 Sales Lead Summariser without authority for Personal data')
+    expect(text).toContain('PERSONAL DATA: This agent handles personal data, and someone who can use it is not authorised to see personal data.')
+    expect(text).toContain('Business owner: Tom Becker, Sales Director')
+    expect(text).toContain('Data it touches: Personal, Internal')
+    expect(text).toContain('Who can use it (2)')
+    expect(text).toContain('Ana Costa · Sales Associate · Retail Lending · Shared on Appian · NOT authorised for Personal')
+    expect(text).toContain('Runs on: Northbridge Agent Platform (simulated) as NAP-003')
+    expect(text).toContain('See the agent: https://agent-control-tower-56p.pages.dev/agents/a1')
+    expect(text).toContain('You are an admin of Agent Control Tower.')
+    expect(html).toContain('Access without authority')
+    expect(html).toContain('Personal data:')
+    expect(html).toContain('Not authorised for Personal')
+  })
+
+  it('each of the seven events has its own label; no red flag without personal data; owners are told why', () => {
+    const events = Object.keys(ALERT_EVENT)
+    expect(events).toEqual(['suspended', 'reactivated', 're_quarantined', 'enforcement_pending', 'discovered', 'missing_at_source', 'access_without_authority'])
+    const plain = { ...base, alert: { ...base.alert, event: 'suspended' as const, headline: 'AGT-0002 Invoice Matcher was suspended', pii: false, data: ['internal'],
+      because: 'owner' as const, people: [{ ...base.alert.people[0], missing: [] }] } }
+    const { subject, html, text } = buildAlertEmail(plain, S, true)
+    expect(subject).toBe('[For Platform Admin] AGT-0002 Invoice Matcher was suspended')
+    expect(text).not.toContain('PERSONAL DATA')
+    expect(html).toContain('Agent suspended')
+    expect(text).toContain('Demo copy: this email is for Platform Admin (admin@northbridge.demo).')
+    expect(text).toContain('You are the business owner of Sales Lead Summariser.')
+  })
+
+  it('sends through Resend once per queued email, tagged with the event; test emails go to the test inbox', async () => {
+    const calls: { body: Record<string, unknown>; headers: Record<string, string> }[] = []
+    const fake = (async (_url: string, init: RequestInit) => {
+      calls.push({ body: JSON.parse(String(init.body)), headers: init.headers as Record<string, string> })
+      return new Response(JSON.stringify({ id: 're_1' }), { status: 200 })
+    }) as unknown as typeof fetch
+    const settings = { api_key: 'k', from: 'Agent Control Tower <onboarding@resend.dev>', redirect_to: 'inbox@company.example', site_url: S.site_url }
+    expect(await sendAlertEmail({ ...base, test: true }, settings, fake)).toEqual({ id: 7, sent: true, provider_id: 're_1', sent_to: 'delivered@resend.dev' })
+    expect(calls[0].body).toMatchObject({ to: ['delivered@resend.dev'], tags: [{ name: 'kind', value: 'alert_access_without_authority' }] })
+    expect(calls[0].headers['idempotency-key']).toBe('act-email-7')
   })
 })

@@ -223,6 +223,27 @@ jobs:
           pushes=$(q "select count(*) from public.push_outbox where kind = 'reconciliation' and created_at > now() - interval '5 minutes'")
           echo "Job: $(q "select message from public.platform_jobs where kind = 'reconcile' order by id desc limit 1")"
           echo "::notice title=Reconciliation check::switched on in Appian outside Control Tower; blocked again and read back as blocked ${took} s into the cycle; incident ${inc}; audit 'actor unknown'; drift recorded; ${pushes} admin phone alert(s)"
+      - name: Alert emails check (task 5.1)
+        # The run suspends agents, switches them back on, blocks one again after it is switched on in Appian, and makes a
+        # stop wait for a retry: each must have queued an alert email to the admin, carrying the agent's owner, the people
+        # who can use it and its data. On this site they go to Resend's test inbox, 20 a day at most.
+        if: "!cancelled() && steps.retry.outcome == 'success'"
+        run: |
+          set -euo pipefail
+          q() { psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "$1"; }
+          since="now() - interval '45 minutes'"
+          admin=$(q "select id from public.profiles where email = 'admin@northbridge.demo'")
+          missing=""
+          for ev in suspended reactivated re_quarantined enforcement_pending; do
+            n=$(q "select count(*) from public.email_outbox where kind = 'alert' and event = '$ev' and user_id = '$admin' and created_at > $since
+                     and details ? 'people' and details ? 'data' and details ? 'owner' and jsonb_array_length(details -> 'facts') > 0")
+            [ "$n" -gt 0 ] || missing="$missing $ev"
+          done
+          [ -z "$missing" ] || { echo "::error title=Alert emails check::no alert email to the admin for:$missing"; exit 1; }
+          summary=$(q "select string_agg(event || ' ' || n || ' (' || statuses || ')', '; ' order by event) from (
+                         select event, count(*) n, string_agg(distinct coalesce(case when result = 'Sent' and is_test then 'sent to test inbox' else result end, 'sending'), ', ') statuses
+                           from public.email_outbox where kind = 'alert' and created_at > $since group by event) x")
+          echo "::notice title=Alert emails check::$summary"
       - name: Retire leftover test agents
         if: always()
         run: |

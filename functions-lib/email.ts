@@ -203,3 +203,143 @@ export async function sendStopEmail(e: StopEmail, s: EmailSettings, fetchImpl: t
   return { id: e.id, sent: false, sent_to: where.to, retry: res.status === 429 || res.status >= 500,
     error: `${res.status} from Resend${body?.message ? `: ${body.message}` : ''}`.slice(0, 250) }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Task 5.1: alert emails (R4.1, R4.2). Seven events; each email carries the owner, everyone who can use the agent
+// with their role and department, the data it touches and a red flag when it handles personal data.
+// ---------------------------------------------------------------------------------------------------------------
+export type AlertEvent = 'suspended' | 'reactivated' | 're_quarantined' | 'enforcement_pending' | 'discovered'
+  | 'missing_at_source' | 'access_without_authority'
+
+export interface AlertPerson { name: string; email: string; role: string | null; department: string | null; how: string[]; missing: string[] }
+export interface AlertDetails {
+  event: AlertEvent
+  headline: string
+  facts: [string, string][]
+  at: string
+  because: 'admin' | 'owner'
+  agent: { id: string; code: string; name: string; status: string; risk_tier: string; department: string | null; purpose: string | null }
+  owner: { name: string; email: string | null; role: string | null } | null
+  technical_owner: { name: string; email: string | null; role: string | null } | null
+  data: string[]
+  systems: string[]
+  pii: boolean
+  platform: { name: string; external_id: string; status: string | null; missing_since: string | null } | null
+  people: AlertPerson[]
+}
+export interface AlertEmail { id: number; kind: 'alert'; test: boolean; to_name: string; to_email: string | null; alert: AlertDetails }
+
+/** The label at the top of each event's email, and its colour. */
+export const ALERT_EVENT: Record<AlertEvent, { label: string; colour: string }> = {
+  suspended: { label: 'Agent suspended', colour: '#b42318' },
+  reactivated: { label: 'Agent switched back on', colour: '#067647' },
+  re_quarantined: { label: 'Switched on outside Control Tower: blocked again', colour: '#b42318' },
+  enforcement_pending: { label: 'Not stopped everywhere yet', colour: '#b54708' },
+  discovered: { label: 'New agent found, not registered', colour: '#b54708' },
+  missing_at_source: { label: 'Agent missing from its platform', colour: '#b54708' },
+  access_without_authority: { label: 'Access without authority', colour: '#b42318' },
+}
+
+const DATA_NAME: Record<string, string> = { public: 'Public', internal: 'Internal', confidential: 'Confidential', restricted: 'Restricted', personal: 'Personal' }
+const dataName = (k: string) => DATA_NAME[k] ?? k
+
+/** Subject, HTML and plain text for one alert email. */
+export function buildAlertEmail(e: AlertEmail, s: Pick<EmailSettings, 'site_url'>, redirected: boolean) {
+  const x = e.alert
+  const ev = ALERT_EVENT[x.event] ?? { label: 'Alert', colour: '#20242c' }
+  const link = `${s.site_url}/agents/${x.agent.id}`
+  const pii = x.pii || x.people.some((p) => p.missing.includes('personal'))
+  const subject = `${redirected ? `[For ${e.to_name}] ` : ''}${pii ? '[Personal data] ' : ''}${x.headline}`.slice(0, 250)
+  const why = x.because === 'owner' ? `You are the business owner of ${x.agent.name}.` : 'You are an admin of Agent Control Tower.'
+  const person = (p: { name: string; role: string | null } | null) => (p ? `${p.name}${p.role ? `, ${p.role}` : ''}` : 'Nobody named')
+  const agentRows: [string, string][] = [
+    ['Agent', `${x.agent.name} (${x.agent.code})`],
+    ['Status', x.agent.status[0].toUpperCase() + x.agent.status.slice(1)],
+    ['Risk tier', x.agent.risk_tier[0].toUpperCase() + x.agent.risk_tier.slice(1)],
+    ...(x.agent.department ? [['Department', x.agent.department] as [string, string]] : []),
+    ['Business owner', person(x.owner)],
+    ...(x.technical_owner ? [['Technical owner', person(x.technical_owner)] as [string, string]] : []),
+    ...(x.platform ? [['Runs on', `${x.platform.name} as ${x.platform.external_id}`] as [string, string]] : []),
+    ['Data it touches', x.data.length ? x.data.map(dataName).join(', ') : 'None recorded'],
+    ...(x.systems.length ? [['Systems', x.systems.join(', ')] as [string, string]] : []),
+  ]
+  const peopleLine = (p: AlertPerson) =>
+    `${p.name} · ${p.role ?? 'role not known'} · ${p.department ?? 'department not known'} · ${p.how.join(', ')}` +
+    (p.missing.length ? ` · NOT authorised for ${p.missing.map(dataName).join(', ')}` : '')
+  const piiNote = pii
+    ? (x.people.some((p) => p.missing.includes('personal'))
+        ? 'This agent handles personal data, and someone who can use it is not authorised to see personal data.'
+        : 'This agent handles personal data.')
+    : null
+  const demoNote = redirected
+    ? `Demo copy: this email is for ${e.to_name}${e.to_email ? ` (${e.to_email})` : ''}. In live use it goes to them directly.`
+    : null
+  const when = new Date(x.at).toUTCString().replace(' GMT', ' UTC')
+
+  const text = [
+    ...(demoNote ? [demoNote, ''] : []),
+    ev.label.toUpperCase(),
+    ...(piiNote ? ['', `PERSONAL DATA: ${piiNote}`] : []),
+    '', x.headline, `(${when})`, '',
+    ...x.facts.map(([k, v]) => `${k}: ${v}`), '',
+    'The agent', ...agentRows.map(([k, v]) => `  ${k}: ${v}`), '',
+    `Who can use it (${x.people.length})`, ...(x.people.length ? x.people.map((p) => `  ${peopleLine(p)}`) : ['  Nobody recorded']), '',
+    `See the agent: ${link}`, '', why, '— Agent Control Tower',
+  ].join('\n')
+
+  const td = 'padding:6px 12px 6px 0;color:#5b6270;vertical-align:top;white-space:nowrap'
+  const rowsHtml = (rows: [string, string][]) => rows.map(([k, v]) => `<tr><td style="${td}">${esc(k)}</td><td style="padding:6px 0">${esc(v)}</td></tr>`).join('\n')
+  const peopleHtml = x.people.length
+    ? x.people.map((p) => `<tr${p.missing.length ? ' style="background:#fef3f2"' : ''}>
+<td style="padding:6px 8px;border-top:1px solid #e3e5e8">${esc(p.name)}</td>
+<td style="padding:6px 8px;border-top:1px solid #e3e5e8">${esc(p.role ?? 'Not known')}</td>
+<td style="padding:6px 8px;border-top:1px solid #e3e5e8">${esc(p.department ?? 'Not known')}</td>
+<td style="padding:6px 8px;border-top:1px solid #e3e5e8">${esc(p.how.join(', '))}${p.missing.length ? `<br><b style="color:#b42318">Not authorised for ${esc(p.missing.map(dataName).join(', '))}</b>` : ''}</td></tr>`).join('\n')
+    : '<tr><td colspan="4" style="padding:6px 8px;border-top:1px solid #e3e5e8;color:#5b6270">Nobody recorded</td></tr>'
+
+  const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#20242c">
+<table role="presentation" width="100%" style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e3e5e8">
+<tr><td style="padding:16px 24px;background:${ev.colour};color:#ffffff;border-radius:8px 8px 0 0;font-weight:bold">Agent Control Tower · ${esc(ev.label)}</td></tr>
+${demoNote ? `<tr><td style="padding:12px 24px;background:#fff6cc;font-size:13px">${esc(demoNote)}</td></tr>` : ''}
+${piiNote ? `<tr><td style="padding:12px 24px;background:#b42318;color:#ffffff;font-size:14px;font-weight:bold">&#9873; Personal data: ${esc(piiNote)}</td></tr>` : ''}
+<tr><td style="padding:24px">
+<h1 style="margin:0 0 4px;font-size:20px;line-height:1.3">${esc(x.headline)}</h1>
+<p style="margin:0 0 16px;font-size:12px;color:#5b6270">${esc(when)}</p>
+<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px">
+${rowsHtml(x.facts)}
+</table>
+<h2 style="margin:24px 0 8px;font-size:15px">The agent</h2>
+<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px">
+${rowsHtml(agentRows)}
+</table>
+<h2 style="margin:24px 0 8px;font-size:15px">Who can use it (${x.people.length})</h2>
+<table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px">
+<tr style="color:#5b6270;text-align:left"><th style="padding:6px 8px">Name</th><th style="padding:6px 8px">Role</th><th style="padding:6px 8px">Department</th><th style="padding:6px 8px">Access</th></tr>
+${peopleHtml}
+</table>
+<p style="margin:24px 0"><a href="${esc(link)}" style="display:inline-block;background:#20242c;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:bold">See the agent</a></p>
+<p style="margin:0;font-size:12px;color:#5b6270">${esc(why)}</p>
+</td></tr></table></body></html>`
+  return { subject, html, text }
+}
+
+/** Sends one alert email through Resend (idempotency key per queued email, so retries send it once). */
+export async function sendAlertEmail(e: AlertEmail, s: EmailSettings, fetchImpl: typeof fetch = fetch): Promise<SendResult> {
+  const where = chooseRecipient(e, s)
+  if ('skip' in where) return { id: e.id, sent: false, error: where.skip, retry: false }
+  const { subject, html, text } = buildAlertEmail(e, s, where.redirected)
+  let res: Response
+  try {
+    res = await fetchImpl('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${s.api_key}`, 'content-type': 'application/json', 'idempotency-key': `act-email-${e.id}` },
+      body: JSON.stringify({ from: s.from, to: [where.to], subject, html, text, tags: [{ name: 'kind', value: `alert_${e.alert.event}` }] }),
+    })
+  } catch (err) {
+    return { id: e.id, sent: false, sent_to: where.to, error: `Resend unreachable: ${(err as Error).message}`, retry: true }
+  }
+  const body = (await res.json().catch(() => null)) as { id?: string; message?: string } | null
+  if (res.ok) return { id: e.id, sent: true, provider_id: body?.id, sent_to: where.to }
+  return { id: e.id, sent: false, sent_to: where.to, retry: res.status === 429 || res.status >= 500,
+    error: `${res.status} from Resend${body?.message ? `: ${body.message}` : ''}`.slice(0, 250) }
+}

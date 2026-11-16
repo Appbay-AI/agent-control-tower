@@ -56,3 +56,7 @@ if (redirect && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(redirect)) throw new Error('E
 const state = psql(`select public.email_configure(:'key', :'from', :'redirect');`, { key: apiKey, from, redirect })
 const inbox = psql(`select coalesce(email_redirect_to, '') || '|' || coalesce(email_from, '') from public.push_config;`).split('|')
 console.log(`Email: ${state}; sender ${inbox[1] || 'Resend test sender'}; ${inbox[0] ? `every email goes to ${inbox[0]}` : 'emails go to each person'}`)
+
+// Alert emails (task 5.1): the demo sends them; the work-in-progress site, where every test run triggers them, sends
+// them to Resend's test inbox, 20 a day at most (Resend's free plan allows 100 emails a day in all).
+console.log(psql(`select public.alert_email_mode(:'mode');`, { mode: target === 'demo' ? 'send' : 'test_inbox' }))

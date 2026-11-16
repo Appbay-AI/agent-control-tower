@@ -250,6 +250,9 @@ export const api = {
     check(await db().rpc('decide_incident_closure', { p_incident: id, p_approve: approve, p_note: note })) as Incident,
   incidentsToClose: async (userId: string) =>
     check(await db().from('incidents').select('*').eq('status', 'resolved').eq('closure_approver_id', userId).order('closure_requested_at')) as Incident[],
+  /** Task 5.1: alert emails about one agent (who was told what, and whether it went out). */
+  agentAlertEmails: async (agentId: string) =>
+    check(await db().rpc('agent_alert_emails', { p_agent: agentId })) as { event: string; headline: string; person: string; status: string; at: string }[],
   driftEvents: async (agentId?: string) => {
     let q = db().from('drift_events').select('*').order('detected_at', { ascending: false }).limit(200)
     if (agentId) q = q.eq('agent_id', agentId)
