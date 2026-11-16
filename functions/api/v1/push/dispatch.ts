@@ -1,10 +1,10 @@
 import { problem, rpc, json } from '../../../../functions-lib/api'
 import { deliverCallback, type CallbackResult, type SignedCallback } from '../../../../functions-lib/callback'
-import { sendAlertEmail, sendApprovalEmail, type AlertEmail, type EmailSettings, type QueuedEmail, type SendResult } from '../../../../functions-lib/email'
+import { sendAlertEmail, sendApprovalEmail, sendReactivationEmail, type AlertEmail, type EmailSettings, type QueuedEmail, type ReactivationEmail, type SendResult } from '../../../../functions-lib/email'
 import { sendPush, type PushSubscriptionKeys, type Vapid } from '../../../../functions-lib/webpush'
 
 interface Message { id: number; title: string; body: string; url: string; tag: string; subscriptions: (PushSubscriptionKeys & { id: string })[] }
-interface Claimed { vapid?: Vapid; messages: Message[]; email?: EmailSettings; emails?: (QueuedEmail | AlertEmail)[]; callbacks?: (SignedCallback | null)[] }
+interface Claimed { vapid?: Vapid; messages: Message[]; email?: EmailSettings; emails?: (QueuedEmail | AlertEmail | ReactivationEmail)[]; callbacks?: (SignedCallback | null)[] }
 interface Result { id: number; delivered: string[]; gone: string[]; failed: { id: string; error: string }[] }
 
 async function sendAlerts(vapid: Vapid | undefined, messages: Message[], fetchImpl: typeof fetch): Promise<Result[]> {
@@ -23,12 +23,15 @@ async function sendAlerts(vapid: Vapid | undefined, messages: Message[], fetchIm
 }
 
 /** One at a time, to stay well inside Resend's rate limit (10 requests a second per team). */
-async function sendEmails(settings: EmailSettings | undefined, emails: (QueuedEmail | AlertEmail)[], fetchImpl: typeof fetch): Promise<SendResult[]> {
+async function sendEmails(settings: EmailSettings | undefined, emails: (QueuedEmail | AlertEmail | ReactivationEmail)[], fetchImpl: typeof fetch): Promise<SendResult[]> {
   if (!settings) return []
   const out: SendResult[] = []
   for (const e of emails) {
     // Task 5.1: alert emails carry an alert snapshot instead of a request.
-    const send = e.kind === 'alert' ? sendAlertEmail(e, settings, fetchImpl) : sendApprovalEmail(e, settings, fetchImpl)
+    // Task 5.3: reactivation emails carry the request to switch an agent back on.
+    const send = 'alert' in e ? sendAlertEmail(e, settings, fetchImpl)
+      : 'reactivation' in e ? sendReactivationEmail(e, settings, fetchImpl)
+        : sendApprovalEmail(e, settings, fetchImpl)
     out.push(await send.catch((err: Error) => ({ id: e.id, sent: false, error: err.message, retry: true })))
   }
   return out
