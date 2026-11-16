@@ -31,7 +31,7 @@ export async function loadApprovals({ userId, roles, scopeDepartmentIds, fresh =
 }) {
   const key = userId
   let [pending, [agents, departments, profiles], decisions, waiting, approvals] = await Promise.all([
-    api.pendingRegistrations(), readLookups(key, fresh), api.decisions(), api.actionRequests('pending'), api.pendingApprovals(),
+    api.pendingRegistrations(), readLookups(key, fresh), api.pendingDecisions(), api.actionRequests('pending'), api.pendingApprovals(),
   ])
   // Something new refers to an agent we have not read yet (just registered or discovered): read them all again.
   const known = new Set(agents.map((a) => a.id))

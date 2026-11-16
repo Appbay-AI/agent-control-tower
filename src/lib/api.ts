@@ -78,6 +78,12 @@ export const api = {
   },
   pendingRegistrations: async () =>
     check(await db().from('agent_registrations').select('*').eq('status', 'pending').order('submitted_at')) as AgentRegistration[],
+  /** Decisions on registrations still waiting (all the Approvals screen needs), read from the waiting side (task 4.10). */
+  pendingDecisions: async () =>
+    (check(await db().from('agent_registrations').select('registration_decisions(*)').eq('status', 'pending')) as unknown as
+      { registration_decisions: RegistrationDecisionRow[] }[])
+      .flatMap((r) => r.registration_decisions)
+      .sort((a, b) => a.decided_at.localeCompare(b.decided_at)),
   decisions: async (agentId?: string) => {
     let q = db().from('registration_decisions').select('*').order('decided_at')
     if (agentId) q = q.eq('agent_id', agentId)

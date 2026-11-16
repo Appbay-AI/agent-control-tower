@@ -9,7 +9,7 @@ vi.mock('@/lib/api', () => ({
     departments: async () => { calls.departments++; return [{ id: 'd1', name: 'Payments' }] },
     allProfiles: async () => { calls.profiles++; return [] },
     pendingRegistrations: async () => [],
-    decisions: async () => [],
+    pendingDecisions: async () => [],
     actionRequests: async () => [{ id: 'r1', agent_id: waitingAgent, status: 'pending', required_approvals: 1, assigned_to: null }],
     pendingApprovals: async () => [],
   },
