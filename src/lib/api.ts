@@ -155,6 +155,8 @@ export const api = {
     if (!row) throw new Error("This request doesn't exist, or you don't have access to it.")
     return row
   },
+  reactivationNotifications: async (id: string) =>
+    check(await db().rpc('reactivation_notifications', { p_reactivation: id })) as { channel: string; person: string; status: string; at: string }[],
   pendingReactivations: async () =>
     check(await db().from('agent_reactivations').select('*').eq('status', 'pending').order('requested_at')) as AgentReactivation[],
   reactivationApprovals: async (agentId?: string) => {

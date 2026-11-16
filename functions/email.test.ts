@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import { ALERT_EVENT, buildAlertEmail, buildApprovalEmail, chooseRecipient, formatAmount, sendAlertEmail, sendApprovalEmail, TEST_INBOX, type AlertEmail, type EmailSettings, type QueuedEmail } from '../functions-lib/email'
+import { ALERT_EVENT, buildAlertEmail, buildApprovalEmail, buildReactivationEmail, chooseRecipient, formatAmount, NO_REPLY_DECISION, sendAlertEmail, sendApprovalEmail, sendReactivationEmail, TEST_INBOX, type AlertEmail, type EmailSettings, type QueuedEmail, type ReactivationEmail } from '../functions-lib/email'
 import { dispatch } from './api/v1/push/dispatch'
 
 const TEMP_FROM = 'Agent Control Tower <onboarding@resend.dev>'
@@ -193,5 +193,48 @@ describe('alert emails (task 5.1)', () => {
     expect(await sendAlertEmail({ ...base, test: true }, settings, fake)).toEqual({ id: 7, sent: true, provider_id: 're_1', sent_to: 'delivered@resend.dev' })
     expect(calls[0].body).toMatchObject({ to: ['delivered@resend.dev'], tags: [{ name: 'kind', value: 'alert_access_without_authority' }] })
     expect(calls[0].headers['idempotency-key']).toBe('act-email-7')
+  })
+})
+
+// Task 5.3: the email links to the approval task, and says a reply decides nothing (R4.4).
+describe('reactivation emails (task 5.3)', () => {
+  const e: ReactivationEmail = {
+    id: 9, kind: 'reactivation', test: false, to_name: 'Ravi Menon', to_email: 'ravi.menon@northbridge.demo',
+    reactivation: {
+      id: 'r-9', reason: 'Matching rule fixed and tested', asked_by: 'Platform Admin', asked_at: '2026-11-16T10:00:00Z', required: 1, approved_by: [],
+      agent: { id: 'a2', code: 'AGT-0002', name: 'Invoice Matcher', risk_tier: 'medium', department: 'Payments' },
+      suspension: { reason: 'Matching invoices to the wrong purchase orders', at: '2026-11-16T09:00:00Z' },
+      incidents: [{ code: 'INC-0001', status: 'contained', title: 'AGT-0002 suspended' }],
+    },
+  }
+  const S = { site_url: 'https://agent-control-tower-56p.pages.dev' }
+
+  it('links only to the approval task in the app, and says a reply decides nothing', () => {
+    const { subject, html, text } = buildReactivationEmail(e, S, false)
+    expect(subject).toBe('Approval needed: switch Invoice Matcher back on? (AGT-0002)')
+    expect(text).toContain('Open the task to approve or reject: https://agent-control-tower-56p.pages.dev/approvals/reactivations/r-9')
+    expect(text).toContain('Why it is safe: Matching rule fixed and tested')
+    expect(text).toContain('Incidents still open: INC-0001 (Contained): AGT-0002 suspended')
+    expect(text).toContain(NO_REPLY_DECISION)
+    // No one-click decision: the only link is the task page, which needs a sign-in.
+    expect([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(['https://agent-control-tower-56p.pages.dev/approvals/reactivations/r-9'])
+    expect(html).not.toMatch(/approve\?|token=|decision=/i)
+  })
+
+  it('second approval: says who approved and that a second person is needed', () => {
+    const { subject, text } = buildReactivationEmail({ ...e, kind: 'reactivation_second', reactivation: { ...e.reactivation, required: 2, approved_by: ['Ravi Menon'] } }, S, true)
+    expect(subject).toBe('[For Ravi Menon] Second approval needed: switch Invoice Matcher back on? (AGT-0002)')
+    expect(text).toContain('Ravi Menon approved switching Invoice Matcher back on. It is Critical, so a second person must approve before it runs again.')
+  })
+
+  it('every other email says a reply decides nothing too', () => {
+    expect(buildApprovalEmail(email(), settings, false).text).toContain(NO_REPLY_DECISION)
+  })
+
+  it('the sender routes it by its contents and tags it', async () => {
+    let sent: Record<string, unknown> | null = null
+    const fake = (async (_u: string, init: RequestInit) => { sent = JSON.parse(String(init.body)); return new Response('{"id":"re_9"}', { status: 200 }) }) as unknown as typeof fetch
+    expect(await sendReactivationEmail(e, settings, fake)).toMatchObject({ id: 9, sent: true, sent_to: 'rajveer@company.example' })
+    expect(sent).toMatchObject({ subject: expect.stringMatching(/^\[For Ravi Menon\] Approval needed/), tags: [{ name: 'kind', value: 'reactivation' }] })
   })
 })

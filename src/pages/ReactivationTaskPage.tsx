@@ -22,8 +22,8 @@ export function ReactivationTaskPage() {
       api.agent(r.agent_id), api.reactivationApprovals(r.agent_id), api.enforcements(r.agent_id), api.incidents(r.agent_id),
       api.suspensions(r.agent_id), api.allProfiles(), api.departments(),
     ])
-    const reactivations = await api.reactivations(r.agent_id)
-    return { r, agent, approvals, enforcements, incidents, suspensions, reactivations,
+    const [reactivations, told] = await Promise.all([api.reactivations(r.agent_id), api.reactivationNotifications(r.id)])
+    return { r, agent, approvals, enforcements, incidents, suspensions, reactivations, told,
       people: new Map(profiles.map((p) => [p.id, p.full_name])), department: departments.find((d) => d.id === agent.department_id)?.name ?? null }
   }, [id])
 
@@ -35,7 +35,7 @@ export function ReactivationTaskPage() {
   )
   if (loading && !data) return <LoadingRows rows={6} />
   if (!data) return null
-  const { r, agent: a, approvals, enforcements, incidents, suspensions, reactivations, people, department } = data
+  const { r, agent: a, approvals, enforcements, incidents, suspensions, reactivations, told, people, department } = data
   const name = (uid: string | null) => (uid ? people.get(uid) ?? 'Former user' : null)
   const perms = agentPermissions({ agent: a, userId, roles, scopeDepartmentIds, pending: null, decisions: [] })
   const suspension = suspensions.find((s) => s.id === r.suspension_id) ?? suspensions.find((s) => s.status === 'done') ?? null
@@ -85,6 +85,16 @@ export function ReactivationTaskPage() {
           <Reactivation part="notices" agent={a} reactivations={these} approvals={approvals} enforcements={enforcements}
             incidents={incidents} canAsk={false} canApprove={false} userId={userId} isAdmin={false} onDone={reload} name={name} />
         </>
+      )}
+
+      {told.length > 0 && (
+        <section className="space-y-1 text-sm" data-testid="reactivation-told">
+          <h2 className="font-semibold">Who was told</h2>
+          <p className="text-muted-foreground text-xs">Emails link here. Replying to an email decides nothing: approve or reject on this page, signed in.</p>
+          <ul className="text-muted-foreground text-xs">
+            {told.map((t, i) => <li key={i}>{t.channel} · {t.person} · {t.status} · {formatDateTime(t.at)}</li>)}
+          </ul>
+        </section>
       )}
     </div>
   )

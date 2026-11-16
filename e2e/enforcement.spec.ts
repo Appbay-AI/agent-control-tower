@@ -73,6 +73,17 @@ test('suspending an agent that lives on Appian blocks it there; it comes back on
   await signIn(ravi, 'ravi.menon')
   await ravi.getByRole('link', { name: 'Approvals' }).first().click()
   await ravi.getByTestId('reactivation-requests').getByRole('link', { name: `${CODE} Refund Processor` }).click()
+  // Task 5.3: the task page that the approvers' emails link to. It lists the email to Ravi, and a decision needs a
+  // sign-in: the same address opened signed out goes to the sign-in page.
+  await expect(ravi).toHaveURL(/\/approvals\/reactivations\/[0-9a-f-]{36}$/)
+  await expect(ravi.getByTestId('reactivation-task')).toHaveAttribute('data-status', 'pending')
+  await expect(ravi.getByTestId('reactivation-told')).toContainText(/Email · Ravi Menon/)
+  const signedOut = await (await browser.newContext({ baseURL })).newPage()
+  await signedOut.goto(new URL(ravi.url()).pathname)
+  await expect(signedOut.getByLabel('Password')).toBeVisible()
+  await expect(signedOut.getByTestId('approve-reactivation')).toHaveCount(0)
+  await signedOut.close()
+  console.log('[reactivation-email] Ravi emailed a link to the task; signed out, the task asks for a sign-in')
   await ravi.getByTestId('approve-reactivation').click()
   const approved = Date.now()
   await ravi.getByTestId('reactivation-confirm').click()
