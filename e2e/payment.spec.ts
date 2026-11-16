@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from '@playwright/test'
-import { cardSeenAt, liveBreakdown, watchForCard } from './helpers.js'
+import { cardSeenAt, liveBreakdown, waitForListLoaded, watchForCard } from './helpers.js'
 
 // Task 2.12: the £2m payment, start to finish, on desktop and on a phone, in one story. This is the demo the client
 // will see, run against the real site and database on every change (the e2e workflow runs after each deploy of main).
@@ -42,6 +42,7 @@ test('the £2m payment, start to finish: the agent asks, two approvers decide on
     await signIn(page, 'ravi.menon')
     await page.getByRole('link', { name: 'Approvals' }).first().click()
     await expect(page.getByTestId('live-status')).toHaveText('Live')
+    await waitForListLoaded(page)
     await watchForCard(page, stamp)
     let reloaded = false
     page.on('framenavigated', (f) => { if (f === page.mainFrame()) reloaded = true })

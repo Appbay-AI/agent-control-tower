@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { cardSeenAt, liveBreakdown, watchForCard } from './helpers.js'
+import { cardSeenAt, liveBreakdown, waitForListLoaded, watchForCard } from './helpers.js'
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 // A key for the Payment Release Assistant, made by the e2e workflow for this run and revoked after it.
@@ -23,6 +23,7 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
   await signIn(page, 'ravi.menon')
   await page.getByRole('link', { name: 'Approvals' }).first().click()
   await expect(page.getByTestId('live-status')).toHaveText('Live')
+  await waitForListLoaded(page)
   const card = page.getByTestId('request-card').filter({ hasText: stamp })
   await expect(card).toHaveCount(0)
   let reloaded = false

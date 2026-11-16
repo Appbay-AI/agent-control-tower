@@ -1,6 +1,15 @@
 import type { Page } from '@playwright/test'
 
 /**
+ * Waits until the Approvals list has finished its first read. "Live" only means the live link is up; a request raised
+ * before the first read finishes arrives in that first read, where nothing is marked New (there is no earlier list to
+ * compare with), so tests that check the New mark wait for this first.
+ */
+export async function waitForListLoaded(page: Page): Promise<void> {
+  await page.waitForFunction(() => performance.getEntriesByName('act:live-loaded').length > 0, undefined, { timeout: 15_000 })
+}
+
+/**
  * Starts watching, inside the page, for an approval card containing `text`, and records the exact moment it first
  * appears (Date.now() in the browser, the same clock as the test runner on this machine).
  *
