@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { day, evidenceFileName, sectionCounts, when, type EvidencePack } from '@/lib/evidence'
-import { pdfText, SAMPLE } from '@/test/evidenceSample'
+import { day, evidenceFileName, fixedWidth, PAGE_WIDTH, sectionCounts, TABLES, when, type EvidencePack } from '@/lib/evidence'
+import { pdfText } from '@/test/evidencePdfText'
+import { SAMPLE } from '@/test/evidenceSample'
 import { quickRanges } from '@/pages/EvidencePage'
 
 // Task 6.1 (R5.5). Done when: the PDF holds inventory, approvals, incidents, autonomy changes, reviews, kill-switch
@@ -52,5 +53,19 @@ describe('evidence pack PDF (task 6.1)', () => {
     const { text } = await pdfText(broken)
     expect(text).toContain('BROKEN at entry #512')
     expect(text).toContain('No changes outside the Control Tower were detected in this period.')
+  }, 30_000)
+
+  it('every table fits the page, leaving its stretchy column room', () => {
+    for (const sec of TABLES) for (const tb of sec.tables) {
+      expect(fixedWidth(tb.cols) + (tb.cols.some((c) => c.pdf === '*') ? 60 : 0), tb.sheet).toBeLessThanOrEqual(PAGE_WIDTH)
+    }
+  })
+
+  it('a very long word in one column does not push the last column off the page (seen on the test site, 17 Nov)', async () => {
+    const long = '51 incidents in 90 days (' + Array.from({ length: 51 }, (_, i) => `INC-${String(29 + i * 5).padStart(4, '0')}`).join(', ') + ')'
+    const rows = [{ ...SAMPLE.inventory.rows[0], name: 'E2E-register-1794904378558-abcdefghijkl' }, { ...SAMPLE.inventory.rows[1], review_required: long }]
+    const { text } = await pdfText({ ...SAMPLE, inventory: { total: 2, rows } })
+    expect(text).toContain(long)
+    expect(text).toContain('E2E-register-1794904378558-abcdefghijkl')
   }, 30_000)
 })

@@ -3,7 +3,8 @@ import ExcelJS from 'exceljs'
 import { describe, expect, it } from 'vitest'
 import { TABLES, type EvidencePack } from '@/lib/evidence'
 import { buildEvidenceWorkbook, evidenceExcelName, HEADER_ROW } from '@/lib/evidenceExcel'
-import { pdfText, SAMPLE } from '@/test/evidenceSample'
+import { pdfText } from '@/test/evidencePdfText'
+import { SAMPLE } from '@/test/evidenceSample'
 
 // Task 6.2: the same evidence pack as Excel. Done when: the Excel matches the PDF. The workbook is written and read
 // back as a real .xlsx file; every table holds the same rows and values as the PDF's, and every value printed in the

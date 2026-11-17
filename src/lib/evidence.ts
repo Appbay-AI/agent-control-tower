@@ -1,6 +1,6 @@
 // Task 6.1 (R5.5): the evidence pack as a PDF. `evidence_pack(from, to)` in the database gathers the records; this
 // lays them out (pdfmake document definition), and `downloadEvidencePdf` makes the file in the browser.
-import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces'
+import type { Content, CustomTableLayout, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces'
 import { DATA_LABEL, formatMoney, REGISTRATION_LABEL, REVIEW_LABEL, RISK_LABEL, ROLE_LABEL, STATUS_LABEL } from '@/lib/format'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -322,6 +322,20 @@ export function attestation(p: EvidencePack): { intro: string; rule: string; res
   }
 }
 
+/** Landscape A4 less the margins, in points: every table must fit (unit-tested). */
+export const PAGE_WIDTH = 842 - 72
+/** Cell padding: 4 points either side of each column boundary (the stock light layout's 8 pushed wide tables off the page). */
+export const CELL_PAD = 4
+const TABLE_LAYOUT: CustomTableLayout = {
+  hLineWidth: (i, node) => (i === 0 || i === node.table.body.length ? 0 : i === 1 ? 1 : 0.5),
+  vLineWidth: () => 0,
+  hLineColor: (i) => (i === 1 ? '#0f172a' : '#cbd5e1'),
+  paddingLeft: (i) => (i === 0 ? 0 : CELL_PAD),
+  paddingRight: (i, node) => (i === (node.table.widths?.length ?? 1) - 1 ? 0 : CELL_PAD),
+}
+/** Width a table needs besides its '*' column (fixed widths plus padding). */
+export const fixedWidth = (cols: Col[]) => cols.reduce((n, c) => n + (c.pdf === '*' ? 0 : c.pdf), 0) + 2 * CELL_PAD * (cols.length - 1)
+
 function pdfTable(tb: EvidenceTable, p: EvidencePack): Content[] {
   const list = tb.list(p)
   const out: Content[] = tb.heading ? [{ text: tb.heading, style: 'h2' }] : []
@@ -331,7 +345,7 @@ function pdfTable(tb: EvidenceTable, p: EvidencePack): Content[] {
     out.push({
       table: { headerRows: 1, widths: tb.cols.map((c) => c.pdf), dontBreakRows: true,
         body: [tb.cols.map((c) => ({ text: c.head, style: 'th' })), ...list.rows.map((r) => tb.cols.map((c) => cell(c.cell(r))))] },
-      layout: 'lightHorizontalLines', style: 'table',
+      layout: TABLE_LAYOUT, style: 'table',
     })
     const cut = cutNote(list, p.cap)
     if (cut) out.push({ text: cut, style: 'cut' })

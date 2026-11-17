@@ -1,7 +1,6 @@
 // Test fixtures for the evidence pack (tasks 6.1, 6.2): a sample pack with one record in every section, and a
-// helper that prints a real PDF in Node and reads its text back. Used by the PDF and the Excel tests.
-import { createRequire } from 'node:module'
-import { buildEvidenceDoc, type EvidencePack } from '@/lib/evidence'
+// helper (evidencePdfText.ts) that prints a real PDF in Node and reads its text back.
+import type { EvidencePack } from '@/lib/evidence'
 
 const at = '2026-11-17T09:14:05Z'
 const list = (rows: Record<string, unknown>[], total = rows.length) => ({ total, rows })
@@ -39,19 +38,3 @@ export const SAMPLE: EvidencePack = {
   attestation: { pack_seq: 20511, digest: 'a'.repeat(64), chain_intact: true, chain_broken_at: null, chain_length: 20511, period_events: 9000,
     period_first: { seq: 11000, at, hash: 'b'.repeat(64) }, period_last: { seq: 20510, at, hash: 'c'.repeat(64) }, latest_hash: 'd'.repeat(64) },
 }
-
-export async function pdfText(pack: EvidencePack): Promise<{ text: string; pages: number; bytes: number }> {
-  const require = createRequire(import.meta.url)
-  const pdfmake = require('pdfmake') // the Node build
-  pdfmake.setFonts(require('pdfmake/fonts/Roboto.js'))
-  const buf: Buffer = await pdfmake.createPdf(buildEvidenceDoc(pack)).getBuffer()
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: false }).promise
-  let text = ''
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i)
-    text += (await page.getTextContent()).items.map((it) => ('str' in it ? it.str : '')).join(' ') + '\n'
-  }
-  return { text: text.replace(/\s+/g, ' ').replace(/(\w)- (\w)/g, '$1-$2'), pages: doc.numPages, bytes: buf.length }
-}
-
