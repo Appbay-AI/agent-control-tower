@@ -71,6 +71,31 @@ jobs:
             echo "::add-mask::$ks"; echo "ACT_KS_AGENT_KEY=$ks" >> "$GITHUB_ENV"
             echo "ACT_KS_AGENT_CODE=$(psql "$SUPABASE_DB_URL" -tA -c "select agent_code from public.agents where name = 'Mail Room Router'")" >> "$GITHUB_ENV"
           else echo "::warning::Mail Room Router is not live; the kill switch test will be skipped"; fi
+      - name: Agent to retire (task 5.5)
+        # Retiring is final, so each run retires a fresh registry agent, linked here to NAP-006 (Treasury Cash Forecaster)
+        # on the Appian simulator, which no other test uses. NAP-006 is switched on in Appian first, and again after the run.
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: |
+          [ -n "$APPIAN_API_KEY" ] || { echo "::warning::APPIAN_API_KEY is not set; the retire test will be skipped"; exit 0; }
+          curl -sS -o /dev/null -w "NAP-006 switched on: HTTP %{http_code}\n" -X POST "$APPIAN_BASE/suite/webapi/nap-agent-status-set" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'content-type: application/json' \
+            -d '{"externalId":"NAP-006","status":"active","reason":"Control Tower test run: switched on before the retire test","requestedBy":"act-integration"}'
+          code=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 <<'SQL' | tail -n 1
+          begin;
+          update public.platform_agents set status = 'active' where external_id = 'NAP-006';
+          with owner as (select id from public.profiles where email = 'admin@northbridge.demo'),
+               fresh as (insert into public.agents (name, purpose_statement, business_owner_id, created_by)
+                         select 'E2E retire ' || to_char(now(), 'YYYYMMDD-HH24MISS'), 'Retire test (task 5.5)', id, id from owner
+                         returning id)
+          update public.platform_agents set agent_id = (select id from fresh) where external_id = 'NAP-006';
+          commit;
+          select a.agent_code from public.agents a join public.platform_agents p on p.agent_id = a.id where p.external_id = 'NAP-006';
+          SQL
+          )
+          if echo "$code" | grep -qE '^AGT-[0-9]{4}$'; then echo "ACT_RETIRE_AGENT_CODE=$code" >> "$GITHUB_ENV"; echo "Agent to retire: $code (NAP-006)"
+          else echo "::warning::could not set up the agent to retire: $code"; fi
       - name: Platform agent for the enforcement test
         # Task 4.2: the registry agent linked to NAP-001 (Refund Processor) on the Appian simulator, made Live on this
         # work-in-progress database only, and NAP-001 switched back on in Appian if an earlier run stopped half way.
@@ -122,7 +147,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[(desktop|phone)\] notification arrived [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*|\[reactivation-email\] [^;]*' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[(desktop|phone)\] notification arrived [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*|\[reactivation-email\] [^;]*|\[retire\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retry check (task 4.3)
         # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not
@@ -223,6 +248,23 @@ jobs:
           pushes=$(q "select count(*) from public.push_outbox where kind = 'alert' and title like '%Blocked again%' and created_at > now() - interval '5 minutes'")
           echo "Job: $(q "select message from public.platform_jobs where kind = 'reconcile' order by id desc limit 1")"
           echo "::notice title=Reconciliation check::switched on in Appian outside Control Tower; blocked again and read back as blocked ${took} s into the cycle; incident ${inc}; audit 'actor unknown'; drift recorded; ${pushes} routed phone alert(s)"
+      - name: Retire check (task 5.5)
+        # The browser test retired the agent linked to NAP-006: Appian itself must now say NAP-006 is quarantined, by us.
+        # Then NAP-006 is switched back on for the next run.
+        if: "!cancelled() && env.ACT_RETIRE_AGENT_CODE != ''"
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+        run: |
+          set -euo pipefail
+          st=$(curl -sS "$APPIAN_BASE/suite/webapi/nap-agent-status?externalId=NAP-006" -H "Appian-API-Key: $APPIAN_API_KEY")
+          echo "Appian says: $st"
+          curl -sS -o /dev/null -w "NAP-006 switched back on: HTTP %{http_code}\n" -X POST "$APPIAN_BASE/suite/webapi/nap-agent-status-set" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'content-type: application/json' \
+            -d '{"externalId":"NAP-006","status":"active","reason":"Control Tower test run: switched back on after the retire test","requestedBy":"act-integration"}'
+          echo "$st" | grep -q '"quarantined"' || { echo "::error title=Retire check::NAP-006 is not blocked in Appian after $ACT_RETIRE_AGENT_CODE was retired"; exit 1; }
+          echo "$st" | grep -q '"act-integration"' || { echo "::error title=Retire check::Appian does not show the Control Tower as the one who blocked NAP-006"; exit 1; }
+          echo "::notice title=Retire check::$ACT_RETIRE_AGENT_CODE retired; Appian itself reads NAP-006 as quarantined, by the Control Tower (act-integration); switched back on for the next run"
       - name: Alert emails check (task 5.1)
         # The run suspends agents, switches them back on, blocks one again after it is switched on in Appian, and makes a
         # stop wait for a retry: each must have queued an alert email to the admin, carrying the agent's owner, the people
