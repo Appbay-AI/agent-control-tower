@@ -1,3 +1,4 @@
+import type { ExecutiveDashboard } from '@/lib/dashboard'
 import type { EvidencePack } from '@/lib/evidence'
 import { supabase } from '@/lib/supabase'
 import type {
@@ -302,6 +303,8 @@ export const api = {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
   },
   deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  /** Task 6.3: every figure on the executive dashboard, in one call (admins, executives, auditors). */
+  executiveDashboard: async () => check(await db().rpc('executive_dashboard')) as ExecutiveDashboard,
   /** Task 6.1: everything the evidence pack prints, for whole days in UTC (admins, executives, auditors). */
   evidencePack: async (from: string, to: string) =>
     check(await db().rpc('evidence_pack', { p_from: from, p_to: to })) as EvidencePack,

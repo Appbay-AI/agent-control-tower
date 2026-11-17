@@ -1,6 +1,6 @@
 import { Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { DiscoveredBadge, RiskBadge, SourceBadge, StatusBadge, WarningBadge } from '@/components/badges'
 import { PlatformAgents } from '@/components/PlatformAgents'
 import { ErrorBox, LoadingRows, PageHeader, selectClass } from '@/components/ui-bits'
@@ -19,7 +19,13 @@ export function AgentsPage() {
   const [status, setStatus] = useState<AgentStatus | ''>('')
   const [risk, setRisk] = useState<RiskTier | ''>('')
   const [source, setSource] = useState<'' | 'platform' | 'api' | 'manual'>('')
-  const [flag, setFlag] = useState<'' | 'no_owner' | 'overdue' | 'pending' | 'silent' | 'discovered' | 'not_stopped'>('')
+  type Flag = '' | 'no_owner' | 'overdue' | 'pending' | 'silent' | 'discovered' | 'not_stopped'
+  // Task 6.3: the dashboard's tiles open the registry with a filter already on (?flag=no_owner, ?flag=overdue).
+  const [params] = useSearchParams()
+  const [flag, setFlag] = useState<Flag>(() => {
+    const f = params.get('flag') ?? ''
+    return (['no_owner', 'overdue', 'pending', 'silent', 'discovered', 'not_stopped'].includes(f) ? f : '') as Flag
+  })
 
   const { data, error, loading } = useAsync(async () => {
     const [agents, departments, profiles, pending, alerts, sources] = await Promise.all([

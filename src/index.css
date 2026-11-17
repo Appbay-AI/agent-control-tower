@@ -25,6 +25,15 @@
   --ring: #fad31a;
   --brand-yellow: #fad31a;
   --brand-charcoal: #20242c;
+  /* Task 6.3: charts (validated palette: one blue series; severity as a one-hue ordinal ramp) */
+  --viz-series: #2a78d6;
+  --viz-sev-low: #86b6ef;
+  --viz-sev-medium: #5598e7;
+  --viz-sev-high: #256abf;
+  --viz-sev-critical: #184f95;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-muted: #898781;
 }
 
 .dark {
@@ -46,6 +55,14 @@
   --border: #343a45;
   --input: #343a45;
   --ring: #fad31a;
+  --viz-series: #3987e5;
+  --viz-sev-low: #86b6ef;
+  --viz-sev-medium: #5598e7;
+  --viz-sev-high: #256abf;
+  --viz-sev-critical: #184f95;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-muted: #898781;
 }
 
 @theme inline {

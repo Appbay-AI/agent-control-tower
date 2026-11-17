@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoadingRows } from '@/components/ui-bits'
@@ -19,6 +19,8 @@ import { RequestPage } from '@/pages/RequestPage'
 import { AlertRoutingPage } from '@/pages/AlertRoutingPage'
 import { RoutingPage } from '@/pages/RoutingPage'
 import { EvidencePage } from '@/pages/EvidencePage'
+// Task 6.3: the dashboard (and its chart library) loads only when opened.
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 import { UserFormPage } from '@/pages/UserFormPage'
 import { UsersPage } from '@/pages/UsersPage'
 
@@ -75,6 +77,7 @@ export function AppRoutes() {
         <Route path="/routing" element={<RequireAdmin><RoutingPage /></RequireAdmin>} />
         {/* Task 5.2 */}
         <Route path="/alert-routing" element={<RequireAdmin><AlertRoutingPage /></RequireAdmin>} />
+        <Route path="/dashboard" element={<RequireOversight><Suspense fallback={<LoadingRows rows={6} />}><DashboardPage /></Suspense></RequireOversight>} />
         <Route path="/evidence" element={<RequireOversight><EvidencePage /></RequireOversight>} />
         <Route path="/demo/agent" element={<RequireAdmin><AgentConsolePage /></RequireAdmin>} />
         <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />

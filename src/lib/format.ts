@@ -120,3 +120,19 @@ export function errorMessage(error: unknown): string {
   const e = error as { message?: string; details?: string }
   return e.message || e.details || 'Something went wrong'
 }
+
+// Plain UTC dates for the evidence pack and the dashboard (tasks 6.1, 6.3).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** "17 Nov 2026" from "2026-11-17". */
+export function day(d: string | null | undefined): string {
+  if (!d) return ''
+  const [y, m, dd] = d.slice(0, 10).split('-').map(Number)
+  return `${dd} ${MONTHS[m - 1]} ${y}`
+}
+/** "17 Nov 2026 09:14" in UTC, whatever the reader's time zone (the whole pack is in UTC). */
+export function when(ts: string | null | undefined): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${day(d.toISOString())} ${d.toISOString().slice(11, 16)}`
+}

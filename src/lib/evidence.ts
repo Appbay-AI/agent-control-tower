@@ -1,7 +1,7 @@
 // Task 6.1 (R5.5): the evidence pack as a PDF. `evidence_pack(from, to)` in the database gathers the records; this
 // lays them out (pdfmake document definition), and `downloadEvidencePdf` makes the file in the browser.
 import type { Content, CustomTableLayout, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces'
-import { DATA_LABEL, formatMoney, REGISTRATION_LABEL, REVIEW_LABEL, RISK_LABEL, ROLE_LABEL, STATUS_LABEL } from '@/lib/format'
+import { DATA_LABEL, day, formatMoney, when, REGISTRATION_LABEL, REVIEW_LABEL, RISK_LABEL, ROLE_LABEL, STATUS_LABEL } from '@/lib/format'
 
 type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 export interface EvidenceList { total: number; rows: Row[] }
@@ -34,20 +34,7 @@ export interface EvidencePack {
   }
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-/** "17 Nov 2026" from "2026-11-17". */
-export function day(d: string | null | undefined): string {
-  if (!d) return ''
-  const [y, m, dd] = d.slice(0, 10).split('-').map(Number)
-  return `${dd} ${MONTHS[m - 1]} ${y}`
-}
-/** "17 Nov 2026 09:14" in UTC, whatever the reader's time zone (the whole pack is in UTC). */
-export function when(ts: string | null | undefined): string {
-  if (!ts) return ''
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${day(d.toISOString())} ${d.toISOString().slice(11, 16)}`
-}
+export { day, when } from '@/lib/format'
 const words = (s: string | null | undefined) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ') : '')
 const txt = (v: unknown): string => (v == null ? '' : String(v))
 const num = (v: unknown) => Number(v ?? 0).toLocaleString('en-GB')
