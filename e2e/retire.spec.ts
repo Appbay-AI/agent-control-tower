@@ -31,5 +31,5 @@ test('retiring an Appian agent blocks it there, read back as blocked', async ({ 
   await expect(step).toHaveAttribute('data-state', 'done', { timeout: 90_000 })
   await expect(step).toHaveText(/^Blocked on Northbridge Agent Platform \(simulated\) as NAP-006; read back as blocked/)
   const took = Date.now() - retired
-  console.log(`[retire] ${CODE} retired; blocked on Appian as NAP-006 and read back ${took} ms later`)
+  console.log(`[retire] ${CODE} retired, blocked on Appian as NAP-006 and shown read back on its page ${took} ms later`)
 })

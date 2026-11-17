@@ -588,7 +588,7 @@ Example for 2.4 (from the user's own wording): "FX agent wants to release £2m t
 | 5.5 | Retiring blocks on the platform | **Done** on branch `claude/task-5.5-retire-blocks`; not merged |
 
 Next steps, in order:
-0. 5.5 built 17 Nov on `claude/task-5.5-retire-blocks` (DB, unit and preview e2e passed; RETIRE_TIMING). Waiting for the user's go-ahead to merge. Then 5.6 (the Routing page explains the second approver). Demo still has up to 4.9.
+0. 5.5 built 17 Nov on `claude/task-5.5-retire-blocks` (DB, unit and preview e2e passed; blocked on Appian and read back 739 ms after Retire, then confirmed in Appian itself). Waiting for the user's go-ahead to merge. Then 5.6 (the Routing page explains the second approver). Demo still has up to 4.9.
 0. 5.4 merged 17 Nov (fast-forward to `781754e`; migrations, deploy, checks, api-smoke and full e2e passed on main first time; notification 739 ms desktop, 756 ms phone). Next: 5.5 (retiring blocks on the platform), on the user's go-ahead. Demo still has up to 4.9.
 0. 5.3 merged 17 Nov (fast-forward to `b6d1b2b`; migrations, deploy, checks, api-smoke and full e2e passed on main; that run's reactivation emails to Ravi Menon and Omar Farouk were accepted by Resend, the asking admin left out). Next: 5.4 (in-app notifications alongside every email), on the user's go-ahead. Demo still has up to 4.9.
 0. 5.2 merged 16 Nov (fast-forward to `8db4caa`; migrations, deploy, checks, api-smoke and full e2e passed on main). Next: 5.3 (emails link to the reactivation approval task; a reply email is never a decision), on the user's go-ahead. Demo still has up to 4.9.
