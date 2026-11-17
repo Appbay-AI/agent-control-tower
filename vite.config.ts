@@ -17,7 +17,9 @@ export default defineConfig({
       // Task 2.6: phone alerts. The push and notification-click handlers live in public/push-sw.js.
       // Server addresses (/api/...) are never answered by the cached app: Microsoft's sign-in comes back to
       // /api/v1/microsoft/callback as a page visit, and it must reach the server (task 3.1).
-      workbox: { importScripts: ['push-sw.js'], navigateFallbackDenylist: [/^\/api\//] },
+      workbox: { importScripts: ['push-sw.js'], navigateFallbackDenylist: [/^\/api\//],
+        // Task 6.1: the PDF maker and its fonts (1.6 MB) load only when someone makes an evidence pack, not on install.
+        globIgnores: ['**/pdfmake-*.js', '**/vfs_fonts-*.js'] },
       manifest: {
         name: 'Agent Control Tower',
         short_name: 'Control Tower',

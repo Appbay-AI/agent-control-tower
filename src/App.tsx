@@ -18,6 +18,7 @@ import { ReactivationTaskPage } from '@/pages/ReactivationTaskPage'
 import { RequestPage } from '@/pages/RequestPage'
 import { AlertRoutingPage } from '@/pages/AlertRoutingPage'
 import { RoutingPage } from '@/pages/RoutingPage'
+import { EvidencePage } from '@/pages/EvidencePage'
 import { UserFormPage } from '@/pages/UserFormPage'
 import { UsersPage } from '@/pages/UsersPage'
 
@@ -35,6 +36,13 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function RequireAdmin({ children }: { children: ReactNode }) {
   const { hasRole } = useAuth()
   if (!hasRole('admin')) return <div className="py-10 text-center text-sm">Only admins can open this page. <Link className="underline" to="/agents">Go to agents</Link></div>
+  return <>{children}</>
+}
+
+// Task 6.1: the evidence pack, for the people who see every agent.
+function RequireOversight({ children }: { children: ReactNode }) {
+  const { hasRole } = useAuth()
+  if (!hasRole('admin', 'executive', 'auditor')) return <div className="py-10 text-center text-sm">Only admins, executives and auditors can open this page. <Link className="underline" to="/agents">Go to agents</Link></div>
   return <>{children}</>
 }
 
@@ -67,6 +75,7 @@ export function AppRoutes() {
         <Route path="/routing" element={<RequireAdmin><RoutingPage /></RequireAdmin>} />
         {/* Task 5.2 */}
         <Route path="/alert-routing" element={<RequireAdmin><AlertRoutingPage /></RequireAdmin>} />
+        <Route path="/evidence" element={<RequireOversight><EvidencePage /></RequireOversight>} />
         <Route path="/demo/agent" element={<RequireAdmin><AgentConsolePage /></RequireAdmin>} />
         <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
         <Route path="/users/new" element={<RequireAdmin><UserFormPage /></RequireAdmin>} />

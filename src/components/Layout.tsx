@@ -1,4 +1,4 @@
-import { Activity, BellRing, Bot, ClipboardCheck, KeyRound, Lock, LogOut, Route as RouteIcon, Siren, TerminalSquare, UserCog } from 'lucide-react'
+import { Activity, BellRing, Bot, ClipboardCheck, FileCheck2, KeyRound, Lock, LogOut, Route as RouteIcon, Siren, TerminalSquare, UserCog } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -43,6 +43,8 @@ function Shell() {
     // Task 5.2
     { to: '/alert-routing', label: 'Alerts', icon: BellRing, show: hasRole('admin'), desktopOnly: true },
     { to: '/users', label: 'Users', icon: UserCog, show: hasRole('admin') },
+    // Task 6.1 (on phones for executives and auditors; admins' phone menu is full)
+    { to: '/evidence', label: 'Evidence', icon: FileCheck2, show: hasRole('admin', 'executive', 'auditor'), ...(hasRole('admin') ? { desktopOnly: true } : {}) },
     // Task 2.8: demo stand-in for an agent outside the Control Tower.
     { to: '/demo/agent', label: 'Agent console', icon: TerminalSquare, show: hasRole('admin'), desktopOnly: true },
   ].filter((l) => l.show)

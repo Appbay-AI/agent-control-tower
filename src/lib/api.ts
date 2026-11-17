@@ -1,3 +1,4 @@
+import type { EvidencePack } from '@/lib/evidence'
 import { supabase } from '@/lib/supabase'
 import type {
   AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview, AppNotification,
@@ -301,6 +302,9 @@ export const api = {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
   },
   deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  /** Task 6.1: everything the evidence pack prints, for whole days in UTC (admins, executives, auditors). */
+  evidencePack: async (from: string, to: string) =>
+    check(await db().rpc('evidence_pack', { p_from: from, p_to: to })) as EvidencePack,
   previewRouting: async (agentId: string, amount: number | null, currency: string | null) =>
     check(await db().rpc('preview_routing', { p_agent_id: agentId, p_amount: amount, p_currency: currency })) as RoutingPreview,
   reroutePending: async () => check(await db().rpc('reroute_pending_requests')) as number,
