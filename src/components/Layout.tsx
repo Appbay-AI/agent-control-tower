@@ -6,6 +6,7 @@ import { ROLE_LABEL } from '@/lib/format'
 import { LiveProvider, useLive } from '@/lib/live'
 import { supabaseEnvironment } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { NotificationBell } from '@/components/NotificationBell'
 
 export function Layout() {
   const { hasRole } = useAuth()
@@ -67,6 +68,8 @@ function Shell() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
+            {/* Task 5.4 */}
+            <NotificationBell />
             <span className="hidden rounded border border-white/30 px-1.5 py-0.5 text-[10px] tracking-wide uppercase md:inline">
               {supabaseEnvironment}
             </span>

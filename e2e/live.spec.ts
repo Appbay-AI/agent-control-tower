@@ -41,6 +41,7 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
   })
   expect(asked.status()).toBe(201)
   const raisedAt = Date.now()
+  const code = ((await asked.json()) as { request_code: string }).request_code
 
   await expect(card).toBeVisible({ timeout: 10_000 })
   const took = (await cardSeenAt(page, stamp))! - raisedAt
@@ -49,6 +50,21 @@ test('a new agent action appears on the approver\'s open screen within 2 seconds
   console.log(`[${info.project.name}] task appeared ${took} ms after it was raised (${parts})`)
   expect(took, `task appeared after ${took} ms (${parts})`).toBeLessThanOrEqual(WITHIN_MS)
   expect(reloaded, 'the page must not reload').toBe(false)
+
+  // Task 5.4: the in-app notification that goes with Ravi's email (none is sent for a test request; the notification
+  // is made all the same) is in his bell within 2 seconds, without a reload.
+  const title = `Approval needed · ${code}`
+  const notifiedAt = await page.waitForFunction((name) => {
+    const m = performance.getEntriesByName(name)
+    return m.length ? performance.timeOrigin + m[0].startTime : null
+  }, `act:notification:${title}`, { timeout: 10_000 }).then((h) => h.jsonValue() as Promise<number>)
+  const tookN = Math.round(notifiedAt - raisedAt)
+  info.annotations.push({ type: 'notification after', description: `${tookN} ms` })
+  console.log(`[${info.project.name}] notification arrived ${tookN} ms after it was raised`)
+  expect(tookN, `notification after ${tookN} ms`).toBeLessThanOrEqual(WITHIN_MS)
+  await page.getByTestId('notification-bell').click()
+  await expect(page.getByTestId('notification-item').filter({ hasText: title })).toHaveAttribute('data-unread', 'true')
+  await page.getByTestId('notification-bell').click()
 
   // It is marked new, and the Approvals link shows a count (other tests may add tasks at the same time, so not an exact number).
   await expect(card.getByText('New', { exact: true })).toBeVisible()

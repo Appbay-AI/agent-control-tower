@@ -525,3 +525,17 @@ export interface AlertRouteDraft {
 }
 export interface AlertRoute extends AlertRouteDraft { id: string; updated_at: string }
 export interface AlertRoutePreview { name: string; job_title: string | null; because: string; route: string }
+
+/** Task 5.4: an in-app notification (one for every email the Control Tower queues). */
+export interface AppNotification {
+  id: number
+  kind: 'new' | 'escalated' | 'second' | 'alert' | 'reactivation' | 'reactivation_second'
+  event: string | null
+  title: string
+  body: string
+  url: string
+  pii: boolean
+  agent_id: string | null
+  created_at: string
+  read_at: string | null
+}

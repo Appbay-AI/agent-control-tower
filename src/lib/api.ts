@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type {
-  AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview,
+  AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview, AppNotification,
   ActionDecision, ActionRequest, ActionRequestStatus, ActionUrgency, Agent, AgentApiKey, AgentContact, AgentLog, AgentDraft, IntegrationKey, AgentRegistration, AgentReview, AlertRow, AuditEvent, Department, Profile,
   RegistrationDecision, RegistrationDecisionRow, RegistrationStatus, ReviewOutcome, RoutingPreview, RoutingRule, RoutingRuleDraft,
   AgentEnforcement, AgentPlatformSource, DriftEvent, Incident, MicrosoftCheck, MicrosoftStatus, IncidentSla, IncidentUpdate, AgentReactivation, ReactivationApproval, RiskTier,
@@ -218,6 +218,12 @@ export const api = {
     if (!row) throw new Error('The rule was not saved. Only admins can change routing.')
     return row
   },
+  // In-app notifications (task 5.4): the signed-in person's own, newest first.
+  notifications: async () =>
+    check(await db().from('notifications').select('id, kind, event, title, body, url, pii, agent_id, created_at, read_at')
+      .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(50)) as AppNotification[],
+  markNotificationsRead: async (ids: number[] | null) =>
+    check(await db().rpc('mark_notifications_read', { p_ids: ids })) as number,
   // Alert routing (task 5.2)
   alertRoutes: async () => check(await db().from('alert_routes').select('*')) as AlertRoute[],
   saveAlertRoute: async (id: string | null, draft: AlertRouteDraft) => {
