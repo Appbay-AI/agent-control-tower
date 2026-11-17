@@ -13,6 +13,12 @@ on:
     branches: [main]
     types: [completed]
 
+# Every run uses the same work-in-progress database and tidies up after itself (keys revoked, test agents reset), so
+# two runs at once spoil each other's tests: a second run waits for the first to finish.
+concurrency:
+  group: e2e-work-in-progress-database
+  cancel-in-progress: false
+
 jobs:
   e2e:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
@@ -91,10 +97,12 @@ jobs:
                          returning id)
           update public.platform_agents set agent_id = (select id from fresh) where external_id = 'NAP-006';
           commit;
-          select a.agent_code from public.agents a join public.platform_agents p on p.agent_id = a.id where p.external_id = 'NAP-006';
+          select a.agent_code || ' ' || a.id from public.agents a join public.platform_agents p on p.agent_id = a.id where p.external_id = 'NAP-006';
           SQL
           )
-          if echo "$code" | grep -qE '^AGT-[0-9]{4}$'; then echo "ACT_RETIRE_AGENT_CODE=$code" >> "$GITHUB_ENV"; echo "Agent to retire: $code (NAP-006)"
+          if echo "$code" | grep -qE '^AGT-[0-9]{4} [0-9a-f-]{36}$'; then
+            echo "ACT_RETIRE_AGENT_CODE=${code%% *}" >> "$GITHUB_ENV"; echo "ACT_RETIRE_AGENT_ID=${code#* }" >> "$GITHUB_ENV"
+            echo "Agent to retire: ${code%% *} (NAP-006)"
           else echo "::warning::could not set up the agent to retire: $code"; fi
       - name: Platform agent for the enforcement test
         # Task 4.2: the registry agent linked to NAP-001 (Refund Processor) on the Appian simulator, made Live on this

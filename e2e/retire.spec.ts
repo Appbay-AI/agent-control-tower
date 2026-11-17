@@ -7,9 +7,10 @@ import { expect, test } from '@playwright/test'
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 const CODE = process.env.ACT_RETIRE_AGENT_CODE ?? ''
+const ID = process.env.ACT_RETIRE_AGENT_ID ?? ''
 
 test('retiring an Appian agent blocks it there, read back as blocked', async ({ page }, info) => {
-  test.skip(!PASSWORD || !CODE, 'DEMO_USER_PASSWORD and ACT_RETIRE_AGENT_CODE are set by the e2e workflow')
+  test.skip(!PASSWORD || !CODE || !ID, 'DEMO_USER_PASSWORD, ACT_RETIRE_AGENT_CODE and ACT_RETIRE_AGENT_ID are set by the e2e workflow')
   test.skip(info.project.name !== 'desktop', 'One agent, retired once')
   test.setTimeout(120_000)
   await page.goto('/login')
@@ -17,8 +18,8 @@ test('retiring an Appian agent blocks it there, read back as blocked', async ({ 
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page.getByRole('heading', { name: 'Agent registry' })).toBeVisible()
-  await page.getByPlaceholder(/Search/).fill(CODE)
-  await page.getByRole('link', { name: new RegExp(`^${CODE} `) }).first().click()
+  await page.goto(`/agents/${ID}`)
+  await expect(page.getByText(CODE).first()).toBeVisible()
   await expect(page.getByText('On an agent platform')).toBeVisible()
 
   await page.getByRole('button', { name: 'Retire', exact: true }).click()
