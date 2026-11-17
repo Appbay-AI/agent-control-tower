@@ -57,3 +57,41 @@ export function reorder(rules: Pick<RoutingRule, 'id' | 'priority'>[], id: strin
   ;[list[i], list[j]] = [list[j], list[i]]
   return list.map((r, k) => ({ id: r.id, priority: (k + 1) * 10 })).filter((r, k) => r.priority !== rules.find((x) => x.id === list[k].id)?.priority)
 }
+
+/** Task 5.6: who may give the second approval under a rule. A Critical agent's request needs two different approvers
+ * (task 2.10): the rule's approver first, then any other approver for the agent's department (never its owners or the
+ * person who registered it). */
+export interface SecondApprovalContext {
+  agents: Map<string, { agent_code: string; risk_tier: string; department_id: string | null; owners: (string | null)[] }>
+  departments: Map<string, string>
+  people: Map<string, string>
+  /** Department id → ids of the active approvers for it. */
+  scopes: Map<string, string[]>
+}
+
+export interface SecondApproval {
+  /** 'always': the rule only matches Critical agents; 'critical': only for a Critical agent's requests; 'never': the rule's one agent is not Critical. */
+  when: 'always' | 'critical' | 'never'
+  text: string
+  /** True when nobody can give it, so such requests wait until they expire. */
+  nobody: boolean
+}
+
+export function secondApproval(r: Pick<RoutingRule, 'agent_id' | 'department_id' | 'min_risk_tier' | 'approver_id'>,
+  ctx: SecondApprovalContext): SecondApproval {
+  const agent = r.agent_id ? ctx.agents.get(r.agent_id) : undefined
+  if (agent && agent.risk_tier !== 'critical' && r.min_risk_tier !== 'critical') {
+    return { when: 'never', nobody: false, text: `Not needed: ${agent.agent_code} is not Critical. If it becomes Critical, any other approver for its department gives it.` }
+  }
+  const when = r.min_risk_tier === 'critical' ? 'always' : 'critical'
+  const lead = when === 'always' ? '' : 'For a Critical agent: '
+  const dept = agent ? agent.department_id : r.department_id
+  if (!dept) return { when, nobody: false, text: `${lead}any other approver for the agent's department (not its owners).` }
+  const deptName = ctx.departments.get(dept) ?? 'its department'
+  const others = (ctx.scopes.get(dept) ?? []).filter((id) => id !== r.approver_id && !(agent?.owners ?? []).includes(id))
+  const names = others.map((id) => ctx.people.get(id)).filter((n): n is string => Boolean(n)).sort()
+  if (names.length === 0) {
+    return { when, nobody: true, text: `${lead}nobody else approves for ${deptName}, so such requests wait until they expire. Add another approver for ${deptName}.` }
+  }
+  return { when, nobody: false, text: `${lead}any other approver for ${deptName}: ${names.join(', ')}${agent ? '' : ' (not the agent\'s owners)'}.` }
+}

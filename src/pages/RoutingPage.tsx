@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { DATA_LABEL, errorMessage, RISK_LABEL } from '@/lib/format'
-import { describeConditions, describeOverdue, emptyRule, reorder, ruleProblem } from '@/lib/routing'
+import { describeConditions, describeOverdue, emptyRule, reorder, ruleProblem, secondApproval, type SecondApprovalContext } from '@/lib/routing'
 import { durationText, URGENCIES } from '@/lib/sla'
 import type { ActionUrgency, DataClassification, RiskTier, RoutingPreview, RoutingRule, RoutingRuleDraft, SlaSetting } from '@/lib/types'
 import { useAsync } from '@/lib/useAsync'
@@ -19,11 +19,21 @@ export function RoutingPage() {
   const { hasRole } = useAuth()
   const isAdmin = hasRole('admin')
   const { data, error, loading, reload } = useAsync(async () => {
-    const [rules, agents, departments, approvers, sla, killSwitch] = await Promise.all([
-      api.routingRules(), api.agents(), api.departments(), api.approvers(), api.slaSettings(), api.killSwitchSettings(),
+    const [rules, agents, departments, approvers, sla, killSwitch, scopes] = await Promise.all([
+      api.routingRules(), api.agents(), api.departments(), api.approvers(), api.slaSettings(), api.killSwitchSettings(), api.approverScopes(),
     ])
+    const active = new Set(approvers.map((p) => p.id))
+    const byDept = new Map<string, string[]>()
+    for (const sc of scopes) if (active.has(sc.user_id)) byDept.set(sc.department_id, [...(byDept.get(sc.department_id) ?? []), sc.user_id])
+    const second: SecondApprovalContext = {
+      agents: new Map(agents.map((a) => [a.id, { agent_code: a.agent_code, risk_tier: a.risk_tier, department_id: a.department_id,
+        owners: [a.business_owner_id, a.technical_owner_id, a.created_by] }])),
+      departments: new Map(departments.map((d) => [d.id, d.name])),
+      people: new Map(approvers.map((p) => [p.id, p.full_name])),
+      scopes: byDept,
+    }
     return {
-      rules, agents, departments, approvers, sla, killSwitch,
+      rules, agents, departments, approvers, sla, killSwitch, second,
       names: {
         agents: new Map(agents.map((a) => [a.id, `${a.agent_code} ${a.name}`])),
         departments: new Map(departments.map((d) => [d.id, d.name])),
@@ -70,7 +80,7 @@ export function RoutingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Approval routing"
-        subtitle="Who approves an action request that waits for a human. Rules are checked from the top; the first match wins. If none matches, any approver for the agent's department may decide."
+        subtitle="Who approves an action request that waits for a human. Rules are checked from the top; the first match wins. If none matches, any approver for the agent's department may decide. A Critical agent's request needs a second approval from a different approver, shown under each rule."
         actions={isAdmin && (
           <>
             <Button variant="outline" disabled={busy} onClick={() => run(async () => {
@@ -93,9 +103,18 @@ export function RoutingPage() {
             <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium">{i + 1}</span>
             <div className="min-w-0 flex-1">
               <div className="font-medium">{r.name}{!r.is_active && <span className="text-muted-foreground ml-2 text-xs">(off)</span>}</div>
-              <div className="text-muted-foreground text-sm">
-                {describeConditions(r, data.names)} → <span className="text-foreground font-medium">{data.names.people.get(r.approver_id) ?? 'An inactive approver'}</span>
-              </div>
+              <div className="text-muted-foreground text-sm">{describeConditions(r, data.names)}</div>
+              {(() => {
+                const second = secondApproval(r, data.second)
+                return (
+                  <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 text-sm" data-testid="rule-approvals">
+                    <dt className="text-muted-foreground">1st approval</dt>
+                    <dd className="text-foreground font-medium">{data.names.people.get(r.approver_id) ?? 'An inactive approver'}</dd>
+                    <dt className="text-muted-foreground">2nd approval</dt>
+                    <dd data-testid="second-approval" className={second.nobody ? 'font-medium text-red-700 dark:text-red-400' : second.when === 'never' ? 'text-muted-foreground' : ''}>{second.text}</dd>
+                  </dl>
+                )
+              })()}
               <div className="text-muted-foreground flex items-center gap-1 text-xs"><Clock className="size-3" aria-hidden /> {describeOverdue(r, data.names.people)}</div>
             </div>
             {isAdmin && (
@@ -116,7 +135,7 @@ export function RoutingPage() {
         ))}
         <li className="text-muted-foreground flex items-center gap-3 p-3 text-sm">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full border text-xs">↳</span>
-          Otherwise: any approver for the agent's department, within the default time; else it expires.
+          Otherwise: any approver for the agent's department, within the default time; else it expires. For a Critical agent, then a second, different approver for its department.
         </li>
       </ol>
 
@@ -334,7 +353,7 @@ function TimeLimits({ settings, canEdit, onSaved }: { settings: SlaSetting[]; ca
   )
 }
 
-function RoutingTester({ agents }: { agents: { id: string; agent_code: string; name: string; status: string }[] }) {
+function RoutingTester({ agents }: { agents: { id: string; agent_code: string; name: string; status: string; risk_tier: string }[] }) {
   const [agentId, setAgentId] = useState('')
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('GBP')
@@ -371,6 +390,19 @@ function RoutingTester({ agents }: { agents: { id: string; agent_code: string; n
               : result.department_approvers.length ? `Any of: ${result.department_approvers.join(', ')}`
                 : 'Nobody can approve this yet: the department has no approvers.'}
           </div>
+          {agents.find((a) => a.id === agentId)?.risk_tier === 'critical' && (
+            <div className="mt-1" data-testid="routing-second">
+              {(() => {
+                const first = result.approver_name
+                const others = result.department_approvers.filter((n) => n !== first)
+                return (first ? others.length === 0 : others.length < 2)
+                  ? 'Then a second approval: nobody else approves for its department, so it would wait until it expires.'
+                  : first
+                    ? `Then a second approval (Critical agent): any of ${others.join(', ')}`
+                    : `Then a second approval (Critical agent): any other one of them`
+              })()}
+            </div>
+          )}
           <div className="text-muted-foreground mt-1 text-xs">{result.note}</div>
         </div>
       )}

@@ -212,6 +212,8 @@ export const api = {
     if (!ids.length) return [] as Profile[]
     return check(await db().from('profiles').select('*').in('id', ids).eq('is_active', true).order('full_name')) as Profile[]
   },
+  /** Which departments each approver approves for (task 5.6: who may give a second approval). */
+  approverScopes: async () => check(await db().from('approver_scopes').select('user_id, department_id')) as { user_id: string; department_id: string }[],
   saveRoutingRule: async (id: string | null, draft: RoutingRuleDraft) => {
     const q = id ? db().from('routing_rules').update(draft).eq('id', id) : db().from('routing_rules').insert(draft)
     const row = check(await q.select('id').maybeSingle()) as { id: string } | null
