@@ -153,15 +153,30 @@ describe('enforcement by source (task 4.2)', () => {
       .toMatch(/Trying again cannot fix this: a person needs to act\.$/)
   })
 
-  it('stops trying, and clears the alert, once the agent is no longer suspended', async () => {
+  it('stops trying, and clears the alert, once the agent is back to Live', async () => {
     const { id } = await liveAgent({ platform: 'NAP-006' })
     await suspend(u.james, id)
     const t = (await lastToken()).token
     const w = await claim(t)
     await report(t, [{ id: w.platform[0].id, ok: false, detail: 'Could not connect' }])
-    await asUser(db, u.admin, (tx) => tx.query(`select public.retire_agent($1, 'Replaced')`, [id]))
-    expect((await plan(id))[0]).toMatchObject({ status: 'cancelled', detail: 'Could not connect. Stopped trying: the agent is now retired' })
+    await db.query(`select set_config('act.allow_lifecycle', 'on', false)`)
+    await db.query(`update public.agents set status = 'live' where id = $1`, [id])
+    await db.query(`select set_config('act.allow_lifecycle', '', false)`)
+    expect((await plan(id))[0]).toMatchObject({ status: 'cancelled', detail: 'Could not connect. Stopped trying: the agent is now live' })
     expect((await db.query<{ n: number }>(`select count(*)::int n from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0].n).toBe(0)
+  })
+
+  it('task 5.5: a suspended agent that is retired keeps trying to be blocked (not cancelled), and the alert says retired', async () => {
+    const { id } = await liveAgent({ platform: 'NAP-004' })
+    await suspend(u.james, id)
+    const t = (await lastToken()).token
+    const w = await claim(t)
+    await report(t, [{ id: w.platform[0].id, ok: false, detail: 'Could not connect' }])
+    await asUser(db, u.admin, (tx) => tx.query(`select public.retire_agent($1, 'Replaced')`, [id]))
+    const steps = (await plan(id)).filter((x) => x.method === 'platform')
+    expect(steps.map((x) => x.status)).toEqual(['pending']) // its suspension's step carries on; no second step
+    expect((await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0]?.message)
+      .toBeUndefined() // retiring resolves the agent's open alerts; the next failed try raises it again, now saying retired
   })
 
   it('an agent with a control endpoint gets a stop request, signed with its own key', async () => {

@@ -7,6 +7,7 @@ import { DecisionPanel } from '@/components/DecisionPanel'
 import { AgentAccess } from '@/components/AgentAccess'
 import { AgentAlertEmails } from '@/components/AgentAlertEmails'
 import { DriftList } from '@/components/DriftList'
+import { RetirementSteps } from '@/components/RetirementSteps'
 import { IncidentList } from '@/components/IncidentList'
 import { Reactivation } from '@/components/Reactivation'
 import { ReportIncident } from '@/components/ReportIncident'
@@ -178,6 +179,8 @@ export function AgentDetailPage() {
           <AlertDescription>{latest.decision_reason}</AlertDescription>
         </Alert>
       )}
+      {/* Task 5.5 */}
+      {a.status === 'retired' && <RetirementSteps enforcements={enforcements} />}
       <KillSwitch part="notices" agent={a} suspensions={suspensions} enforcements={enforcements} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
         isAdmin={roles.includes('admin')} onDone={reload} name={name} />
       <Reactivation part="notices" agent={a} reactivations={reactivations} approvals={reactivationApprovals} enforcements={enforcements}
@@ -440,7 +443,7 @@ function RetireDialog({ open, onClose, onSave, busy, error }: {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Retire this agent?</DialogTitle>
-          <DialogDescription>It can no longer act. Its record and history are kept.</DialogDescription>
+          <DialogDescription>It can no longer act: its checks are refused and, if it runs on an agent platform such as Appian, it is blocked there too. This cannot be undone. Its record and history are kept.</DialogDescription>
         </DialogHeader>
         <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is it being retired?" aria-label="Reason" />
         <ErrorBox message={error} />

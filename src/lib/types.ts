@@ -245,8 +245,8 @@ export interface AgentEnforcement {
   method: 'platform' | 'api' | 'webhook' | 'email'
   /** Task 4.6: "restore" = switching it back on after an approved reactivation. */
   action: 'stop' | 'restore'
-  /** Task 4.7: "reblock" = blocked again after it was switched back on outside Control Tower. */
-  cause: 'suspension' | 'reblock'
+  /** Task 4.7: "reblock" = blocked again after it was switched back on outside Control Tower. Task 5.5: "retirement". */
+  cause: 'suspension' | 'reblock' | 'retirement'
   reactivation_id: string | null
   target: string
   /** Task 4.3: pending with attempts > 0 = failed and waiting to be tried again; cancelled = no longer needed. */
