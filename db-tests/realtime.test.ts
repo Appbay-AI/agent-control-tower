@@ -7,7 +7,7 @@ import { createDb } from './harness'
 // Task 2.5: the tables behind the approvals list are published to Supabase Realtime.
 describe('live approvals (task 2.5)', () => {
   let db: PGlite
-  const LIVE_TABLES = ['action_requests', 'agent_registrations', 'registration_decisions']
+  const LIVE_TABLES = ['action_requests', 'agent_registrations', 'notifications', 'registration_decisions'] // notifications: task 5.4
 
   beforeAll(async () => {
     db = await createDb()
@@ -40,6 +40,11 @@ describe('live approvals (task 2.5)', () => {
     await db.exec(`alter publication supabase_realtime drop table public.agent_registrations`)
     await db.exec(sql)
     await db.exec(sql)
+    expect(await published()).toEqual([...LIVE_TABLES].sort())
+    // Task 5.4's step too.
+    const n = readFileSync(path.resolve(__dirname, '../supabase/migrations/20261121000100_notifications.sql'), 'utf8')
+    const step = n.slice(n.indexOf('do $$'), n.indexOf('end $$;', n.indexOf('do $$')) + 'end $$;'.length)
+    await db.exec(step)
     expect(await published()).toEqual([...LIVE_TABLES].sort())
   })
 })

@@ -58,7 +58,7 @@ describe('discovered agents (task 3.5)', () => {
   const openAlerts = async (agentId: string) => (await db.query<{ kind: string; message: string }>(
     `select kind, message from public.alerts where agent_id = $1 and resolved_at is null and kind <> 'data_authority'` /* 4.8 has its own tests */, [agentId])).rows
   const pushes = async () => (await db.query<{ user_id: string; title: string; body: string; url: string }>(
-    `select user_id, title, body, url from public.push_outbox where kind = 'agent_discovered' order by user_id`)).rows
+    `select user_id, title, body, url from public.push_outbox where kind = 'alert' and title like '%Found, not registered%' order by user_id, title`)).rows
 
   it('a sync puts each ungoverned agent in the registry as Discovered, and links one already registered', async () => {
     expect(await sync(LIST)).toMatchObject({ agents: 3, new: 3, registered: 2, linked: 1 })
@@ -83,10 +83,10 @@ describe('discovered agents (task 3.5)', () => {
     expect(await openAlerts(invoiceMatcher)).toEqual([])
 
     const sent = await pushes()
-    expect(sent.find((p) => p.user_id === u.admin)).toEqual({ user_id: u.admin, title: '2 agents found · not registered',
-      body: `2 agents on ${PLATFORM} are not registered in Control Tower: Refund Processor, Branch Rota Planner.`, url: '/agents' })
-    expect(sent.find((p) => p.user_id === u.lucy)).toEqual({ user_id: u.lucy, title: 'Agent found · not registered',
-      body: `Refund Processor (${refund.agent_code}) is on ${PLATFORM} but not registered in Control Tower.`, url: `/agents/${refund.id}` })
+    // Task 5.4: one phone alert per agent, following the alert routes (default: every admin and the business owner).
+    expect(sent.filter((p) => p.user_id === u.admin).map((p) => p.url).sort()).toEqual([`/agents/${refund.id}`, `/agents/${rota.id}`].sort())
+    expect(sent.find((p) => p.user_id === u.lucy)).toEqual({ user_id: u.lucy, title: `Personal data · Found, not registered · ${refund.agent_code}`,
+      body: `New agent found on ${PLATFORM}: Refund Processor, not registered`, url: `/agents/${refund.id}` })
     expect(sent.map((p) => p.user_id)).not.toContain(u.james)
   })
 

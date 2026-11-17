@@ -104,9 +104,11 @@ describe('enforcement by source (task 4.2)', () => {
     const alert = (await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows
     expect(alert).toHaveLength(1)
     expect(alert[0].message).toMatch(/^AGT-\d{4} is suspended, but stopping it on Northbridge Agent Platform \(simulated\) as NAP-005 has not worked yet: The Appian simulator did not answer within 15 seconds\. Trying again at \d\d:\d\d UTC\.$/)
-    const pushes = (await db.query<{ user_id: string; title: string }>(`select user_id, title from public.push_outbox where kind = 'enforcement'`)).rows
-    expect(pushes.map((p) => p.user_id).sort()).toEqual([u.admin, u.admin2].sort())
+    // Task 5.4: the phone alert follows the alert routes (default: every admin and the business owner).
+    const pushes = (await db.query<{ user_id: string; title: string }>(`select user_id, title from public.push_outbox where kind = 'alert' and title like 'Not stopped yet%'`)).rows
+    expect(pushes.map((p) => p.user_id)).toEqual(expect.arrayContaining([u.admin, u.admin2]))
     expect(pushes[0].title).toMatch(/^Not stopped yet · AGT-/)
+    expect((await db.query<{ n: number }>(`select count(*)::int n from public.push_outbox where kind = 'enforcement'`)).rows[0].n).toBe(0) // retired
 
     // Not due yet: the clock does not ask again.
     const calls = (await db.query<{ n: number }>(`select count(*)::int n from net.calls where url like '%/enforce/run'`)).rows[0].n
@@ -121,7 +123,7 @@ describe('enforcement by source (task 4.2)', () => {
     await report(t, [{ id: w.platform[0].id, ok: false, detail: 'HTTP 503 from Appian' }])
     expect((await db.query<{ attempts: number; status: string }>(`select attempts, status from public.agent_enforcements where agent_id = $1`, [id])).rows[0])
       .toEqual({ attempts: 2, status: 'pending' })
-    expect((await db.query<{ n: number }>(`select count(*)::int n from public.push_outbox where kind = 'enforcement'`)).rows[0].n).toBe(2)
+    expect((await db.query<{ n: number }>(`select count(*)::int n from public.push_outbox where kind = 'alert' and title like 'Not stopped yet%'`)).rows[0].n).toBe(pushes.length) // once
     expect((await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'enforcement_pending' and resolved_at is null`, [id])).rows[0].message)
       .toContain('HTTP 503 from Appian')
 

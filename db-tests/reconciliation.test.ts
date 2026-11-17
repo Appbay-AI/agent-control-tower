@@ -100,8 +100,9 @@ describe('reconciliation loop (task 4.7)', () => {
     const alert = (await db.query<{ message: string }>(`select message from public.alerts where agent_id = $1 and kind = 'outside_reactivation' and resolved_at is null`, [id])).rows
     expect(alert).toHaveLength(1)
     expect(alert[0].message).toMatch(/It is being blocked again\. Incident INC-\d{4}\.$/)
-    const pushes = (await db.query<{ user_id: string; title: string }>(`select user_id, title from public.push_outbox where kind = 'reconciliation'`)).rows
-    expect(pushes).toEqual([{ user_id: u.admin, title: `Switched on outside Control Tower · ${code}` }])
+    // Task 5.4: the phone alert follows the alert routes (default: every admin and the business owner).
+    const pushes = (await db.query<{ user_id: string; title: string }>(`select user_id, title from public.push_outbox where kind = 'alert' and title like 'Blocked again%'`)).rows
+    expect(pushes).toContainEqual({ user_id: u.admin, title: `Blocked again · ${code}` })
     // The agent is not a target while the re-block is under way.
     expect((await db.query<{ n: number }>(`select count(*)::int n from public.reconcile_targets($1)`, [conn])).rows[0].n).toBe(0)
 

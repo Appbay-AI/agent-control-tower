@@ -23,6 +23,7 @@ describe('data-authority matrix (task 4.8)', () => {
     u.other = await createUser(db, 'other@bank.test', ['owner'], 'Someone Else')
     await db.query(`update public.profiles set job_title = 'Automation Engineering Lead' where id = $1`, [u.tom])
     await db.query(`update public.profiles set job_title = 'Graduate Intern' where id = $1`, [u.sam])
+    await db.query(`select public.push_configure('https://main.example.pages.dev')`) // alerts are sent (task 5.4)
     await db.query(`select public.platform_configure('appian_simulator', $1, 'https://appbay-demo.appiancloud.com', 'k')`, [PLATFORM])
     conn = (await db.query<{ id: string }>(`select id from public.platform_connections`)).rows[0].id
     agent = await proposeAgent(db, u.tom, { name: 'Sales Lead Summariser', department_id: lending })
@@ -34,7 +35,7 @@ describe('data-authority matrix (task 4.8)', () => {
   const alert = async () => (await db.query<{ message: string }>(
     `select message from public.alerts where agent_id = $1 and kind = 'data_authority' and resolved_at is null`, [agent])).rows[0]?.message ?? null
   const pushes = async () => (await db.query<{ user_id: string; title: string; body: string }>(
-    `select user_id, title, body from public.push_outbox where kind = 'data_authority' order by id`)).rows
+    `select user_id, title, body from public.push_outbox where kind = 'alert' and title like '%Access without authority%' order by id`)).rows
   const share = async (people: object[]) => db.query(
     `update public.platform_agents set details = jsonb_set(details, '{sharedWith}', $1::jsonb) where id = $2`, [JSON.stringify(people), pa])
 
@@ -57,8 +58,9 @@ describe('data-authority matrix (task 4.8)', () => {
     expect(await alert()).toMatch(/^AGT-\d{4} can be used by someone without authority for its data: Ana Costa \(Sales Associate\) for Personal\.$/)
     const p = await pushes()
     expect(p.map((x) => x.user_id).sort()).toEqual([u.admin, u.tom].sort())
-    expect(p[0].title).toMatch(/^No authority · AGT-\d{4}$/)
-    expect(p[0].body).toBe('Ana Costa (Sales Associate) can use Sales Lead Summariser without authority for its data. Check the Data authority matrix or remove their access.')
+    // Task 5.4: the phone alert follows the alert routes, flagged when personal data is involved.
+    expect(p[0].title).toMatch(/^Personal data · Access without authority · AGT-\d{4}$/)
+    expect(p[0].body).toMatch(/^Ana Costa can use AGT-\d{4} Sales Lead Summariser without authority for Personal data$/)
     const audit = (await db.query<{ summary: string; actor_type: string }>(`select summary, actor_type from public.audit_events where action = 'agents.access_without_authority' and agent_id = $1`, [agent])).rows
     expect(audit).toEqual([{ actor_type: 'system', summary: expect.stringMatching(/^Ana Costa \(Sales Associate, Shared on .*\) can use AGT-\d{4}, which handles Personal data; that role is not authorised for it$/) }])
   })
@@ -73,7 +75,7 @@ describe('data-authority matrix (task 4.8)', () => {
       person('cara@bank.test', 'Cara Lee', 'Sales Associate')])
     expect((await findings()).map((f) => f.email)).toEqual(['ana@bank.test', 'cara@bank.test'])
     expect(await alert()).toMatch(/by 2 people .*: Ana Costa \(Sales Associate\) for Personal; Cara Lee \(Sales Associate\) for Personal\.$/)
-    expect((await pushes()).map((x) => x.body)).toEqual([expect.stringMatching(/^Cara Lee \(Sales Associate\) can use/), expect.stringMatching(/^Cara Lee/)])
+    expect((await pushes()).map((x) => x.body)).toEqual([expect.stringMatching(/^Cara Lee can use/), expect.stringMatching(/^Cara Lee/)])
   })
 
   it('a new owner in Control Tower without authority raises the alert too', async () => {
