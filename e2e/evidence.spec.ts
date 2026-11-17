@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
+import ExcelJS from 'exceljs'
 
 // Task 6.1 (R5.5): pick a date range, one click, a PDF. Done when: the PDF holds inventory, approvals, incidents,
 // autonomy changes, reviews, kill-switch events, drift, sync history and an attestation. Mei Lin (auditor) makes the
 // pack for the last 30 days on the work-in-progress site, and the PDF's own text is read back.
+// Task 6.2: then the same pack as Excel. Done when: the Excel matches the PDF.
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 
@@ -52,5 +54,44 @@ test('an auditor picks a date range and downloads the evidence pack as a PDF, wi
   for (const s of ['AGT-0001 Payment Release Assistant', 'Mail Room Router', 'Northbridge Agent Platform (simulated)', 'entries intact']) expect(text, s).toContain(s)
   const seq = (await made.textContent())?.match(/entry #(\d+)/)?.[1]
   expect(text).toContain(`audit trail as entry #${seq}`)
-  console.log(`[evidence] ${info.project.name}: ${pages}-page PDF for the last 30 days, downloaded ${took} ms after the click; audit entry #${seq}, chain intact`)
+  console.log(`[evidence] ${info.project.name}: ${pages}-page PDF for the last 30 days, downloaded ${took} ms after the click, audit entry #${seq}, chain intact`)
+
+  // Task 6.2: the same pack as Excel (same audit entry), and it matches the PDF.
+  const xStarted = Date.now()
+  const [xDownload] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.getByRole('button', { name: 'Download Excel' }).click()])
+  const xTook = Date.now() - xStarted
+  expect(xDownload.suggestedFilename()).toBe(download.suggestedFilename().replace(/\.pdf$/, '.xlsx'))
+  await expect(made).toContainText(`Downloaded ${download.suggestedFilename()} and ${xDownload.suggestedFilename()}`)
+  const xPath = info.outputPath('evidence.xlsx')
+  await xDownload.saveAs(xPath)
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.readFile(xPath)
+  expect(wb.worksheets.map((w) => w.name)).toEqual(['Contents', '1 Inventory', '2a Registrations', '2b Action requests', '3 Incidents', '4 Autonomy',
+    '5 Reviews', '6a Suspensions', '6b Switch back on', '6c Stop or restore steps', '7 Drift', '8 Re-quarantine', '9a Sync by platform',
+    '9b Sync failures and changes', '10 Attestation'])
+  const cover = wb.getWorksheet('Contents')!
+  expect(String(cover.getCell('A3').value)).toContain(`Recorded in the audit trail as entry #${seq}.`)
+  // The record count of every section is the same in both files.
+  for (let i = 0; i < 10; i++) {
+    const r = cover.getRow(7 + i)
+    const title = String(r.getCell(2).value)
+    const count = Number(r.getCell(3).value).toLocaleString('en-GB')
+    expect(text, title).toContain(`${i + 1}. ${title} ${count}`)
+  }
+  // Every value in the first 25 rows of every table is printed in the PDF.
+  let checked = 0
+  for (const ws of wb.worksheets.slice(1, -1)) {
+    for (let r = 6; r <= Math.min(ws.rowCount, 30); r++) {
+      ws.getRow(r).eachCell((c) => {
+        if (typeof c.value !== 'string') return
+        for (const line of c.value.split('\n').filter((l) => l.trim())) { expect(text, `${ws.name} row ${r}`).toContain(line.replace(/\s+/g, ' ').trim()); checked++ }
+      })
+    }
+  }
+  expect(checked).toBeGreaterThan(100)
+  const digest = (await page.getByText(/^SHA-256 of the pack's data:/).textContent())?.split(': ')[1]
+  const att = wb.getWorksheet('10 Attestation')!.getSheetValues().flat().filter((v) => typeof v === 'string').join('\n')
+  expect(att).toContain(digest!)
+  expect(text).toContain(digest!)
+  console.log(`[evidence-excel] ${info.project.name}: Excel of the same pack downloaded ${xTook} ms after the click, ${checked} values checked against the PDF`)
 })

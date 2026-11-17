@@ -18,8 +18,9 @@ export default defineConfig({
       // Server addresses (/api/...) are never answered by the cached app: Microsoft's sign-in comes back to
       // /api/v1/microsoft/callback as a page visit, and it must reach the server (task 3.1).
       workbox: { importScripts: ['push-sw.js'], navigateFallbackDenylist: [/^\/api\//],
-        // Task 6.1: the PDF maker and its fonts (1.6 MB) load only when someone makes an evidence pack, not on install.
-        globIgnores: ['**/pdfmake-*.js', '**/vfs_fonts-*.js'] },
+        // Tasks 6.1, 6.2: the PDF maker, its fonts and the Excel writer (2.5 MB) load only when someone makes an evidence
+        // pack, not on install.
+        globIgnores: ['**/pdfmake-*.js', '**/vfs_fonts-*.js', '**/exceljs*.js'] },
       manifest: {
         name: 'Agent Control Tower',
         short_name: 'Control Tower',
