@@ -132,9 +132,9 @@ jobs:
       - name: Microsoft app registration
         if: vars.MICROSOFT_ENABLED == 'true'
         env:
-          # IDs, not secrets: the test app registration in Arpit's Microsoft tenant, unless the variables say otherwise.
-          MS_TENANT_ID: ${{ vars.MS_TENANT_ID || '7535ea2c-3e9b-42b7-b942-d208757b8bb9' }}
-          MS_CLIENT_ID: ${{ vars.MS_CLIENT_ID || '5d517613-a18d-4664-bc24-cd9c406c8669' }}
+          # IDs, not secrets, but kept out of this public repository: set them as repository variables.
+          MS_TENANT_ID: ${{ vars.MS_TENANT_ID }}
+          MS_CLIENT_ID: ${{ vars.MS_CLIENT_ID }}
           MS_CLIENT_SECRET: ${{ secrets.MS_CLIENT_SECRET }}
         run: |
           [ -n "$SUPABASE_DB_URL" ] || exit 0

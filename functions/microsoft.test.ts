@@ -32,7 +32,7 @@ function world(opts: { tokenStatus?: number; noRefresh?: boolean; claimFails?: b
       forms.push(form)
       if (opts.tokenStatus && opts.tokenStatus !== 200) return reply(opts.tokenStatus, { error: 'invalid_grant', error_description: 'AADSTS70008: The code expired.\r\nTrace ID: abc' })
       return reply(200, { access_token: `at-${forms.length}`, refresh_token: opts.noRefresh ? undefined : `rt-${forms.length}`,
-        id_token: idToken({ preferred_username: 'arpit@tenant.test', name: 'Arpit Khandelwal' }) })
+        id_token: idToken({ preferred_username: 'sam@tenant.test', name: 'Sam Taylor' }) })
     }
     if (url.includes('/resourcequery/')) {
       if (opts.slowListMs) await new Promise((r) => setTimeout(r, opts.slowListMs))
@@ -59,7 +59,7 @@ describe('Connect Microsoft: the browser comes back from Microsoft (task 3.1)', 
       redirect_uri: 'https://main.example.dev/api/v1/microsoft/callback', code_verifier: 'v'.repeat(64),
       scope: 'https://api.powerplatform.com/.default offline_access openid profile' })
     expect(w.rpcs.map((r) => r.fn)).toEqual(['microsoft_connect_claim', 'microsoft_connect_finish'])
-    expect(w.rpcs[1].body).toEqual({ p_state: STATE, p_refresh_token: 'rt-1', p_account: 'arpit@tenant.test', p_name: 'Arpit Khandelwal' })
+    expect(w.rpcs[1].body).toEqual({ p_state: STATE, p_refresh_token: 'rt-1', p_account: 'sam@tenant.test', p_name: 'Sam Taylor' })
   })
 
   it('sends the person back with a plain reason when Microsoft refuses, the link expired, or nothing came back', async () => {

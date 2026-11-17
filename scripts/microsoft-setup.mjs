@@ -14,7 +14,7 @@ if (!tenant || !client) {
   process.exit(0)
 }
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-if (!guid.test(tenant) || !guid.test(client)) throw new Error('MS_TENANT_ID and MS_CLIENT_ID must be IDs like 7535ea2c-3e9b-42b7-b942-d208757b8bb9')
+if (!guid.test(tenant) || !guid.test(client)) throw new Error('MS_TENANT_ID and MS_CLIENT_ID must be IDs like 00000000-0000-0000-0000-000000000000')
 
 const r = spawnSync('psql', [dbUrl, '-X', '-q', '-tA', '-v', 'ON_ERROR_STOP=1', '-v', `tenant=${tenant}`, '-v', `client=${client}`, '-v', `secret=${secret}`],
   { input: `select public.microsoft_configure(:'tenant', :'client', :'secret');`, encoding: 'utf8' })

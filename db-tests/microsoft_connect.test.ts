@@ -7,8 +7,8 @@ import { asRole, asUser, createDb, createUser } from './harness'
 describe('Connect Microsoft (task 3.1)', () => {
   let db: PGlite
   const u: Record<string, string> = {}
-  const TENANT = '7535ea2c-3e9b-42b7-b942-d208757b8bb9'
-  const CLIENT = '5d517613-a18d-4664-bc24-cd9c406c8669'
+  const TENANT = '11111111-2222-4333-8444-555555555555'
+  const CLIENT = '66666666-7777-4888-9999-aaaaaaaaaaaa'
 
   beforeAll(async () => {
     db = await createDb()
@@ -50,12 +50,12 @@ describe('Connect Microsoft (task 3.1)', () => {
     expect(createHash('sha256').update(claim.code_verifier).digest('base64url')).toBe(s.code_challenge)
     await expect(anon(`select public.microsoft_connect_claim($1) r`, [s.state])).rejects.toThrow(/expired or was already used/)
 
-    await anon(`select public.microsoft_connect_finish($1, 'rt-1', 'arpit@tenant.test', 'Arpit Khandelwal') r`, [s.state])
-    expect(await status()).toMatchObject({ connected: true, account: 'arpit@tenant.test', account_name: 'Arpit Khandelwal', connected_by: 'Platform Admin' })
+    await anon(`select public.microsoft_connect_finish($1, 'rt-1', 'sam@tenant.test', 'Sam Taylor') r`, [s.state])
+    expect(await status()).toMatchObject({ connected: true, account: 'sam@tenant.test', account_name: 'Sam Taylor', connected_by: 'Platform Admin' })
     await expect(anon(`select public.microsoft_connect_finish($1, 'rt-2', 'x', 'y') r`, [s.state])).rejects.toThrow(/Invalid or used/)
     expect((await db.query<{ t: string }>(`select refresh_token t from public.microsoft_connection`)).rows[0].t).toBe('rt-1')
     const audit = (await db.query<{ summary: string; actor_id: string }>(`select summary, actor_id from public.audit_events where action = 'microsoft_connection.connected'`)).rows
-    expect(audit).toEqual([{ summary: 'Microsoft connected as arpit@tenant.test', actor_id: u.admin }])
+    expect(audit).toEqual([{ summary: 'Microsoft connected as sam@tenant.test', actor_id: u.admin }])
 
     // A made-up state gets nothing; only our API (anon) may claim, not a signed-in user.
     await expect(anon(`select public.microsoft_connect_claim('mss_nope') r`, [])).rejects.toThrow(/expired or was already used/)

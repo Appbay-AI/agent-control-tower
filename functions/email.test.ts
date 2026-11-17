@@ -4,7 +4,7 @@ import { ALERT_EVENT, buildAlertEmail, buildApprovalEmail, buildReactivationEmai
 import { dispatch } from './api/v1/push/dispatch'
 
 const TEMP_FROM = 'Agent Control Tower <onboarding@resend.dev>'
-const settings: EmailSettings = { api_key: 're_key', from: TEMP_FROM, redirect_to: 'rajveer@company.example', site_url: 'https://main.act.pages.dev' }
+const settings: EmailSettings = { api_key: 're_key', from: TEMP_FROM, redirect_to: 'owner@company.example', site_url: 'https://main.act.pages.dev' }
 
 const email = (over: Partial<QueuedEmail> = {}, req: Partial<QueuedEmail['request']> = {}): QueuedEmail => ({
   id: 41, kind: 'new', test: false, to_name: 'Ravi Menon', to_email: 'ravi.menon@northbridge.demo',
@@ -20,7 +20,7 @@ const email = (over: Partial<QueuedEmail> = {}, req: Partial<QueuedEmail['reques
 
 describe('who an approval email goes to (task 2.7)', () => {
   it('temporary mode: everything goes to the redirect inbox, marked with who it was for', () => {
-    expect(chooseRecipient(email(), settings)).toEqual({ to: 'rajveer@company.example', redirected: true })
+    expect(chooseRecipient(email(), settings)).toEqual({ to: 'owner@company.example', redirected: true })
   })
 
   it('test requests go to Resend\'s test inbox, never to a person', () => {
@@ -89,12 +89,12 @@ describe('sending through Resend', () => {
   it('posts to Resend with the key, the sender, an idempotency key, and both HTML and text', async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ id: 'em_1' }), { status: 200 }))
     const out = await sendApprovalEmail(email(), settings, fetchImpl as unknown as typeof fetch)
-    expect(out).toEqual({ id: 41, sent: true, provider_id: 'em_1', sent_to: 'rajveer@company.example' })
+    expect(out).toEqual({ id: 41, sent: true, provider_id: 'em_1', sent_to: 'owner@company.example' })
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit & { headers: Record<string, string> }]
     expect(url).toBe('https://api.resend.com/emails')
     expect(init.headers).toMatchObject({ authorization: 'Bearer re_key', 'idempotency-key': 'act-email-41' })
     const body = JSON.parse(init.body as string)
-    expect(body).toMatchObject({ from: TEMP_FROM, to: ['rajveer@company.example'] })
+    expect(body).toMatchObject({ from: TEMP_FROM, to: ['owner@company.example'] })
     expect(body.html).toContain('<h1')
     expect(body.text).toContain('Open the task')
   })
@@ -126,7 +126,7 @@ describe('sending through Resend', () => {
     }) as unknown as typeof fetch
     const out = await dispatch(TOKEN, fetchImpl)
     expect(out.sent).toBe(2)
-    expect(calls.filter((c) => c.url === 'https://api.resend.com/emails').map((c) => JSON.parse(c.body).to[0])).toEqual(['rajveer@company.example', TEST_INBOX])
+    expect(calls.filter((c) => c.url === 'https://api.resend.com/emails').map((c) => JSON.parse(c.body).to[0])).toEqual(['owner@company.example', TEST_INBOX])
     const report = JSON.parse(calls.at(-1)!.body)
     expect(report.p_results.push).toEqual([])
     expect(report.p_results.email.map((e: { id: number; sent: boolean }) => [e.id, e.sent])).toEqual([[41, true], [42, true]])
@@ -234,7 +234,7 @@ describe('reactivation emails (task 5.3)', () => {
   it('the sender routes it by its contents and tags it', async () => {
     let sent: Record<string, unknown> | null = null
     const fake = (async (_u: string, init: RequestInit) => { sent = JSON.parse(String(init.body)); return new Response('{"id":"re_9"}', { status: 200 }) }) as unknown as typeof fetch
-    expect(await sendReactivationEmail(e, settings, fake)).toMatchObject({ id: 9, sent: true, sent_to: 'rajveer@company.example' })
+    expect(await sendReactivationEmail(e, settings, fake)).toMatchObject({ id: 9, sent: true, sent_to: 'owner@company.example' })
     expect(sent).toMatchObject({ subject: expect.stringMatching(/^\[For Ravi Menon\] Approval needed/), tags: [{ name: 'kind', value: 'reactivation' }] })
   })
 })
