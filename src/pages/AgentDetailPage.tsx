@@ -180,7 +180,7 @@ export function AgentDetailPage() {
         </Alert>
       )}
       {/* Task 5.5 */}
-      {a.status === 'retired' && <RetirementSteps enforcements={enforcements} />}
+      {a.status === 'retired' && <RetirementSteps enforcements={enforcements} onRefresh={reload} />}
       <KillSwitch part="notices" agent={a} suspensions={suspensions} enforcements={enforcements} canSuspend={perms.canSuspend} needsSecond={needsSecond} userId={userId}
         isAdmin={roles.includes('admin')} onDone={reload} name={name} />
       <Reactivation part="notices" agent={a} reactivations={reactivations} approvals={reactivationApprovals} enforcements={enforcements}

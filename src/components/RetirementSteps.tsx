@@ -1,5 +1,6 @@
 // Task 5.5: on a retired agent's page, the steps that block it on its platform (Appian), as the kill switch shows its
 // own: blocking, blocked and read back, trying again, or needing a person.
+import { useEffect } from 'react'
 import { Archive } from 'lucide-react'
 import { retryNote, stepState } from '@/components/KillSwitch'
 import { formatDateTime } from '@/lib/format'
@@ -19,8 +20,17 @@ export function stepLine(e: AgentEnforcement, now = Date.now()): { state: string
   return { state: 'pending', text: `Blocking on ${e.target}…` }
 }
 
-export function RetirementSteps({ enforcements }: { enforcements: AgentEnforcement[] }) {
+export function RetirementSteps({ enforcements, onRefresh }: { enforcements: AgentEnforcement[]; onRefresh?: () => Promise<void> | void }) {
   const steps = retirementSteps(enforcements)
+  const working = steps.some((e) => stepState(e) === 'pending')
+  const retrying = steps.some((e) => stepState(e) === 'retrying')
+  // As the kill switch does: while blocking is under way look again every 2 seconds; while it waits to be tried again,
+  // every 30 seconds.
+  useEffect(() => {
+    if (!onRefresh || (!working && !retrying)) return
+    const t = window.setTimeout(() => { void onRefresh() }, working ? 2000 : 30_000)
+    return () => window.clearTimeout(t)
+  }, [working, retrying, enforcements, onRefresh])
   if (steps.length === 0) return null
   return (
     <section className="bg-card space-y-2 rounded-lg border p-4 text-sm" data-testid="retire-steps">
