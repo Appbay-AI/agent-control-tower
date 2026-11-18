@@ -596,7 +596,8 @@ Repository secrets known to be needed: `SUPABASE_ACCESS_TOKEN`, `CLOUDFLARE_API_
 - The e2e test reads the demo password from the env var `DEMO_USER_PASSWORD` (a GitHub secret).
 
 ### Seeds
-- Load via `seed-demo.yml` (runs 00, 02, 03, 04, 05, 06 in one psql session; 01 first for personas). `reset: true` restores personas (active, `must_change_password` false, not banned, approver scopes, roles except admin's admin role), truncates routing, action requests and the registry tables, and restarts the request code sequence. It also deletes every agent API key on that database.
+- Load via `seed-demo.yml` (runs 00, 02, 03, 04, 07, 05, 06 in one psql session; 01 first for personas). `reset: true` restores personas (active, `must_change_password` false, not banned, approver scopes, roles except admin's admin role), truncates routing, action requests and the registry tables, and restarts the request code sequence. It also deletes every agent API key on that database.
+- **The last twelve weeks (task 7.1, `07_history.sql`, runs after 04 and before 05):** 77 agents' requests (55 approved and 5 turned down by people, with the weekly average time to decide falling from about 200 to about 30 minutes; 12 approved by policy; 5 refused by policy: Sanctions Pre-screener and Cash Forecast Agent, observe-only, tried to act), 7 incidents INC-0001 to 0007 (five closed; INC-0006 Complaint Classifier resolved with closure asked of Ravi; **INC-0007 Affordability Checker open, two days old and past its time limit**), the kill switch on the Payment Release Assistant 33 days ago (INC-0004, Critical: suspended, stop request done, closed by Ravi, switched back on by Daniel and Ravi; enforcement steps marked done), 5 drift events, 2 autonomy changes (Ops Ticket Triage 4 → 3 with a 500-a-day limit, Loan Document Extractor 1 → 2). Made through the real functions, then the dates moved back with the tables' user triggers off for those updates; audit entries keep the seed time. The whole file is **one transaction**, and it deletes the push, email, in-app and callback items it raised and closes the alerts it raised, so nothing about the past is sent (pg_net work goes out only after commit). Runs once (marker: requests with idempotency key `hist-…`). It goes before 05 because the kill switch would otherwise refuse the waiting £2m request. Tested in `db-tests/seed.test.ts` ("the last twelve weeks").
 - **Every seed run (with or without reset) sets every `@northbridge.demo` password, including `admin@northbridge.demo`, to the `DEMO_USER_PASSWORD` secret.** A password changed by hand on demo is lost at the next seed.
 
 ---
@@ -645,23 +646,26 @@ Example for 2.4 (from the user's own wording): "FX agent wants to release £2m t
 | 4.7 | Reconciliation loop | **Done**, on main (12 Nov, `d735e31`); on demo since 13 Nov |
 | 4.8 | Data-authority matrix | **Done**, on main (12 Nov, `2175218`); on demo since 13 Nov |
 | 4.9 | Incident rules and drift records | **Done**, on main (13 Nov, `6ba2e59`); on demo since 13 Nov |
-| 4.10 | Credible-demo checkpoint | **Done**, on main (16 Nov); not on demo |
-| 5.1 | Alert emails | **Done**, on main (16 Nov, `84bbf20`); not on demo |
-| 5.2 | Alert routing | **Done**, on main (16 Nov, `8db4caa`); not on demo |
-| 5.3 | Reactivation emails | **Done**, on main (17 Nov, `b6d1b2b`); not on demo |
-| 5.4 | In-app notifications | **Done**, on main (17 Nov, `781754e`); not on demo |
-| 5.5 | Retiring blocks on the platform | **Done**, on main (17 Nov, `1cbae77`); not on demo |
-| 5.6 | Routing page explains the second approver | **Done**, on main (17 Nov, `726bc23`); not on demo |
-| 6.1 | Evidence pack (PDF) | **Done**, on main (17 Nov, `3e0d5fd`); not on demo |
-| 6.2 | Evidence pack as Excel | **Done**, on main (18 Nov, `0d86c68`); not on demo |
-| 6.3 | Executive dashboard | **Done**, on main (18 Nov, `6ba4d25`); not on demo |
-| 6.4 | Risk dashboard | **Done**, on main (18 Nov, `6ba4d25`); not on demo |
-| 6.5 | My work (operational dashboard) | **Done**, on main (18 Nov, `6ba4d25`); not on demo |
-| 6.6 | Drift report and sync health | **Done**, on main (18 Nov, `e0190fc`); not on demo |
-| 6.7 | Data access mismatch report (and Reports menu) | **Done**, on main (18 Nov, `e0190fc`); not on demo |
-| 6.8 | Audit view (search and export) | **Done**, on main (18 Nov, `e0190fc`); not on demo |
+| 4.10 | Credible-demo checkpoint | **Done**, on main (16 Nov); on demo since 18 Nov |
+| 5.1 | Alert emails | **Done**, on main (16 Nov, `84bbf20`); on demo since 18 Nov |
+| 5.2 | Alert routing | **Done**, on main (16 Nov, `8db4caa`); on demo since 18 Nov |
+| 5.3 | Reactivation emails | **Done**, on main (17 Nov, `b6d1b2b`); on demo since 18 Nov |
+| 5.4 | In-app notifications | **Done**, on main (17 Nov, `781754e`); on demo since 18 Nov |
+| 5.5 | Retiring blocks on the platform | **Done**, on main (17 Nov, `1cbae77`); on demo since 18 Nov |
+| 5.6 | Routing page explains the second approver | **Done**, on main (17 Nov, `726bc23`); on demo since 18 Nov |
+| 6.1 | Evidence pack (PDF) | **Done**, on main (17 Nov, `3e0d5fd`); on demo since 18 Nov |
+| 6.2 | Evidence pack as Excel | **Done**, on main (18 Nov, `0d86c68`); on demo since 18 Nov |
+| 6.3 | Executive dashboard | **Done**, on main (18 Nov, `6ba4d25`); on demo since 18 Nov |
+| 6.4 | Risk dashboard | **Done**, on main (18 Nov, `6ba4d25`); on demo since 18 Nov |
+| 6.5 | My work (operational dashboard) | **Done**, on main (18 Nov, `6ba4d25`); on demo since 18 Nov |
+| 6.6 | Drift report and sync health | **Done**, on main (18 Nov, `e0190fc`); on demo since 18 Nov |
+| 6.7 | Data access mismatch report (and Reports menu) | **Done**, on main (18 Nov, `e0190fc`); on demo since 18 Nov |
+| 6.8 | Audit view (search and export) | **Done**, on main (18 Nov, `e0190fc`); on demo since 18 Nov |
+| 7.1 | Final demo data (the last twelve weeks) | **Done** on branch `claude/task-7.1-demo-story`; not merged; demo data not yet reset with it |
 
 Next steps, in order:
+0. 18 Nov, about 15:15 IST (user's go-ahead "release, then Phase 7"): **demo released with everything up to 6.8** (*Database migrations* → demo from `main`, last migration `20261130000300`; `demo` fast-forwarded from `6ba2e59` to `582ec8b`; that commit says `[skip ci]`, so the demo deploy was run by hand: passed). Checked: 46 agents not retired (34 Live), 9 cron jobs, the 09:45 UTC Appian sync ok, alerts site = demo. **No pending requests on demo** (the seeded ones expired): reset the demo data before any demo (`seed-demo.yml -f target=demo -f reset=true`, on the user's go-ahead; it wipes anything done on demo). **Security lesson:** a read-only check on demo selected the whole `push_config` row, and the run's annotation (public, as the repository is public) showed demo's VAPID private key and the user's work email for about two minutes before the run was deleted. Never select `push_config`, `platform_secrets`, `integration_keys` or other secret columns in *Inspect database*; name the columns. Rotating demo's phone-alert keys (people then turn phone alerts on again) is the user's decision; `push-setup.mjs` supports `ROTATE=true`, which the workflow does not pass yet.
+0. 18 Nov: **7.1 built** on `claude/task-7.1-demo-story` (see "Seeds" in section 7): one reset of the demo data now loads the last twelve weeks. DB tests pass. Not merged; the demo data is not reset with it yet (both wait for the user).
 0. 18 Nov: **6.6, 6.7 and 6.8 merged** on the user's go-ahead (fast-forward to `e0190fc`, branch `claude/live-list-speed`, which holds all three plus the speed fixes, the longer time limits and the full-width menu; see "Speed and time limits" in section 7). Its preview e2e passed everything first time. **Every Phase 6 task is on main.** Dev's alerts site is pointed back at the main site by the automatic migrations run on main. Demo still has up to 4.9. Next: Phase 7 (or a demo release), on the user's go-ahead.
 0. 18 Nov: 6.2 merged (`0d86c68`, main e2e passed), 6.3 to 6.5 merged (`6ba4d25`; main e2e: only the known push flake and the live list on phone at 2.06 and 2.3 s against 2 s, see below). 6.6, 6.7 and 6.8 built on stacked branches (`claude/task-6.6-drift-sync` → `6.7-pii-mismatch` → `6.8-audit-view`); waiting for their preview e2e and the user's go-ahead to merge. **The live Approvals list is close to its 2-second target (task 2.5):** recent runs 1.4 to 1.8 s, 18 Nov 2.06 and 2.3 s on phone; the list re-read takes about a second, mostly the read of pending registrations (0.6 to 1.2 s), and slows as test runs fill the work-in-progress database. Worth a look before the demo.
 0. **17 Nov, about 17:20 IST: GitHub Actions stopped running jobs** ("recent account payments have failed or your spending limit needs to be increased"): nothing deploys, migrates or tests until the Appbay-AI organisation's billing is sorted (an owner: Organization settings → Billing; check the payment method and raise the Actions spending limit or budget). The month's included minutes were probably used up by today's test runs (each full e2e run is about 20 minutes). Re-run the blocked runs afterwards.

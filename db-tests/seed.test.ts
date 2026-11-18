@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { PGlite } from '@electric-sql/pglite'
-import { createDb, createUser } from './harness'
+import { asUser, createDb, createUser } from './harness'
 
 const seedFile = (f: string) => readFileSync(path.resolve(__dirname, '../supabase/seed', f), 'utf8')
 // psql runs these in one session; so does the test.
-const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql', '05_action_requests.sql', '06_agent_logs.sql'].map(seedFile).join('\n')
+const SEED = ['00_helpers.sql', '02_demo_bank.sql', '03_more_agents.sql', '04_routing.sql', '07_history.sql', '05_action_requests.sql', '06_agent_logs.sql'].map(seedFile).join('\n')
 const PERSONAS = ['admin', 'priya.sharma', 'ravi.menon', 'daniel.okafor', 'sara.haddad', 'omar.farouk',
   'james.whitfield', 'aisha.rahman', 'tom.becker', 'lucy.grant', 'mei.lin']
 
@@ -43,7 +43,7 @@ describe('Northbridge demo bank seed', () => {
              round(extract(epoch from r.due_at - now()) / 86400)::int days_left,
              (select count(*)::int from public.agent_api_keys k where k.agent_id = r.agent_id and k.revoked_at is null) live_keys
       from public.action_requests r join public.profiles p on p.id = r.assigned_to join public.agents a on a.id = r.agent_id
-      order by a.name, r.description`)
+      where r.status = 'pending' order by a.name, r.description`)
     expect(rows).toEqual([
       ...['Bristol', 'Leeds', 'Manchester'].map(() => ({ agent: 'Branch Rota Planner', status: 'pending', amount: null,
         assignee: 'omar.farouk@northbridge.demo', required: 1, days_left: 3, live_keys: 0 })),
@@ -95,6 +95,91 @@ describe('Northbridge demo bank seed', () => {
       select r.status::text from public.agent_registrations r join public.agents a on a.id = r.agent_id
       where a.name = 'Mortgage Pre-qualifier'`)
     expect(sentBack[0].status).toBe('sent_back')
+  })
+
+  // Task 7.1 (final demo data): twelve weeks of history for the Phase 4 to 6 screens.
+  describe('the last twelve weeks', () => {
+    type Row = Record<string, unknown>
+    const as = async <T = Row>(email: string, sql: string) => {
+      const id = (await q<{ id: string }>(`select id from public.profiles where email = '${email}'`))[0].id
+      return asUser(db, id, async (tx) => (await tx.query<{ r: T }>(sql)).rows[0].r)
+    }
+
+    it('agents asked every week; people decided, a few said no; policy refused observe-only agents that tried to act', async () => {
+      const rows = await q<{ status: string; source: string | null; n: number }>(`
+        select status::text, decision_source source, count(*)::int n from public.action_requests
+         where idempotency_key like 'hist-%' group by 1, 2 order by 1, 2`)
+      expect(rows).toEqual([
+        { status: 'approved', source: 'human', n: 55 }, { status: 'approved', source: 'policy', n: 12 },
+        { status: 'refused', source: 'policy', n: 5 }, { status: 'rejected', source: 'human', n: 5 }])
+      const span = (await q<{ oldest: number; newest: number; future: number; undated: number }>(`
+        select max(current_date - requested_at::date) oldest, min(current_date - requested_at::date) newest,
+               count(*) filter (where decided_at > now() or requested_at > now())::int future,
+               count(*) filter (where decided_at < requested_at)::int undated
+          from public.action_requests where idempotency_key like 'hist-%'`))[0]
+      expect(span).toEqual({ oldest: 82, newest: 1, future: 0, undated: 0 })
+      const refused = await q<{ name: string }>(`select distinct a.name from public.action_requests r join public.agents a on a.id = r.agent_id
+        where r.status = 'refused' order by 1`)
+      expect(refused.map((r) => r.name)).toEqual(['Cash Forecast Agent', 'Sanctions Pre-screener'])
+    })
+
+    it('the time to decide falls week by week on the executive dashboard', async () => {
+      const d = await as<{ approval_time_by_week: { decided: number; avg_minutes: number | null }[] }>('priya.sharma@northbridge.demo', `select public.executive_dashboard() r`)
+      const weeks = d.approval_time_by_week.filter((w) => w.decided > 0)
+      expect(weeks.length).toBeGreaterThanOrEqual(7)
+      expect(weeks[0].avg_minutes!).toBeGreaterThan(3 * weeks[weeks.length - 1].avg_minutes!)
+    })
+
+    it('seven incidents: five closed, one waiting for Ravi to approve its closure, one open and past its time limit', async () => {
+      const inc = await q<{ agent: string; status: string; severity: string; days: number; overdue: boolean; closer: string | null }>(`
+        select a.name agent, i.status, i.severity::text, current_date - i.opened_at::date days, i.due_at < now() and i.status = 'open' overdue,
+               (select email from public.profiles where id = coalesce(i.closed_by, i.closure_approver_id)) closer
+          from public.incidents i join public.agents a on a.id = i.agent_id order by i.opened_at`)
+      expect(inc).toEqual([
+        { agent: 'Chat Refund Agent', status: 'closed', severity: 'high', days: 74, overdue: false, closer: 'omar.farouk@northbridge.demo' },
+        { agent: 'Collections Outreach Agent', status: 'closed', severity: 'medium', days: 61, overdue: false, closer: 'sara.haddad@northbridge.demo' },
+        { agent: 'Reconciliation Exceptions Agent', status: 'closed', severity: 'high', days: 47, overdue: false, closer: 'omar.farouk@northbridge.demo' },
+        { agent: 'Payment Release Assistant', status: 'closed', severity: 'critical', days: 33, overdue: false, closer: 'ravi.menon@northbridge.demo' },
+        { agent: 'Chat Refund Agent', status: 'closed', severity: 'low', days: 19, overdue: false, closer: 'omar.farouk@northbridge.demo' },
+        { agent: 'Complaint Classifier', status: 'resolved', severity: 'medium', days: 9, overdue: false, closer: 'ravi.menon@northbridge.demo' },
+        { agent: 'Affordability Checker', status: 'open', severity: 'high', days: 2, overdue: true, closer: null },
+      ])
+      // Each case's notes run in order from opening to its last step.
+      expect((await q<{ n: number }>(`select count(*)::int n from public.incident_updates u join public.incidents i on i.id = u.incident_id
+        where u.created_at < i.opened_at or u.created_at > coalesce(i.closed_at, i.closure_requested_at, now())`))[0].n).toBe(0)
+    })
+
+    it('the kill switch five weeks ago: suspended, stopped, the incident closed, switched back on by two approvers', async () => {
+      const s = (await q<{ status: string; days: number; reason: string }>(`select s.status, current_date - s.suspended_at::date days, s.reason
+        from public.agent_suspensions s join public.agents a on a.id = s.agent_id where a.name = 'Payment Release Assistant'`))
+      expect(s).toEqual([{ status: 'done', days: 33, reason: expect.stringMatching(/^Critical incident INC-0004: Same supplier invoice paid twice$/) }])
+      const steps = await q<{ action: string; status: string; detail: string }>(`select e.action, e.status, e.detail from public.agent_enforcements e
+        join public.agents a on a.id = e.agent_id where a.name = 'Payment Release Assistant' order by e.id`)
+      expect(steps).toEqual([
+        { action: 'stop', status: 'done', detail: 'Stop request accepted by the agent (HTTP 200)' },
+        { action: 'restore', status: 'done', detail: 'Start request accepted by the agent (HTTP 200)' }])
+      const r = await q<{ status: string; approvers: string }>(`select r.status, (select string_agg(p.email, ',' order by x.approved_at) from public.agent_reactivation_approvals x
+        join public.profiles p on p.id = x.approver_id where x.reactivation_id = r.id) approvers from public.agent_reactivations r`)
+      expect(r).toEqual([{ status: 'approved', approvers: 'daniel.okafor@northbridge.demo,ravi.menon@northbridge.demo' }])
+      expect((await q<{ status: string }>(`select status::text from public.agents where name = 'Payment Release Assistant'`))[0].status).toBe('live')
+    })
+
+    it('fills the drift report, the risk view and the evidence pack', async () => {
+      expect((await q<{ n: number }>(`select count(*)::int n from public.drift_events`))[0].n).toBe(5)
+      const risk = await as<{ totals: Record<string, number> }>('priya.sharma@northbridge.demo', `select public.risk_dashboard() r`)
+      expect(risk.totals).toMatchObject({ refused: 5, incident: 7, drift: 5 })
+      const pack = await as<Record<string, { total: number }>>('mei.lin@northbridge.demo', `select public.evidence_pack(current_date - 90, current_date) r`)
+      expect(Object.fromEntries(['incidents', 'autonomy', 'suspensions', 'reactivations', 'enforcement', 'drift'].map((k) => [k, pack[k].total])))
+        .toEqual({ incidents: 7, autonomy: 2, suspensions: 1, reactivations: 1, enforcement: 2, drift: 5 })
+    })
+
+    it('nobody is emailed or alerted about the past: only today\'s waiting requests are in the outboxes', async () => {
+      const out = (await q<{ push: number; email: number; notes: number }>(`select
+        (select count(*)::int from public.push_outbox where request_id is null or request_id not in (select id from public.action_requests where status = 'pending')) push,
+        (select count(*)::int from public.email_outbox where request_id is null or request_id not in (select id from public.action_requests where status = 'pending')) email,
+        (select count(*)::int from public.notifications where created_at < now() - interval '1 hour') notes`))[0]
+      expect(out).toEqual({ push: 0, email: 0, notes: 0 })
+    })
   })
 
   it('names the real personas in the audit trail, and the chain verifies', async () => {
