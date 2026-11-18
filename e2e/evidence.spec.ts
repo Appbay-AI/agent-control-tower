@@ -38,7 +38,16 @@ test('an auditor picks a date range and downloads the evidence pack as a PDF, wi
   await page.getByRole('button', { name: 'Last 30 days' }).click()
 
   const started = Date.now()
-  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.getByRole('button', { name: 'Download PDF' }).click()])
+  // If no file comes, say why: the error on the page, or how far it got (pack read from the database, PDF made).
+  const why = async () => {
+    const marks = await page.evaluate(() => Object.fromEntries(['act:evidence-start', 'act:evidence-data', 'act:evidence-file']
+      .map((n) => [n.slice(13), Math.round(performance.getEntriesByName(n).at(-1)?.startTime ?? -1)])))
+    const shown = await page.getByRole('alert').allTextContents().catch(() => [])
+    return `no download after ${Date.now() - started} ms; on the page: ${shown.join(' / ') || 'no error'}; marks (ms since page load): ${JSON.stringify(marks)}`
+  }
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 90_000 }).catch(async (e) => { throw new Error(`${await why()} (${(e as Error).message.split('\n')[0]})`) }),
+    page.getByRole('button', { name: 'Download PDF' }).click()])
   const took = Date.now() - started
   expect(download.suggestedFilename()).toMatch(/^evidence-pack-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.pdf$/)
   const made = page.getByTestId('evidence-made')

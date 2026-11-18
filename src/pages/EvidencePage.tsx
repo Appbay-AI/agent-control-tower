@@ -48,9 +48,13 @@ export function EvidencePage() {
     try {
       // The same dates as the pack just made: the same pack, so the PDF and the Excel file match.
       const same = made && made.period.from === from && made.period.to === to
+      performance.mark('act:evidence-start')
       const pack = same ? made : await api.evidencePack(from, to)
+      // Where the time goes (the browser test reads these when a download is slow).
+      performance.mark('act:evidence-data')
       if (format === 'pdf') await downloadEvidencePdf(pack)
       else await downloadEvidenceExcel(pack)
+      performance.mark('act:evidence-file')
       setMade(pack)
       const name = format === 'pdf' ? evidenceFileName(pack) : evidenceExcelName(pack)
       setFiles((f) => (same ? [...f.filter((x) => x !== name), name] : [name]))
