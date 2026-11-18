@@ -66,7 +66,7 @@ jobs:
           agent=$!
           # Wait for its request, then approve it as the two people the Control Tower asks.
           for i in $(seq 1 30); do
-            req=$(psql "$SUPABASE_DB_URL" -tA -c "select id from public.action_requests r join public.agents a on a.id = r.agent_id
+            req=$(psql "$SUPABASE_DB_URL" -tA -c "select r.id from public.action_requests r join public.agents a on a.id = r.agent_id
                   where a.name = 'Payment Release Assistant' and r.status = 'pending' and r.idempotency_key like 'pay-HS-48817-%'
                     and r.details ->> 'test' = 'true' order by r.requested_at desc limit 1")
             [ -n "$req" ] && break; sleep 1
