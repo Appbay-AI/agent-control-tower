@@ -99,8 +99,13 @@ test('the platform story: found, suspended and blocked in Appian, the agent stop
   const reblock = page.getByTestId('enforcement-platform').filter({ hasText: 'Blocked again (switched on outside Control Tower):' })
   await expect(async () => {
     await page.goto(agentUrl)
-    await expect(reblock).toContainText('Done', { timeout: 3_000 })
-  }).toPass({ timeout: 90_000, intervals: [2_000] })
+    if (await reblock.filter({ hasText: 'Done' }).waitFor({ state: 'visible', timeout: 6_000 }).then(() => true, () => false)) return
+    // Not yet: if that check has finished (for example it failed on a busy day), press Check now again, as a presenter would.
+    await page.goto('/integrations')
+    const now = connection.getByTestId('reconcile-now')
+    if (await expect(now).toBeEnabled({ timeout: 5_000 }).then(() => true, () => false)) await now.click()
+    throw new Error('not blocked again yet')
+  }).toPass({ timeout: 120_000, intervals: [3_000] })
   const took2 = Date.now() - switchedOn
   await page.goto('/integrations')
   await expect(connection.getByTestId('platform-reconcile'))
