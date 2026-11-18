@@ -99,9 +99,10 @@ export function RoutingPage() {
           <li className="text-muted-foreground p-4 text-sm">No rules yet. Every waiting request goes to the department's approvers.</li>
         )}
         {data.rules.map((r, i) => (
-          <li key={r.id} className={`flex flex-wrap items-center gap-3 p-3 ${r.is_active ? '' : 'opacity-60'}`}>
+          <li key={r.id} className={`flex flex-wrap items-start gap-3 p-3 ${r.is_active ? '' : 'opacity-60'}`}>
             <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium">{i + 1}</span>
-            <div className="min-w-0 flex-1">
+            {/* At least 16rem wide, so on a phone the buttons go on their own line instead of squeezing the rule. */}
+            <div className="min-w-0 flex-1 basis-64">
               <div className="font-medium">{r.name}{!r.is_active && <span className="text-muted-foreground ml-2 text-xs">(off)</span>}</div>
               <div className="text-muted-foreground text-sm">{describeConditions(r, data.names)}</div>
               {(() => {
@@ -118,7 +119,7 @@ export function RoutingPage() {
               <div className="text-muted-foreground flex items-center gap-1 text-xs"><Clock className="size-3" aria-hidden /> {describeOverdue(r, data.names.people)}</div>
             </div>
             {isAdmin && (
-              <div className="flex gap-1">
+              <div className="ml-auto flex gap-1">
                 <Button size="icon" variant="ghost" aria-label={`Move ${r.name} up`} disabled={busy || i === 0}
                   onClick={() => run(() => api.setRulePriorities(reorder(data.rules, r.id, -1)))}><ArrowUp /></Button>
                 <Button size="icon" variant="ghost" aria-label={`Move ${r.name} down`} disabled={busy || i === data.rules.length - 1}

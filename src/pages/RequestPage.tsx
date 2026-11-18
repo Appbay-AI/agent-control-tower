@@ -67,7 +67,7 @@ export function RequestPage() {
           <span>{r.request_code}</span>
           <RequestStatusBadge status={r.status} />
           {r.urgency !== 'normal' && <UrgencyBadge urgency={r.urgency} />}
-          <span>· asked {formatDateTime(r.requested_at)}</span>
+          <span>Asked {formatDateTime(r.requested_at)}</span>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight" data-testid="request-headline">{headline(r, a.name)}</h1>
         {amount && <div className="text-3xl font-semibold tabular-nums">{amount}</div>}

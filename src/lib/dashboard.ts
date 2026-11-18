@@ -52,3 +52,10 @@ export function coveragePercent(c: ExecutiveDashboard['coverage']): number | nul
 }
 
 export const TIER_LABEL: Record<Tier, string> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' }
+
+/** Task 7.4: the approval-time chart's unit. Hours when any week averages two hours or more, else minutes (a week of
+ *  5-minute decisions in hours would show every tick as "0 h"). */
+export function approvalTimeScale(weeks: { avg_minutes: number | null }[]): { unit: 'min' | 'h'; per: number } {
+  const most = Math.max(0, ...weeks.map((w) => w.avg_minutes ?? 0))
+  return most >= 120 ? { unit: 'h', per: 60 } : { unit: 'min', per: 1 }
+}

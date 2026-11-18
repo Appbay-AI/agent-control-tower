@@ -77,15 +77,15 @@ function DriftTab() {
               <div className="text-sm font-medium">Changes outside the Control Tower</div>
               <div className="text-muted-foreground text-xs">{weekLabel(data.period.from)} to {weekLabel(data.period.to)}</div>
             </div>
-            <div className="bg-card rounded-lg border p-3 text-sm">
+            <div className="bg-card min-w-0 rounded-lg border p-3 text-sm">
               <div className="mb-1 font-medium">Who made them</div>
               {data.by_actor.length === 0 ? <div className="text-muted-foreground text-xs">Nobody</div>
-                : data.by_actor.slice(0, 4).map((x) => <div key={x.actor} className="flex justify-between gap-2 text-xs"><span className="truncate">{x.actor}</span><span className="tabular-nums">{x.changes}</span></div>)}
+                : data.by_actor.slice(0, 4).map((x) => <div key={x.actor} className="flex justify-between gap-2 text-xs"><span className="min-w-0 truncate" title={x.actor}>{x.actor}</span><span className="tabular-nums">{x.changes}</span></div>)}
             </div>
-            <div className="bg-card rounded-lg border p-3 text-sm">
+            <div className="bg-card min-w-0 rounded-lg border p-3 text-sm">
               <div className="mb-1 font-medium">Agents changed most</div>
               {data.by_agent.length === 0 ? <div className="text-muted-foreground text-xs">None</div>
-                : data.by_agent.slice(0, 4).map((x) => <div key={x.agent_id} className="flex justify-between gap-2 text-xs"><Link to={`/agents/${x.agent_id}`} className="truncate hover:underline">{x.agent}</Link><span className="tabular-nums">{x.changes}</span></div>)}
+                : data.by_agent.slice(0, 4).map((x) => <div key={x.agent_id} className="flex justify-between gap-2 text-xs"><Link to={`/agents/${x.agent_id}`} className="min-w-0 truncate hover:underline" title={x.agent}>{x.agent}</Link><span className="tabular-nums">{x.changes}</span></div>)}
             </div>
           </section>
 

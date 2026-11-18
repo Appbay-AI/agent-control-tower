@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coveragePercent, duration, waitingFor, waitingTotal, weekLabel } from '@/lib/dashboard'
+import { approvalTimeScale, coveragePercent, duration, waitingFor, waitingTotal, weekLabel } from '@/lib/dashboard'
 
 describe('executive dashboard wording (task 6.3)', () => {
   it('reads durations in plain words', () => {
@@ -13,5 +13,13 @@ describe('executive dashboard wording (task 6.3)', () => {
     expect(waitingTotal({ registrations: 1, requests: 2, reactivations: 3, closures: 4, oldest: null })).toBe(10)
     expect(coveragePercent({ listed: 8, governed: 5, awaiting: 1, retired: 1, unlinked: 1 })).toBe(71)
     expect(coveragePercent({ listed: 0, governed: 0, awaiting: 0, retired: 0, unlinked: 0 })).toBeNull()
+  })
+})
+
+describe('approvalTimeScale (task 7.4)', () => {
+  it('uses minutes for short decisions and hours from two hours', () => {
+    expect(approvalTimeScale([{ avg_minutes: 3 }, { avg_minutes: null }, { avg_minutes: 45 }])).toEqual({ unit: 'min', per: 1 })
+    expect(approvalTimeScale([{ avg_minutes: 30 }, { avg_minutes: 200 }])).toEqual({ unit: 'h', per: 60 })
+    expect(approvalTimeScale([])).toEqual({ unit: 'min', per: 1 })
   })
 })

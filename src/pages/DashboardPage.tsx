@@ -10,7 +10,7 @@ import { ErrorBox, LoadingRows, PageHeader } from '@/components/ui-bits'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { coveragePercent, duration, TIER_LABEL, waitingFor, waitingTotal, weekLabel, type ExecutiveDashboard } from '@/lib/dashboard'
+import { approvalTimeScale, coveragePercent, duration, TIER_LABEL, waitingFor, waitingTotal, weekLabel, type ExecutiveDashboard } from '@/lib/dashboard'
 import { when } from '@/lib/format'
 import { useAsync } from '@/lib/useAsync'
 
@@ -31,6 +31,7 @@ export function DashboardPage() {
 
 export function Dashboard({ d, onRefresh, busy, canOpenApprovals }: { d: ExecutiveDashboard; onRefresh: () => void; busy: boolean; canOpenApprovals: boolean }) {
   const waiting = waitingTotal(d.pending)
+  const timeScale = approvalTimeScale(d.approval_time_by_week)
   const oldest = waitingFor(d.pending.oldest)
   const openIncidents = d.incidents.open + d.incidents.contained
   const cover = coveragePercent(d.coverage)
@@ -103,13 +104,13 @@ export function Dashboard({ d, onRefresh, busy, canOpenApprovals }: { d: Executi
         <Panel title="Time to approve, week by week" sub="Average time a person took to decide an agent's request (8 weeks)."
           table={[['Week of', 'Decided', 'Average'], ...d.approval_time_by_week.map((w) => [weekLabel(w.week), w.decided, duration(w.avg_minutes)])]}>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={d.approval_time_by_week.map((w) => ({ ...w, label: weekLabel(w.week), hours: w.avg_minutes == null ? null : w.avg_minutes / 60 }))}
+            <LineChart data={d.approval_time_by_week.map((w) => ({ ...w, label: weekLabel(w.week), value: w.avg_minutes == null ? null : w.avg_minutes / timeScale.per }))}
               margin={{ top: 12, right: 16, left: -16, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--viz-grid)" />
               <XAxis dataKey="label" {...AXIS} />
-              <YAxis {...AXIS} axisLine={false} tickFormatter={(h: number) => `${Math.round(h * 10) / 10} h`} />
+              <YAxis {...AXIS} axisLine={false} allowDecimals={timeScale.unit === 'h'} tickFormatter={(v: number) => `${Math.round(v * 10) / 10} ${timeScale.unit}`} />
               <Tooltip cursor={{ stroke: 'var(--viz-axis)' }} content={<Tip render={(p) => (p.decided ? `${duration(p.avg_minutes)} on average · ${p.decided} decided` : 'No decisions')} />} />
-              <Line type="monotone" dataKey="hours" name="Average" stroke="var(--viz-series)" strokeWidth={2}
+              <Line type="monotone" dataKey="value" name="Average" stroke="var(--viz-series)" strokeWidth={2}
                 dot={{ r: 4, fill: 'var(--viz-series)', stroke: 'var(--card)', strokeWidth: 2 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
