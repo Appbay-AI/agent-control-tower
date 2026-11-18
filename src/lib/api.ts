@@ -2,6 +2,7 @@ import type { ExecutiveDashboard } from '@/lib/dashboard'
 import type { EvidencePack } from '@/lib/evidence'
 import type { RiskDashboard } from '@/lib/risk'
 import type { MyWork } from '@/lib/myWork'
+import type { DriftReport, SyncHealth } from '@/lib/driftSync'
 import { supabase } from '@/lib/supabase'
 import type {
   AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview, AppNotification,
@@ -305,6 +306,9 @@ export const api = {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
   },
   deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  /** Task 6.6: the drift report (whole days, UTC) and sync health (admins, executives, auditors). */
+  driftReport: async (from: string, to: string) => check(await db().rpc('drift_report', { p_from: from, p_to: to })) as DriftReport,
+  syncHealth: async (days: number) => check(await db().rpc('sync_health', { p_days: days })) as SyncHealth,
   /** Task 6.5: my work (the signed-in person's own decisions, incidents and agents). */
   myWork: async () => check(await db().rpc('my_dashboard')) as MyWork,
   /** Task 6.4: every figure on the risk dashboard, in one call (admins, executives, auditors). */

@@ -21,6 +21,7 @@ import { RoutingPage } from '@/pages/RoutingPage'
 import { EvidencePage } from '@/pages/EvidencePage'
 import { MyWorkPage } from '@/pages/MyWorkPage'
 // Task 6.3: the dashboard (and its chart library) loads only when opened.
+const DriftSyncPage = lazy(() => import('@/pages/DriftSyncPage').then((m) => ({ default: m.DriftSyncPage })))
 const RiskPage = lazy(() => import('@/pages/RiskPage').then((m) => ({ default: m.RiskPage })))
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 import { UserFormPage } from '@/pages/UserFormPage'
@@ -82,6 +83,7 @@ export function AppRoutes() {
         <Route path="/my-work" element={<MyWorkPage />} />
         <Route path="/dashboard" element={<RequireOversight><Suspense fallback={<LoadingRows rows={6} />}><DashboardPage /></Suspense></RequireOversight>} />
         <Route path="/risk" element={<RequireOversight><Suspense fallback={<LoadingRows rows={6} />}><RiskPage /></Suspense></RequireOversight>} />
+        <Route path="/drift-sync" element={<RequireOversight><Suspense fallback={<LoadingRows rows={6} />}><DriftSyncPage /></Suspense></RequireOversight>} />
         <Route path="/evidence" element={<RequireOversight><EvidencePage /></RequireOversight>} />
         <Route path="/demo/agent" element={<RequireAdmin><AgentConsolePage /></RequireAdmin>} />
         <Route path="/users" element={<RequireAdmin><UsersPage /></RequireAdmin>} />
