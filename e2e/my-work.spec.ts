@@ -50,7 +50,8 @@ test('each person\'s My work shows only their own decisions, incidents and agent
   expect(jamesAgents.length).toBeGreaterThan(0)
   for (const href of jamesAgents.slice(0, 3)) {
     await james.goto(href)
-    await expect(james.getByText(/James Whitfield/).first()).toBeVisible()
+    // The name in the account menu is hidden on phones; the owner shown on the agent's page is what counts.
+    await expect(james.getByText(/James Whitfield/).filter({ visible: true }).first()).toBeVisible()
   }
   await james.goto('/my-work')
   const jamesRequests = await hrefs(james, '[data-testid="waiting"] a[href^="/approvals/requests/"]')
