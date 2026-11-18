@@ -1,6 +1,6 @@
-// Reports (tasks 6.1, 6.3, 6.4, 6.6, 6.7): one menu entry for the oversight reports, so the menu stays on one line.
+// Reports (tasks 6.1, 6.3, 6.4, 6.6, 6.7, 6.8): one menu entry for the oversight reports, so the menu stays on one line.
 // Each report keeps its own address.
-import { FileCheck2, Flame, GitCompareArrows, LayoutDashboard, UserX, type LucideIcon } from 'lucide-react'
+import { FileCheck2, Flame, GitCompareArrows, History, LayoutDashboard, UserX, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/ui-bits'
 
@@ -13,6 +13,8 @@ export const REPORTS: { to: string; title: string; about: string; icon: LucideIc
     about: 'Every change made to an agent outside the Control Tower, and how well each platform is being fetched.' },
   { to: '/data-access', title: 'Data access mismatches', icon: UserX,
     about: 'People who can use an agent that handles data their role is not authorised for.' },
+  { to: '/audit', title: 'Audit trail', icon: History,
+    about: 'Search every recorded change by words, date, person, agent or record, open any entry, and export what you find.' },
   { to: '/evidence', title: 'Evidence pack', icon: FileCheck2,
     about: 'Everything an auditor needs for a period, as a PDF or an Excel file.' },
 ]

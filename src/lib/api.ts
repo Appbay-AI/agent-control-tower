@@ -4,6 +4,7 @@ import type { RiskDashboard } from '@/lib/risk'
 import type { MyWork } from '@/lib/myWork'
 import type { DriftReport, SyncHealth } from '@/lib/driftSync'
 import type { MismatchReport } from '@/lib/piiMismatch'
+import type { AuditFilters, AuditPage } from '@/lib/audit'
 import { supabase } from '@/lib/supabase'
 import type {
   AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview, AppNotification,
@@ -307,6 +308,14 @@ export const api = {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
   },
   deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  /** Task 6.8: search the audit trail (what the signed-in person may see), a page at a time, or everything found for an export. */
+  auditSearch: async (f: AuditFilters, beforeSeq: number | null, full = false) => check(await db().rpc('audit_search', {
+    p_query: f.query ?? null, p_from: f.from ?? null, p_to: f.to ?? null, p_actor_type: f.actorType ?? null, p_actor: null,
+    p_agent: f.agent ?? null, p_entity: f.entity ?? null, p_action: f.action ?? null, p_before_seq: beforeSeq,
+    p_limit: full ? 10000 : 100, p_full: full })) as AuditPage,
+  auditRecordExport: async (f: AuditFilters, rows: number, format: 'csv' | 'json') =>
+    check(await db().rpc('audit_record_export', { p_filters: f, p_rows: rows, p_format: format })) as number,
+  auditFacets: async () => check(await db().rpc('audit_facets')) as { entities: string[]; actions: string[] },
   /** Task 6.7: people with access to agents' data their role is not authorised for (admins, executives, auditors). */
   piiMismatches: async (personalOnly: boolean) => check(await db().rpc('pii_mismatch_report', { p_personal_only: personalOnly })) as MismatchReport,
   /** Task 6.6: the drift report (whole days, UTC) and sync health (admins, executives, auditors). */
