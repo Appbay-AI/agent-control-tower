@@ -132,21 +132,22 @@ test('the platform story: found, suspended and blocked in Appian, the agent stop
   }).toPass({ timeout: 60_000 })
   story.push('drift report: switched on outside by maria.lopez, blocked again')
 
-  // 7. It comes back only through approval. Every open incident must be Contained first.
+  // 7. It comes back only through approval. Both incidents of this story (the suspension's and the Critical one from
+  //    the re-block) must be Contained first.
   await page.goto(agentUrl)
   await expect(page.getByTestId('ask-reactivation')).toBeDisabled()
-  for (let i = 0; i < 5; i++) {
-    const open = page.getByTestId('incident-row').filter({ hasText: /Open/ }).filter({ hasNotText: /Contained|Resolved|Closed/ }).first()
-    if (!(await open.isVisible().catch(() => false))) break
-    await open.getByTestId('incident-link').click()
+  for (const title of [reason, `${CODE} switched back on outside Control Tower`]) {
+    await page.goto(agentUrl)
+    const row = page.getByTestId('incident-row').filter({ hasText: title }).filter({ has: page.getByText('Open', { exact: true }) }).first()
+    await row.getByTestId('incident-link').click()
     await page.getByLabel('Containment').fill('Agent suspended and blocked in Appian')
     await page.getByTestId('save-case').click()
     await expect(page.getByTestId('incident-log')).toContainText('Updated Containment')
     await page.getByTestId('mark-contained').click()
     await page.getByTestId('confirm-action').click()
     await expect(page.getByRole('button', { name: 'Back to open' })).toBeVisible()
-    await page.goto(agentUrl)
   }
+  await page.goto(agentUrl)
 
   // Task 4.9: the test agent has had incidents on earlier runs; repeats force a review before it can be asked back on.
   await expect(page.getByTestId('ask-reactivation')).toBeVisible()
