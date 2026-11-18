@@ -37,6 +37,9 @@ async function agentMayAct(request: APIRequestContext): Promise<{ http: number; 
   return { http: r.status(), mayAct: r.status() === 200 && body.may_act === true }
 }
 
+// One long story that changes the agent as it goes: a retry would start half way through, so a failure is reported as it is.
+test.describe.configure({ retries: 0 })
+
 test('the platform story: found, suspended and blocked in Appian, the agent stops, switched back on in Appian, blocked again, incident, email, drift report; back only through approval', async ({ page, browser, baseURL, request }, info) => {
   test.skip(!PASSWORD || !CODE || !KEY || !APPIAN_KEY,
     'DEMO_USER_PASSWORD, ACT_PLATFORM_AGENT_CODE, ACT_PLATFORM_AGENT_KEY and APPIAN_API_KEY are set by the e2e workflow')
@@ -91,12 +94,18 @@ test('the platform story: found, suspended and blocked in Appian, the agent stop
   await page.goto('/integrations')
   const switchedOn = Date.now()
   await connection.getByTestId('reconcile-now').click()
-  await expect(connection.getByTestId('platform-reconcile'))
-    .toContainText(new RegExp(`${CODE} switched back on outside Control Tower: blocking again, Critical incident opened`), { timeout: 60_000 })
-  await page.goto(agentUrl)
+  // The line shows the latest check, which may be an earlier one at first: follow the agent's own page instead, read
+  // again until the re-block step of this suspension is there and done.
   const reblock = page.getByTestId('enforcement-platform').filter({ hasText: 'Blocked again (switched on outside Control Tower):' })
-  await expect(reblock).toContainText('Done', { timeout: 60_000 })
+  await expect(async () => {
+    await page.goto(agentUrl)
+    await expect(reblock).toContainText('Done', { timeout: 3_000 })
+  }).toPass({ timeout: 90_000, intervals: [2_000] })
   const took2 = Date.now() - switchedOn
+  await page.goto('/integrations')
+  await expect(connection.getByTestId('platform-reconcile'))
+    .toContainText(`${CODE} switched back on outside Control Tower: blocking again, Critical incident opened`)
+  await page.goto(agentUrl)
   await expect.poll(() => appianStatus(request), { timeout: 30_000 }).toBe('quarantined')
   const critical = page.getByTestId('incident-row').filter({ hasText: `${CODE} switched back on outside Control Tower` }).first()
   await expect(critical).toBeVisible()
