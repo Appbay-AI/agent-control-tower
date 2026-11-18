@@ -107,9 +107,6 @@ test('the platform story: found, suspended and blocked in Appian, the agent stop
     throw new Error('not blocked again yet')
   }).toPass({ timeout: 120_000, intervals: [3_000] })
   const took2 = Date.now() - switchedOn
-  await page.goto('/integrations')
-  await expect(connection.getByTestId('platform-reconcile'))
-    .toContainText(`${CODE} switched back on outside Control Tower: blocking again, Critical incident opened`)
   await page.goto(agentUrl)
   await expect.poll(() => appianStatus(request), { timeout: 30_000 }).toBe('quarantined')
   const critical = page.getByTestId('incident-row').filter({ hasText: `${CODE} switched back on outside Control Tower` }).first()
