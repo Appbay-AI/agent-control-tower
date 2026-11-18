@@ -15,7 +15,8 @@ test('the drift report and sync health match the records', async ({ page }, info
   await page.getByLabel('Password').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page.getByRole('heading', { name: 'Agent registry' })).toBeVisible()
-  await page.getByRole('link', { name: 'Drift and sync' }).click()
+  await page.getByRole('link', { name: 'Reports' }).click()
+  await page.getByRole('link', { name: /^Drift and sync/ }).click()
   await expect(page.getByTestId('drift-report')).toBeVisible()
 
   // 1. Drift: the total equals the rows listed, and the agent changed most has that many changes on its own page.

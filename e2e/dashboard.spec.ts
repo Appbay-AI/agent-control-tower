@@ -15,8 +15,9 @@ test('the executive dashboard loads in under 3 seconds and agrees with the regis
   await expect(page.getByRole('heading', { name: 'Agent registry' })).toBeVisible()
   const registry = Number((await page.getByText(/^\d+ active agents$/).textContent())?.split(' ')[0])
 
+  await page.getByRole('link', { name: 'Reports' }).last().click()
   const started = Date.now()
-  await page.getByRole('link', { name: 'Dashboard' }).last().click()
+  await page.getByRole('link', { name: /^Executive dashboard/ }).click()
   await expect(page.getByTestId('dashboard')).toBeVisible()
   await expect(page.getByRole('region', { name: 'Incidents opened, week by week' }).locator('.recharts-bar-rectangle').first()).toBeAttached()
   const took = Date.now() - started

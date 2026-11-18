@@ -3,6 +3,7 @@ import type { EvidencePack } from '@/lib/evidence'
 import type { RiskDashboard } from '@/lib/risk'
 import type { MyWork } from '@/lib/myWork'
 import type { DriftReport, SyncHealth } from '@/lib/driftSync'
+import type { MismatchReport } from '@/lib/piiMismatch'
 import { supabase } from '@/lib/supabase'
 import type {
   AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview, AppNotification,
@@ -306,6 +307,8 @@ export const api = {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
   },
   deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  /** Task 6.7: people with access to agents' data their role is not authorised for (admins, executives, auditors). */
+  piiMismatches: async (personalOnly: boolean) => check(await db().rpc('pii_mismatch_report', { p_personal_only: personalOnly })) as MismatchReport,
   /** Task 6.6: the drift report (whole days, UTC) and sync health (admins, executives, auditors). */
   driftReport: async (from: string, to: string) => check(await db().rpc('drift_report', { p_from: from, p_to: to })) as DriftReport,
   syncHealth: async (days: number) => check(await db().rpc('sync_health', { p_days: days })) as SyncHealth,

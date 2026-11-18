@@ -1,5 +1,6 @@
-import { Copy, KeyRound } from 'lucide-react'
+import { Copy, KeyRound, TerminalSquare } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { MicrosoftConnect } from '@/components/MicrosoftConnect'
 import { MICROSOFT } from '@/lib/features'
 import { PlatformConnections } from '@/components/PlatformConnections'
@@ -40,7 +41,8 @@ export function IntegrationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Integrations"
-        subtitle="Integration keys let an agent platform register agents through the API. Each agent then gets its own key." />
+        subtitle="Integration keys let an agent platform register agents through the API. Each agent then gets its own key."
+        actions={<Button asChild variant="outline"><Link to="/demo/agent"><TerminalSquare /> Agent console (demo)</Link></Button>} />
 
       <PlatformConnections />
 

@@ -32,7 +32,8 @@ test('an auditor picks a date range and downloads the evidence pack as a PDF, wi
   test.skip(!PASSWORD, 'DEMO_USER_PASSWORD is set by the e2e workflow')
   test.setTimeout(120_000)
   await signIn(page, 'mei.lin@northbridge.demo')
-  await page.getByRole('link', { name: 'Evidence' }).last().click()
+  await page.getByRole('link', { name: 'Reports' }).last().click()
+  await page.getByRole('link', { name: /^Evidence pack/ }).click()
   await expect(page.getByRole('heading', { name: 'Evidence pack' })).toBeVisible()
   await page.getByRole('button', { name: 'Last 30 days' }).click()
 
