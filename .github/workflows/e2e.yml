@@ -104,8 +104,8 @@ jobs:
             echo "ACT_RETIRE_AGENT_CODE=${code%% *}" >> "$GITHUB_ENV"; echo "ACT_RETIRE_AGENT_ID=${code#* }" >> "$GITHUB_ENV"
             echo "Agent to retire: ${code%% *} (NAP-006)"
           else echo "::warning::could not set up the agent to retire: $code"; fi
-      - name: Platform agent for the enforcement test
-        # Task 4.2: the registry agent linked to NAP-001 (Refund Processor) on the Appian simulator, made Live on this
+      - name: Platform agent for the platform story test
+        # Tasks 4.2 and 7.3: the registry agent linked to NAP-001 (Refund Processor) on the Appian simulator, made Live on this
         # work-in-progress database only, and NAP-001 switched back on in Appian if an earlier run stopped half way.
         env:
           APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
@@ -146,16 +146,28 @@ jobs:
           SQL
           )
           if echo "$code" | grep -qE '^AGT-[0-9]{4}$'; then echo "ACT_PLATFORM_AGENT_CODE=$code" >> "$GITHUB_ENV"; echo "Test agent: $code"
-          else echo "::warning::No Live agent linked to NAP-001; the enforcement test will be skipped"; fi
+          else echo "::warning::No Live agent linked to NAP-001; the enforcement test will be skipped"; exit 0; fi
+          # Task 7.3: a key, so the platform story test can ask as the agent whether it may act (revoked after the run).
+          key=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "begin;
+            select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+            from public.profiles where email = 'admin@northbridge.demo';
+            select public.create_agent_api_key(agent_id) from public.platform_agents where external_id = 'NAP-001';
+            commit;" | grep '^act_' || true)
+          if [ -n "$key" ]; then echo "::add-mask::$key"; echo "ACT_PLATFORM_AGENT_KEY=$key" >> "$GITHUB_ENV"
+          else echo "::warning::Could not make a key for the NAP-001 agent; the platform story test will be skipped"; fi
       - name: Run
         # xvfb-run gives the phone-alert test's Chrome window a virtual screen.
+        # The platform story test (task 7.3) reads and changes NAP-001 on the Appian simulator, as someone in Appian would.
+        env:
+          APPIAN_BASE: ${{ vars.APPIAN_BASE || 'https://appbay-demo.appiancloud.com' }}
+          APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
         run: xvfb-run --auto-servernum npx playwright test > out.log 2>&1 || { cat out.log; echo "::error title=E2E failed::$(grep -E '✘|Error:|expect|Received|Expected|unexpected value|waiting for' out.log | head -n 24 | tr '\n' ' ')"; exit 1; }
       - name: Results
         if: success()
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[(desktop|phone)\] notification arrived [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*|\[reactivation-email\] [^;]*|\[retire\] [^;]*|\[second-approver\] [^;]*|\[evidence\] [^;]*|\[evidence-excel\] [^;]*|\[dashboard\] [^;]*|\[risk\] [^;]*|\[my-work\] [^;]*|\[drift-sync\] [^;]*|\[data-access\] [^;]*|\[audit\] [^;]*' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[(desktop|phone)\] notification arrived [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*|\[reactivation-email\] [^;]*|\[retire\] [^;]*|\[second-approver\] [^;]*|\[evidence\] [^;]*|\[evidence-excel\] [^;]*|\[dashboard\] [^;]*|\[risk\] [^;]*|\[my-work\] [^;]*|\[drift-sync\] [^;]*|\[data-access\] [^;]*|\[audit\] [^;]*|\[platform-story\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retry check (task 4.3)
         # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not
@@ -313,6 +325,9 @@ jobs:
           from public.profiles where email = 'admin@northbridge.demo';
           select public.revoke_api_key(id) from public.agent_api_keys
            where key_hash in (public.secret_hash(:'agent_key'), public.secret_hash(:'low_key')) and revoked_at is null;
+          -- Platform story test (task 7.3): the NAP-001 agent's keys.
+          select public.revoke_api_key(k.id) from public.agent_api_keys k
+           where k.agent_id = (select agent_id from public.platform_agents where external_id = 'NAP-001') and k.revoked_at is null;
           -- Kill switch test (task 4.1): revoke its keys, then put the Mail Room Router back to Live.
           select public.revoke_api_key(k.id) from public.agent_api_keys k join public.agents a on a.id = k.agent_id
            where a.name = 'Mail Room Router' and k.revoked_at is null;

@@ -88,6 +88,7 @@ function ConnectionRow({ connection, onChanged, onSynced }: {
 
   const checking = jobState(check.job).tone === 'running'
   const syncing = jobState(sync.job).tone === 'running'
+  const reconciling = jobState(reconcile.job).tone === 'running'
   const next = nextSyncText(connection.sync_every_minutes, sync.job?.created_at ?? null)
   return (
     <li className="space-y-3 p-3" data-testid="platform-connection">
@@ -127,7 +128,13 @@ function ConnectionRow({ connection, onChanged, onSynced }: {
         <p className="text-muted-foreground text-xs">Each sync is one call to the platform. Use Sync now when you need the list sooner.</p>
       </div>
       <div className="space-y-1 border-t pt-3" data-testid="reconcile">
-        <div className="font-medium">Suspended agents checked every 5 minutes</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="font-medium">Suspended agents checked every 5 minutes</div>
+          {/* Task 7.3: check at once, e.g. on stage right after an agent is switched back on in the platform. */}
+          <Button size="sm" variant="outline" onClick={reconcile.start} disabled={reconciling || !reconcile.loaded} data-testid="reconcile-now">
+            <RefreshCw className={reconciling ? 'animate-spin' : ''} /> Check now
+          </Button>
+        </div>
         <JobLine job={reconcile.job} never="Nothing to check yet: no agent here is suspended and confirmed blocked" testId="platform-reconcile" />
         <p className="text-muted-foreground text-xs">
           One call per suspended agent, and none when nothing is suspended. One switched back on outside Control Tower is blocked again,
