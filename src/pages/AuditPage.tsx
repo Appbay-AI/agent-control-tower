@@ -29,6 +29,8 @@ export function AuditPage() {
 
   async function load(f: AuditFilters, before: number | null) {
     setBusy(true); setError(null)
+    // A new search clears the old results at once, so nothing on screen belongs to the previous search.
+    if (!before) { setRows([]); setTotal(null); setNext(null) }
     try {
       const page = await api.auditSearch(f, before)
       setRows((r) => (before ? [...r, ...page.rows] : page.rows))

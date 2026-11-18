@@ -32,7 +32,7 @@ test('any audit entry can be found and exported', async ({ page }, info) => {
   await expect(page.getByTestId('audit-detail')).toContainText('Hash ')
   await page.getByLabel('Words').fill(what.slice(0, 60))
   await page.getByRole('button', { name: 'Search' }).click()
-  await expect(page.getByTestId('audit-total')).not.toHaveText('0 entries found')
+  await expect(page.getByTestId('audit-total')).not.toHaveText(/^(0 entries|1 entry) found$/)
   await expect(async () => {
     if (await page.locator(`[data-testid="audit-row"][data-seq="${seq}"]`).count() === 0) await page.getByRole('button', { name: 'Show more' }).click()
     await expect(page.locator(`[data-testid="audit-row"][data-seq="${seq}"]`)).toBeVisible({ timeout: 2000 })
@@ -42,7 +42,7 @@ test('any audit entry can be found and exported', async ({ page }, info) => {
   await page.getByLabel('Words').fill('')
   await page.getByLabel('Record').selectOption({ label: 'Routing rule' })
   await page.getByRole('button', { name: 'Search' }).click()
-  await expect(page.getByTestId('audit-row').first()).toBeVisible()
+  await expect(page.getByTestId('audit-row').first().locator('td').nth(5)).toHaveText('Routing rule')
   const found = await count()
   expect(found).toBeGreaterThan(0)
   for (const cell of await page.getByTestId('audit-row').locator('td:nth-child(6)').allTextContents()) expect(cell).toBe('Routing rule')
