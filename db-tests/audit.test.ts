@@ -65,6 +65,19 @@ describe('audit log (task 1.2)', () => {
     expect(rows[0].broken_seq).toBe(2)
   })
 
+  it('detects a deleted entry too (the one-pass check of 18 Nov)', async () => {
+    const tampered = await createDb()
+    const u = await createUser(tampered, 'o@bank.test', ['owner'])
+    for (const name of ['One', 'Two', 'Three']) await proposeAgent(tampered, u, { name })
+    const before = (await tampered.query<{ n: number }>(`select count(*)::int n from public.audit_events`)).rows[0].n
+    expect((await tampered.query(`select * from public.audit_verify_chain()`)).rows).toEqual([])
+    await tampered.exec(`alter table public.audit_events disable trigger audit_events_no_update;
+                         delete from public.audit_events where seq = 3;`)
+    const { rows } = await tampered.query<{ broken_seq: number; expected_hash: string; stored_hash: string }>(`select * from public.audit_verify_chain()`)
+    expect(before).toBeGreaterThan(3)
+    expect(rows).toEqual([expect.objectContaining({ broken_seq: 4 })])
+  })
+
   it('records autonomy changes as their own action for the evidence pack', async () => {
     await asUser(db, owner, (tx) => tx.query(`update public.agents set autonomy_level = 2 where id = $1`, [agentId]))
     const { rows } = await db.query<{ action: string; summary: string }>(
