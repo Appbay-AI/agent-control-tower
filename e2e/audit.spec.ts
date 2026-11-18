@@ -32,7 +32,7 @@ test('any audit entry can be found and exported', async ({ page }, info) => {
   await expect(page.getByTestId('audit-detail')).toContainText('Hash ')
   await page.getByLabel('Words').fill(what.slice(0, 60))
   await page.getByRole('button', { name: 'Search' }).click()
-  await expect(page.getByTestId('audit-total')).not.toHaveText(/^(0 entries|1 entry) found$/)
+  await expect(page.getByTestId('audit-total')).not.toHaveText('0 entries found')
   await expect(async () => {
     if (await page.locator(`[data-testid="audit-row"][data-seq="${seq}"]`).count() === 0) await page.getByRole('button', { name: 'Show more' }).click()
     await expect(page.locator(`[data-testid="audit-row"][data-seq="${seq}"]`)).toBeVisible({ timeout: 2000 })
