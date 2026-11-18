@@ -1,6 +1,7 @@
 import type { ExecutiveDashboard } from '@/lib/dashboard'
 import type { EvidencePack } from '@/lib/evidence'
 import type { RiskDashboard } from '@/lib/risk'
+import type { MyWork } from '@/lib/myWork'
 import { supabase } from '@/lib/supabase'
 import type {
   AlertEvent, AlertRoute, AlertRouteDraft, AlertRoutePreview, AppNotification,
@@ -304,6 +305,8 @@ export const api = {
     for (const { id, priority } of order) check(await db().from('routing_rules').update({ priority }).eq('id', id))
   },
   deleteRoutingRule: async (id: string) => check(await db().from('routing_rules').delete().eq('id', id)),
+  /** Task 6.5: my work (the signed-in person's own decisions, incidents and agents). */
+  myWork: async () => check(await db().rpc('my_dashboard')) as MyWork,
   /** Task 6.4: every figure on the risk dashboard, in one call (admins, executives, auditors). */
   riskDashboard: async () => check(await db().rpc('risk_dashboard')) as RiskDashboard,
   /** Task 6.3: every figure on the executive dashboard, in one call (admins, executives, auditors). */

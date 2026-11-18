@@ -1,4 +1,4 @@
-import { Activity, BellRing, Bot, ClipboardCheck, FileCheck2, KeyRound, LayoutDashboard, Flame, Lock, LogOut, Route as RouteIcon, Siren, TerminalSquare, UserCog } from 'lucide-react'
+import { Activity, BellRing, Bot, ClipboardCheck, ClipboardList, FileCheck2, KeyRound, LayoutDashboard, Flame, Lock, LogOut, Route as RouteIcon, Siren, TerminalSquare, UserCog } from 'lucide-react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
@@ -34,6 +34,8 @@ function Shell() {
   const { profile, roles, hasRole, signOut } = useAuth()
 
   const links = [
+    // Task 6.5: everyone's own work (on phones too, except for admins, whose phone menu is full)
+    { to: '/my-work', label: 'My work', icon: ClipboardList, show: true, ...(hasRole('admin') ? { desktopOnly: true } : {}) },
     // Task 6.3 (on phones for executives and auditors; admins' phone menu is full)
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: hasRole('admin', 'executive', 'auditor'), ...(hasRole('admin') ? { desktopOnly: true } : {}) },
     // Task 6.4 (desktop menu only: the phone menu has room for one dashboard)

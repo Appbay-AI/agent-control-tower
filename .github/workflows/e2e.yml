@@ -155,7 +155,7 @@ jobs:
         run: |
           cat out.log
           # Timings the tests print (e.g. task 2.5: how fast a new task reached the approver's screen), as a notice.
-          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[(desktop|phone)\] notification arrived [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*|\[reactivation-email\] [^;]*|\[retire\] [^;]*|\[second-approver\] [^;]*|\[evidence\] [^;]*|\[evidence-excel\] [^;]*|\[dashboard\] [^;]*|\[risk\] [^;]*' out.log | tr '\n' ';' || true)
+          t=$(grep -oE '\[(desktop|phone)\] task appeared [0-9]+ ms[^;]*|\[(desktop|phone)\] notification arrived [0-9]+ ms[^;]*|\[push\] alert arrived: .*|\[callback\] agent heard the decision [0-9]+ ms|\[heartbeat\] silent flag after [0-9]+ s|\[(desktop|phone)\] £2m story: .*|\[killswitch\] agent refused [0-9]+ ms|\[incident\] [^;]*|\[incident-case\] [^;]*|\[reactivation\] [^;]*|\[authority\] [^;]*|\[enforcement\] [^;]*|\[alert-routing\] [^;]*|\[reactivation-email\] [^;]*|\[retire\] [^;]*|\[second-approver\] [^;]*|\[evidence\] [^;]*|\[evidence-excel\] [^;]*|\[dashboard\] [^;]*|\[risk\] [^;]*|\[my-work\] [^;]*' out.log | tr '\n' ';' || true)
           [ -z "$t" ] || echo "::notice title=Timings::$t"
       - name: Retry check (task 4.3)
         # Appian "goes down" for this work-in-progress database only (its connection points at an address that does not
