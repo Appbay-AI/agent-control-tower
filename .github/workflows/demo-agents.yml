@@ -1,0 +1,97 @@
+name: Demo agents
+
+# Task 7.2: runs the laptop demo agents (demo-agents/) against a real site that uses the work-in-progress database,
+# with test requests (nobody is emailed or alerted):
+#   1. the Sanctions Pre-screener is refused by policy and hands the case over;
+#   2. the Payment Release Assistant makes a payment within its limit, allowed at once;
+#   3. the £2m Hartwell cue: the agent waits; Ravi Menon and Daniel Okafor approve it in the database, as they would
+#      on their phones; the agent checks again and releases it.
+# The keys made for the run are revoked at the end.
+on:
+  # Also whenever the agents or this check change.
+  push:
+    paths: ['demo-agents/**', '.github/workflows/demo-agents.yml']
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Site to use (blank = the work-in-progress site)
+        required: false
+        default: ''
+
+# Shares the work-in-progress database with the browser tests, so the two never run at the same time.
+concurrency:
+  group: e2e-work-in-progress-database
+  cancel-in-progress: false
+
+jobs:
+  agents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      ACT_URL: ${{ github.event.inputs.url || 'https://main.agent-control-tower-56p.pages.dev' }}
+      ACT_POLL_SECONDS: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install
+        run: |
+          command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+          python3 -m venv /tmp/agents && /tmp/agents/bin/pip install -q -r demo-agents/requirements.txt
+      - name: Agent keys
+        run: |
+          key() {
+            psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "begin;
+              select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+              from public.profiles where email = 'admin@northbridge.demo';
+              select public.create_agent_api_key(id) from public.agents where name = '$1' and status = 'live';
+              commit;" | grep '^act_'
+          }
+          code() { psql "$SUPABASE_DB_URL" -tA -c "select agent_code from public.agents where name = '$1'"; }
+          p=$(key 'Payment Release Assistant') || { echo "::error::The Payment Release Assistant is not live on this database"; exit 1; }
+          s=$(key 'Sanctions Pre-screener') || { echo "::error::The Sanctions Pre-screener is not live on this database"; exit 1; }
+          echo "::add-mask::$p"; echo "::add-mask::$s"
+          { echo "PAYMENT_AGENT_KEY=$p"; echo "SCREENING_AGENT_KEY=$s"
+            echo "PAYMENT_AGENT=$(code 'Payment Release Assistant')"; echo "SCREENING_AGENT=$(code 'Sanctions Pre-screener')"; } >> "$GITHUB_ENV"
+      - name: Refused by policy
+        working-directory: demo-agents
+        run: /tmp/agents/bin/python screening_agent.py --test | tee screening.log
+      - name: A payment within its limit
+        working-directory: demo-agents
+        run: /tmp/agents/bin/python payment_agent.py pay --amount 1250 --supplier "Calder Logistics" --test | tee pay.log
+      - name: The £2m payment, approved by two people
+        working-directory: demo-agents
+        run: |
+          /tmp/agents/bin/python payment_agent.py hartwell --test > hartwell.log 2>&1 &
+          agent=$!
+          # Wait for its request, then approve it as the two people the Control Tower asks.
+          for i in $(seq 1 30); do
+            req=$(psql "$SUPABASE_DB_URL" -tA -c "select id from public.action_requests r join public.agents a on a.id = r.agent_id
+                  where a.name = 'Payment Release Assistant' and r.status = 'pending' and r.idempotency_key like 'pay-HS-48817-%'
+                    and r.details ->> 'test' = 'true' order by r.requested_at desc limit 1")
+            [ -n "$req" ] && break; sleep 1
+          done
+          [ -n "$req" ] || { cat hartwell.log; echo "::error::The agent did not ask"; exit 1; }
+          sleep 3   # the agent is now waiting
+          for who in ravi.menon daniel.okafor; do
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -c "begin;
+              select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+              from public.profiles where email = '$who@northbridge.demo';
+              select public.decide_action_request('$req', 'approve', 'Demo agents check');
+              commit;" >/dev/null
+          done
+          started=$(date +%s); rc=0; wait $agent || rc=$?; took=$(( $(date +%s) - started ))
+          cat hartwell.log
+          [ $rc -eq 0 ] || { echo "::error::The agent did not release the £2m payment (exit $rc)"; exit 1; }
+          grep -q "Released £2,000,000 to Hartwell Steel Ltd" hartwell.log
+          echo "::notice title=Timings::[demo-agents] £2m released ${took} s after the second approval; screening refused; payment within limit released"
+      - name: Revoke the keys
+        if: always()
+        run: |
+          psql "$SUPABASE_DB_URL" -q -c "begin;
+            select set_config('request.jwt.claims', json_build_object('sub', id, 'role', 'authenticated')::text, true)
+            from public.profiles where email = 'admin@northbridge.demo';
+            select public.revoke_api_key(k.id) from public.agent_api_keys k join public.agents a on a.id = k.agent_id
+             where a.name in ('Payment Release Assistant', 'Sanctions Pre-screener') and k.revoked_at is null
+               and k.created_at > now() - interval '20 minutes';
+            commit;" >/dev/null || true

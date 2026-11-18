@@ -78,6 +78,8 @@ begin
   if exists (select 1 from public.agents where name = 'Payment Release Assistant') then return; end if;
 
   -- Rows are inserted as their owners, so "Registered" in the audit trail names the right person.
+  -- No control endpoints (task 7.2): the demo agents run on a laptop and are stopped through their key; a made-up
+  -- address would only show a failed stop request.
   perform pg_temp.act_as('james.whitfield@northbridge.demo');
   insert into public.agents (name, description, framework, business_owner_id, technical_owner_id, department_id,
     purpose_statement, in_scope_actions, out_of_scope_actions, systems_accessed, data_classifications,
@@ -90,7 +92,7 @@ begin
       '{"Draft payment instruction","Release payment under limit","Request approval above limit"}',
       '{"Change beneficiary bank details","Pay a supplier not in the vendor master"}',
       '{"SAP S/4HANA","SWIFT gateway"}', '{confidential,personal}', 'Service account', 'Treasury IT',
-      3, 250000, 400, 'critical', '{"EU AI Act","DORA"}', 'https://agents.northbridge.demo/payment-release/control', '2.3', james),
+      3, 250000, 400, 'critical', '{"EU AI Act","DORA"}', null, '2.3', james),
     ('Invoice Matcher', 'Matches supplier invoices to purchase orders.', 'langchain', james, tom, pg_temp.dept('Payments'),
       'Match supplier invoices to purchase orders and goods receipts, and flag mismatches for a person to resolve.',
       '{"Read invoices","Mark invoice matched","Raise mismatch task"}', '{"Approve payment"}',
@@ -108,7 +110,7 @@ begin
       'Choose the cheapest compliant route for cross-border payments and execute the FX conversion within its limit.',
       '{"Quote FX rate","Book FX deal under limit","Route payment"}', '{"Speculative FX trades","Change counterparty limits"}',
       '{"Murex","SWIFT gateway"}', '{confidential}', 'Service account', 'Treasury IT', 3, 1000000, 150, 'critical', '{"DORA","EU AI Act"}',
-      'https://agents.northbridge.demo/fx-router/control', '1.0', james),
+      null, '1.0', james),
     ('Cash Forecast Agent', 'Daily liquidity forecast for the treasury desk.', 'other', james, tom, pg_temp.dept('Treasury'),
       'Produce the daily 13-week cash forecast for the treasury desk. Recommends only; never moves money.',
       '{"Read balances","Publish forecast"}', '{"Move funds"}', '{"Kyriba","SAP S/4HANA"}', '{confidential}',

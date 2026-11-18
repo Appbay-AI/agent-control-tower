@@ -41,3 +41,8 @@ functions-lib/config.js
 playwright-report
 .mcp.json
 docs/build-plan/plan.html
+
+# Demo agents (task 7.2): keep the settings template, never the real settings
+!demo-agents/.env.example
+__pycache__/
+.venv/

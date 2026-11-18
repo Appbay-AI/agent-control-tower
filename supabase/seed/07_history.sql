@@ -227,8 +227,8 @@ begin
     '{"containment":"The clearing was reversed and the agent''s matches re-checked for the week.","impact":"One break wrongly cleared for a day; no customer or financial loss.","customers_affected":0,"financial_impact":0,"financial_currency":"GBP","personal_data":"no","root_cause_category":"data_quality","root_cause":"Two banks reused the same payment reference; the match did not compare currencies.","remediation":"Matches now require the same currency and account."}',
     'closed', 'omar.farouk@northbridge.demo', array[120, 1600, 2900, 4320]);
 
-  -- The kill switch: a Critical incident suspends the Payment Release Assistant at once (task 4.9). It is stopped through its
-  -- control endpoint, the incident is closed, and two approvers switch it back on (task 4.6).
+  -- The kill switch: a Critical incident suspends the Payment Release Assistant at once (task 4.9). Its owner is emailed to
+  -- switch it off, the incident is closed, and two approvers switch it back on (task 4.6).
   inc := pg_temp.hist_incident('Payment Release Assistant', 'james.whitfield@northbridge.demo', 33, 11.3, 'Same supplier invoice paid twice', 'critical',
     'Invoice CP-22918 from Calder Logistics (£412,600) was released twice, eight minutes apart.',
     '{"containment":"Agent suspended by the kill switch; the second payment recalled through SWIFT the same afternoon.","impact":"One duplicate payment of £412,600, recalled in full the next day.","customers_affected":0,"financial_impact":412600,"financial_currency":"GBP","personal_data":"no","root_cause_category":"integration","root_cause":"SAP timed out after accepting the first release; the agent''s retry did not check whether the payment already existed.","remediation":"Releases now carry an idempotency key that SAP checks; retries look the payment up first."}',
@@ -349,13 +349,14 @@ begin
     join public.incidents i on i.id = x.incident_id
    where u.id = x.id and i.id in (select id from hist_incidents);
 
-  -- The kill switch: suspended a minute after the report, stopped through its control endpoint, switched back on two days later.
+  -- The kill switch: suspended a minute after the report, its owner emailed to switch it off, switched back on two days later.
   update public.agent_suspensions s set requested_at = i.opened_at + interval '1 minute', suspended_at = i.opened_at + interval '1 minute'
     from public.incidents i where i.id = s.incident_id and i.id in (select id from hist_incidents);
   update public.agent_enforcements e
      set status = 'done', attempts = 1, created_at = s.suspended_at, claimed_at = s.suspended_at + interval '2 seconds',
          finished_at = s.suspended_at + interval '4 seconds', next_attempt_at = s.suspended_at,
-         detail = case e.method when 'webhook' then 'Stop request accepted by the agent (HTTP 200)' else coalesce(e.detail, 'Done') end
+         detail = case e.method when 'webhook' then 'Stop request delivered (HTTP 200)'
+                       when 'email' then format('Emailed %s, asking them to switch it off', split_part(e.target, ' (', 1)) else coalesce(e.detail, 'Done') end
     from public.agent_suspensions s where s.id = e.suspension_id and s.incident_id in (select id from hist_incidents) and e.reactivation_id is null;
   update public.agent_reactivations r
      set requested_at = i.closed_at + interval '20 minutes', decided_at = i.closed_at + interval '26 hours'
@@ -367,7 +368,8 @@ begin
   update public.agent_enforcements e
      set status = 'done', attempts = 1, created_at = r.decided_at, claimed_at = r.decided_at + interval '2 seconds',
          finished_at = r.decided_at + interval '4 seconds', next_attempt_at = r.decided_at,
-         detail = case e.method when 'webhook' then 'Start request accepted by the agent (HTTP 200)' else coalesce(e.detail, 'Done') end
+         detail = case e.method when 'webhook' then 'Resume request delivered (HTTP 200)'
+                       when 'email' then format('Emailed %s, saying it may be switched back on', split_part(e.target, ' (', 1)) else coalesce(e.detail, 'Done') end
     from public.agent_reactivations r where r.id = e.reactivation_id and r.decided_at < now() - interval '7 days';
 
   alter table public.action_requests enable trigger user;

@@ -149,15 +149,16 @@ describe('Northbridge demo bank seed', () => {
         where u.created_at < i.opened_at or u.created_at > coalesce(i.closed_at, i.closure_requested_at, now())`))[0].n).toBe(0)
     })
 
-    it('the kill switch five weeks ago: suspended, stopped, the incident closed, switched back on by two approvers', async () => {
+    it('the kill switch five weeks ago: suspended, its owner told to stop it, the incident closed, switched back on by two approvers', async () => {
       const s = (await q<{ status: string; days: number; reason: string }>(`select s.status, current_date - s.suspended_at::date days, s.reason
         from public.agent_suspensions s join public.agents a on a.id = s.agent_id where a.name = 'Payment Release Assistant'`))
       expect(s).toEqual([{ status: 'done', days: 33, reason: expect.stringMatching(/^Critical incident INC-0004: Same supplier invoice paid twice$/) }])
       const steps = await q<{ action: string; status: string; detail: string }>(`select e.action, e.status, e.detail from public.agent_enforcements e
         join public.agents a on a.id = e.agent_id where a.name = 'Payment Release Assistant' order by e.id`)
       expect(steps).toEqual([
-        { action: 'stop', status: 'done', detail: 'Stop request accepted by the agent (HTTP 200)' },
-        { action: 'restore', status: 'done', detail: 'Start request accepted by the agent (HTTP 200)' }])
+        // No control endpoint and no key at the time, so its owner was emailed (task 4.2).
+        { action: 'stop', status: 'done', detail: expect.stringMatching(/^Emailed .+, asking them to switch it off$/) },
+        { action: 'restore', status: 'done', detail: expect.stringMatching(/^Emailed .+, saying it may be switched back on$/) }])
       const r = await q<{ status: string; approvers: string }>(`select r.status, (select string_agg(p.email, ',' order by x.approved_at) from public.agent_reactivation_approvals x
         join public.profiles p on p.id = x.approver_id where x.reactivation_id = r.id) approvers from public.agent_reactivations r`)
       expect(r).toEqual([{ status: 'approved', approvers: 'daniel.okafor@northbridge.demo,ravi.menon@northbridge.demo' }])
