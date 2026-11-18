@@ -1,0 +1,58 @@
+name: Screens
+
+# Task 7.4 (polish): opens every page as the people who use it, on a desktop and a phone, checks each loads, fits the
+# screen and logs no errors (e2e/pages.spec.ts), and saves a full-page picture of each to the branch review/screens
+# (fictional demo data only), so the layout and wording can be reviewed. Delete that branch when the review is done.
+on:
+  # Also when this check itself changes (so it can run from a branch before it reaches main).
+  push:
+    paths: ['.github/workflows/screens.yml', 'e2e/pages.spec.ts']
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Site to open (blank = the work-in-progress site)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e2e-work-in-progress-database
+  cancel-in-progress: false
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    env:
+      ACT_URL: ${{ github.event.inputs.url || 'https://main.agent-control-tower-56p.pages.dev' }}
+      DEMO_USER_PASSWORD: ${{ secrets.DEMO_USER_PASSWORD }}
+      SCREENS_DIR: screens
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Every page, desktop and phone
+        run: npx playwright test e2e/pages.spec.ts --project desktop --project phone --retries 0 > out.log 2>&1 || { cat out.log; echo "::warning title=Pages check::$(grep -E '✘|wider than|took|Error' out.log | head -n 20 | tr '\n' ' ')"; }
+      - name: Results
+        if: always()
+        run: |
+          cat out.log
+          t=$(grep -oE '\[pages\] [^\n]*' out.log | tr '\n' ' ' || true)
+          [ -z "$t" ] || echo "::notice title=Page load times::$t"
+      - name: Save the pictures to review/screens
+        if: always()
+        run: |
+          [ -d screens ] || exit 0
+          cd screens
+          git init -q && git checkout -q -b review/screens
+          git config user.name 'github-actions' && git config user.email 'github-actions@users.noreply.github.com'
+          git add -A && git commit -qm "Screens of ${ACT_URL} (run ${{ github.run_id }})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" review/screens
+          echo "::notice title=Screens::$(ls | wc -l) pictures on branch review/screens"
