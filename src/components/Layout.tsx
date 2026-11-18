@@ -57,14 +57,15 @@ function Shell() {
   return (
     <div className="min-h-screen pb-16 sm:pb-0">
       <header className="bg-brand-charcoal sticky top-0 z-20 text-white">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-          <NavLink to="/agents" className="flex items-center gap-2.5">
+        <div className="flex w-full items-center gap-4 px-4 py-3 lg:px-6">
+          <NavLink to="/agents" className="flex shrink-0 items-center gap-2.5">
             <span className="bg-brand-yellow text-brand-charcoal flex size-8 items-center justify-center rounded-lg">
               <Activity className="size-4" aria-hidden />
             </span>
             <span className="leading-tight font-semibold whitespace-nowrap">Agent Control Tower</span>
           </NavLink>
-          <nav className="ml-2 hidden gap-0.5 sm:flex">
+          {/* The menu runs across the full width, end to end, one line per label. */}
+          <nav className={cn('ml-4 hidden min-w-0 flex-1 items-center gap-1 sm:flex', links.length > 5 ? 'justify-between' : 'justify-start')}>
             {links.map(({ to, label }) => (
               <NavLink key={to} to={to}
                 className={({ isActive }) => cn('rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap text-white/80 hover:bg-white/10 hover:text-white',
@@ -74,7 +75,7 @@ function Shell() {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-3">
             {/* Task 5.4 */}
             <NotificationBell />
             <span className="hidden rounded border border-white/30 px-1.5 py-0.5 text-[10px] tracking-wide uppercase lg:inline">
@@ -89,7 +90,7 @@ function Shell() {
               <NavLink to="/account/password" title="Change password"><Lock className="size-4" /><span className="sr-only">Change password</span></NavLink>
             </Button>
             <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={signOut} title="Sign out">
-              <LogOut className="size-4" /> <span className={cn('sr-only whitespace-nowrap', links.length > 7 ? '2xl:not-sr-only' : 'sm:not-sr-only')}>Sign out</span>
+              <LogOut className="size-4" /> <span className={cn('sr-only whitespace-nowrap', links.length > 7 ? 'xl:not-sr-only' : 'sm:not-sr-only')}>Sign out</span>
             </Button>
           </div>
         </div>
