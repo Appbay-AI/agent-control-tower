@@ -62,16 +62,15 @@ jobs:
       - name: The £2m payment, approved by two people
         working-directory: demo-agents
         run: |
-          /tmp/agents/bin/python payment_agent.py hartwell --test > hartwell.log 2>&1 &
+          timeout 300 /tmp/agents/bin/python payment_agent.py hartwell --test > hartwell.log 2>&1 &
           agent=$!
-          # Wait for its request, then approve it as the two people the Control Tower asks.
+          # Wait for its request (the code it prints), then approve it as the two people the Control Tower asks.
           for i in $(seq 1 30); do
-            req=$(psql "$SUPABASE_DB_URL" -tA -c "select r.id from public.action_requests r join public.agents a on a.id = r.agent_id
-                  where a.name = 'Payment Release Assistant' and r.status = 'pending' and r.idempotency_key like 'pay-HS-48817-%'
-                    and r.details ->> 'test' = 'true' order by r.requested_at desc limit 1")
-            [ -n "$req" ] && break; sleep 1
+            code=$(grep -oE 'REQ-[0-9]+: pending' hartwell.log | head -1 | cut -d: -f1 || true)
+            [ -n "$code" ] && break; sleep 1
           done
-          [ -n "$req" ] || { cat hartwell.log; echo "::error::The agent did not ask"; exit 1; }
+          [ -n "$code" ] || { cat hartwell.log; echo "::error::The agent did not ask"; kill $agent || true; exit 1; }
+          req=$(psql "$SUPABASE_DB_URL" -tA -v ON_ERROR_STOP=1 -c "select id from public.action_requests where request_code = '$code'")
           sleep 3   # the agent is now waiting
           for who in ravi.menon daniel.okafor; do
             psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -c "begin;
