@@ -101,6 +101,20 @@ List, as numbered steps I can follow in the Admin Console, how to create the ser
 group that can only run the three NAP web APIs, and an API key for it. Do not create the API key yourself.
 ```
 
+**Prompt 8: NAP-009 Payment Release Assistant (added 19 Nov 2026)**
+
+```text
+Read the section "NAP-009 Payment Release Assistant" in appian/SIMULATOR_SPEC.md, and the NAP-009 lines in Seed data,
+Web APIs (API 4) and Acceptance checks. Add NAP-009 to the seed data and to Reset demo data, the activity outcome
+"waiting", the Release a payment action and form on the Agent detail screen, the process model with its steps, the
+connected system and the three constants (leave NAP_009_AGENT_KEY empty; I will paste the key), and web API 4. Show me
+the plan first, then build it, then list what I must do by hand.
+```
+
+After it is built: in Control Tower, sign in as admin, open the Payment Release Assistant, **API keys → New key**, and
+paste the key into `NAP_009_AGENT_KEY`. Add API 4 to the `act-integration` group. Run the three NAP-009 acceptance
+checks.
+
 ## 3. Hand over
 
 1. Do the Prompt 7 steps. Paste the API key straight into GitHub → agent-control-tower → Settings → Secrets and

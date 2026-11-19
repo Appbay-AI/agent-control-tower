@@ -41,7 +41,9 @@ async function main() {
   record('API 1 lists agents', true, `${agents.length} agents; content type ${list.type}`)
   const ids = agents.map((a) => a.externalId).sort()
   const want = ['NAP-001', 'NAP-002', 'NAP-003', 'NAP-004', 'NAP-005', 'NAP-006', 'NAP-007', 'NAP-008']
-  record('API 1 returns the 8 seed agents', JSON.stringify(ids) === JSON.stringify(want), ids.join(', '))
+  // NAP-009, the Payment Release Assistant, was added to the spec on 19 Nov; 8 agents pass until it is built.
+  const seeded = [want, [...want, 'NAP-009']].some((w) => JSON.stringify(ids) === JSON.stringify(w))
+  record('API 1 returns the seed agents (8, or 9 with NAP-009)', seeded, ids.join(', '))
   const problems = []
   for (const a of agents) {
     for (const f of AGENT_FIELDS) if (!(f in a)) problems.push(`${a.externalId} lacks ${f}`)

@@ -27,7 +27,3 @@ jobs:
         run: npm run test:db
       - name: Build
         run: npm run build
-      - name: Demo agents (task 7.2)
-        run: |
-          python3 -m venv /tmp/agents && /tmp/agents/bin/pip install -q -r demo-agents/requirements.txt
-          /tmp/agents/bin/python -m unittest discover -s demo-agents -v

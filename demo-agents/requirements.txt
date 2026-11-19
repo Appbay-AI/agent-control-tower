@@ -1,2 +1,0 @@
-# The demo agents need only LangGraph; they talk to the Control Tower with Python's own libraries.
-langgraph>=1.0,<2

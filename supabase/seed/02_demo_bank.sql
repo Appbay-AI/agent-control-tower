@@ -78,8 +78,8 @@ begin
   if exists (select 1 from public.agents where name = 'Payment Release Assistant') then return; end if;
 
   -- Rows are inserted as their owners, so "Registered" in the audit trail names the right person.
-  -- No control endpoints (task 7.2): the demo agents run on a laptop and are stopped through their key; a made-up
-  -- address would only show a failed stop request.
+  -- No control endpoints: a made-up address would only show a failed stop request. The Payment Release Assistant
+  -- also runs in the Appian simulator (NAP-009), where the kill switch blocks it.
   perform pg_temp.act_as('james.whitfield@northbridge.demo');
   insert into public.agents (name, description, framework, business_owner_id, technical_owner_id, department_id,
     purpose_statement, in_scope_actions, out_of_scope_actions, systems_accessed, data_classifications,
