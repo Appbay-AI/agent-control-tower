@@ -1,0 +1,60 @@
+name: NAP-009 check
+
+# Before a rehearsal or a demo: starts the Appian agent NAP-009 (Payment Release Assistant) through the simulator's
+# web API 4 with a £1,000 test payment, and checks in the client demo's database that Control Tower received its
+# request, approved it by policy (under the agent's £250,000 limit) and that NAP-009 then logged the release.
+# Proves end to end: Appian → Control Tower → decision → Appian → payment, with NAP-009's current key.
+# Leaves one approved test request in the demo's history (marked as a test: nobody is emailed or alerted).
+# The database is only read. Needs APPIAN_API_KEY (repository) and the demo environment's SUPABASE_DB_URL.
+on:
+  workflow_dispatch:
+    inputs:
+      site:
+        description: Appian site address
+        default: https://appbay-demo.appiancloud.com
+  push:
+    paths: ['.github/workflows/nap-009-check.yml']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: demo
+    env:
+      APPIAN: ${{ github.event.inputs.site || 'https://appbay-demo.appiancloud.com' }}
+      APPIAN_API_KEY: ${{ secrets.APPIAN_API_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Install psql
+        run: command -v psql >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client; }
+      - name: A bad request is refused (API 4, amount 0)
+        run: |
+          code=$(curl -s -o out.json -w '%{http_code}' -X POST "$APPIAN/suite/webapi/nap-payment-release" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'Content-Type: application/json' \
+            -d '{"supplier":"Automated check","invoice":"CHK-BAD","purchaseOrder":"PO-CHECK","amount":0,"reason":"Automated check","test":true}')
+          echo "HTTP $code: $(head -c 200 out.json)"
+          [ "$code" = 400 ] || { echo "::error::Expected 400 for amount 0, got $code"; exit 1; }
+      - name: A £1,000 test payment, end to end
+        run: |
+          inv="CHK-${GITHUB_RUN_ID}"
+          started=$(date +%s)
+          code=$(curl -s -o out.json -w '%{http_code}' -X POST "$APPIAN/suite/webapi/nap-payment-release" \
+            -H "Appian-API-Key: $APPIAN_API_KEY" -H 'Content-Type: application/json' \
+            -d "{\"supplier\":\"Automated check\",\"invoice\":\"$inv\",\"purchaseOrder\":\"PO-CHECK\",\"amount\":1000,\"reason\":\"Automated NAP-009 check before a rehearsal\",\"test\":true}")
+          echo "API 4: HTTP $code: $(head -c 200 out.json)"
+          [ "$code" = 202 ] || { echo "::error::API 4 did not start NAP-009 (HTTP $code). Is NAP-009 quarantined, or the alias or security wrong?"; exit 1; }
+          for i in $(seq 1 45); do
+            row=$(psql "$SUPABASE_DB_URL" -tA -F '|' -c "select r.request_code, r.status, r.decision_source, r.details ->> 'test',
+                    (select count(*) from public.agent_logs l where l.request_id = r.id and l.event = 'payment.released')
+                    from public.action_requests r where r.details ->> 'platform' = 'NAP-009' and r.details ->> 'invoice' = '$inv'")
+            [ -n "$row" ] && [ "$(echo "$row" | cut -d'|' -f5)" -ge 1 ] && break
+            sleep 2
+          done
+          took=$(( $(date +%s) - started ))
+          echo "Control Tower: ${row:-nothing yet}"
+          [ -n "$row" ] || { echo "::error::No request reached Control Tower within 90 s. Check NAP-009's key in its connected system (a demo reset deletes keys) and NAP_ACT_BASE_URL."; exit 1; }
+          IFS='|' read -r req status source test released <<< "$row"
+          [ "$status" = approved ] && [ "$source" = policy ] || { echo "::error::$req is $status ($source), expected approved by policy"; exit 1; }
+          [ "$test" = true ] || { echo "::error::$req is not marked as a test"; exit 1; }
+          [ "$released" -ge 1 ] || { echo "::error::$req was approved but NAP-009 logged no release within 90 s"; exit 1; }
+          echo "::notice title=NAP-009::$req approved by policy and released by NAP-009, ${took} s after API 4 was called"
