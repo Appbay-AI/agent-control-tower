@@ -147,6 +147,8 @@ with the check switched off by a constant.
 
 ### NAP-009 Payment Release Assistant (added 19 Nov 2026, for the £2m payment on stage)
 
+The full, standalone build spec for the Appian developer is [NAP-009_BUILD_SPEC.md](NAP-009_BUILD_SPEC.md); if the two differ, that file wins.
+
 The demo's live approval: an agent on the platform asks Control Tower before releasing a payment, waits while people
 decide, and pays only if they approve. Unlike NAP-001 and NAP-002 it has **no timer**: it runs once each time it is
 started, from a button or from API 4.
@@ -213,7 +215,7 @@ formatted with thousands separators and a £ sign.
 | NAP-006 | Treasury Cash Forecaster | Daniel Okafor | Treasury | confidential | 1 treasury analyst | Normal; Sandbox environment |
 | NAP-007 | Complaint Triage Bot | Lucy Grant | Customer Service | personal | 8 service agents | Starts `quarantined` |
 | NAP-008 | KYC Document Reader | Omar Farouk | Compliance | personal, restricted | 2 KYC officers | Deleted during the demo to show "Missing at source" |
-| NAP-009 | Payment Release Assistant | James Whitfield | Payments | confidential | 2 payments officers | Asks Control Tower before releasing a payment: the £2m on stage (added 19 Nov) |
+| NAP-009 | Payment Release Assistant | James Whitfield | Payments | confidential | 2 Payments Analysts | Asks Control Tower before releasing a payment: the £2m on stage (added 19 Nov) |
 
 Owner emails follow `firstname.lastname@northbridge.demo`. Give each agent two or three fitting data sources and tools,
 and a `sessions_30d` between 20 and 600. Give NAP-009 the data sources `["SAP S/4HANA","Supplier master"]` and tools `["SWIFT gateway","Control Tower approval"]`.
