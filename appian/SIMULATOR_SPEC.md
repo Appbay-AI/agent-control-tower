@@ -194,10 +194,10 @@ formatted with thousands separators and a £ sign.
 **Integration and constants**
 
 - One connected system for Control Tower: base URL from constant `NAP_ACT_BASE_URL` (the client demo site,
-  `https://agent-control-tower-56p.pages.dev`), header `Authorization: Bearer <NAP_009_AGENT_KEY>`, JSON in and out,
+  `https://agent-control-tower-56p.pages.dev`), header `Authorization: Bearer <the key, encrypted in the connected system>`, JSON in and out,
   15-second timeout. Treat any non-2xx answer, timeout or unreadable body as "no answer".
 - Constants: `NAP_ACT_BASE_URL`; `NAP_009_AGENT_CODE` (`AGT-0001`, the Payment Release Assistant in Control Tower's
-  demo data); `NAP_009_AGENT_KEY`, the agent's key, made in Control Tower on the Payment Release Assistant's page
+  demo data). The agent's key is kept encrypted in NAP-009's own connected system (not a constant, agreed 19 Nov), made in Control Tower on the Payment Release Assistant's page
   (**API keys → New key**). It is a secret: keep it in the constant only. **A demo data reset in Control Tower deletes
   every key**, so make a new one and update the constant after each reset (the same goes for NAP-002's key).
 - In Control Tower the sync finds NAP-009 and links it to the Payment Release Assistant (same name and owner), so the

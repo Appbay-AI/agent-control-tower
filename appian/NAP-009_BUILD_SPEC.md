@@ -64,20 +64,25 @@ Add this row to the seed data **and** to **Reset demo data** (so a reset restore
 ### 3.2 A new activity outcome
 
 Allow `outcome` = **`waiting`** in NAP_AGENT_ACTIVITY (in addition to `done` and `blocked`), for while a person decides.
-On the Activity screen show `waiting` rows in amber (done stays as it is, blocked stays red).
+On the Activity screen show `waiting` rows in amber (done stays as it is, blocked stays red). Appian refreshes a page
+at most every 30 seconds, so on stage press the page's refresh to see a new row at once.
 
-### 3.3 Three constants
+### 3.3 Two constants and the key
 
 | Constant | Value | Notes |
 | --- | --- | --- |
-| `NAP_ACT_BASE_URL` | `https://agent-control-tower-56p.pages.dev` | The client demo site |
+| `NAP_ACT_BASE_URL` | `https://agent-control-tower-56p.pages.dev` | The client demo site; the integrations build their URL from it |
 | `NAP_009_AGENT_CODE` | `AGT-0001` | The Payment Release Assistant in Agent Control Tower |
-| `NAP_009_AGENT_KEY` | leave **empty** | A secret. Rajveer pastes it in after the build (section 6). Never put it anywhere else |
+
+**The key** is not a constant (agreed 19 Nov): it is kept **encrypted in NAP-009's own connected system** (3.4), like
+NAP-002's. Leave it empty; Rajveer pastes it in after the build (section 6). Never put it anywhere else.
+
 
 ### 3.4 A connected system for Agent Control Tower
 
 - Base URL: `NAP_ACT_BASE_URL`.
-- Every call sends the header `Authorization: Bearer <NAP_009_AGENT_KEY>` and `Content-Type: application/json`.
+- A **new** connected system, separate from NAP-002's (do not change NAP-002's). Every call sends the header
+  `Authorization: Bearer <the key, stored encrypted in this connected system>` and `Content-Type: application/json`.
 - Timeout: **15 seconds**.
 - Treat as **"no answer"**: any timeout, any status other than 200 or 201, or a body that is not valid JSON.
 
@@ -108,7 +113,9 @@ is the cue on stage, so the defaults matter.
 
 ### 3.6 The process model: NAP-009 Release Payment
 
-One instance per payment. No timer start. Inputs: supplier, invoice, purchase order, amount, reason, and `isTest`
+One instance per payment (if a loop back inside one instance proves unreliable in this environment, each poll may start
+the next instance and end: the request id, request code and the time of the first start are passed along, and the
+3-hour limit counts from the first start). No timer start. Inputs: supplier, invoice, purchase order, amount, reason, and `isTest`
 (true only when started by API 4 with `test: true`).
 
 In every activity row, write money as `£2,000,000` (pound sign, thousands separators, no pence).
@@ -166,7 +173,8 @@ So the start can also be tested automatically. Same key and service account as t
   (all fields required except `test`, which defaults to false).
 - Starts one instance of the process model, as the Release button does.
 - Answers: **202** `{"externalId":"NAP-009","started":true}`; **400** `{"error":"<what is missing or wrong>"}` (missing
-  field, amount not above 0); **409** `{"error":"NAP-009 is quarantined"}` when NAP-009's status is `quarantined`.
+  field, amount not above 0); **409** `{"error":"NAP-009 is quarantined"}` when NAP-009's status is `quarantined`; **404** when NAP-009 is missing
+  or deleted.
 - Add `nap-payment-release` to what the `act-integration` group may run.
 
 ## 4. What must not change
@@ -201,11 +209,11 @@ After the build (no code needed; about five minutes):
 2. **Integrations** → **Sync now** on *Northbridge Agent Platform (simulated)*. Then **Agents** → **Payment Release
    Assistant**: its platform card shows **NAP-009** (the two are now linked).
 3. On the same page: **API keys** → **New key**. Copy the key (it is shown only once) and give it to the Appian
-   developer **privately** (not by email or chat), who pastes it into the constant `NAP_009_AGENT_KEY`. Or paste it
-   yourself in Appian Designer.
+   developer **privately** (not by email or chat), who pastes it into NAP-009's connected system. Or paste it yourself
+   in Appian Designer (open the connected system, paste the key, save).
 4. Run acceptance checks 3 to 7 together.
 5. **After every demo data reset in Agent Control Tower** all keys are deleted: repeat step 3 (the same goes for
-   NAP-002's key constant, if NAP-002's check is switched on).
+   NAP-002's key, in its own connected system, if NAP-002's check is switched on).
 
 ## 7. Questions
 
