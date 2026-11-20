@@ -105,3 +105,39 @@ test('an auditor picks a date range and downloads the evidence pack as a PDF, wi
   expect(text).toContain(digest!)
   console.log(`[evidence-excel] ${info.project.name}: Excel of the same pack downloaded ${xTook} ms after the click, ${checked} values checked against the PDF`)
 })
+
+// 20 Nov: the pack for one agent. The PDF and the Excel file hold only that agent's records.
+test('an auditor downloads the evidence pack for one agent only', async ({ page }, info) => {
+  test.skip(!PASSWORD || info.project.name !== 'desktop', 'desktop only; DEMO_USER_PASSWORD is set by the e2e workflow')
+  test.setTimeout(120_000)
+  await signIn(page, 'mei.lin@northbridge.demo')
+  await page.goto('/evidence')
+  await page.getByRole('button', { name: 'Last 30 days' }).click()
+  await page.getByLabel('Agent', { exact: true }).selectOption({ label: 'AGT-0001 Payment Release Assistant' })
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.getByRole('button', { name: 'Download PDF' }).click()])
+  expect(download.suggestedFilename()).toMatch(/^evidence-pack-AGT-0001-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.pdf$/)
+  await expect(page.getByTestId('evidence-made')).toContainText('for AGT-0001 Payment Release Assistant only')
+  const path = info.outputPath('evidence-agent.pdf')
+  await download.saveAs(path)
+  const { text } = await pdfText(path)
+  expect(text).toContain('Agent: AGT-0001 Payment Release Assistant')
+  expect(text).toContain('Audit entries for AGT-0001 in the period')
+  expect(text).not.toContain('Mail Room Router')
+
+  const [xDownload] = await Promise.all([page.waitForEvent('download', { timeout: 90_000 }), page.getByRole('button', { name: 'Download Excel' }).click()])
+  expect(xDownload.suggestedFilename()).toBe(download.suggestedFilename().replace(/\.pdf$/, '.xlsx'))
+  const xPath = info.outputPath('evidence-agent.xlsx')
+  await xDownload.saveAs(xPath)
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.readFile(xPath)
+  expect(String(wb.getWorksheet('Contents')!.getCell('A2').value)).toContain('Agent AGT-0001 Payment Release Assistant only')
+  const inv = wb.getWorksheet('1 Inventory')!
+  const codes: string[] = []
+  for (let r = 6; r <= inv.rowCount; r++) { const v = inv.getRow(r).getCell(1).value; if (typeof v === 'string' && v.startsWith('AGT-')) codes.push(v) }
+  expect(codes).toEqual(['AGT-0001 Payment Release Assistant'])
+  // Every agent named in any table is this one.
+  for (const ws of wb.worksheets.slice(1, -1)) {
+    ws.eachRow((row, r) => { if (r > 5) row.eachCell((c) => { if (typeof c.value === 'string' && /^AGT-\d{4} /.test(c.value)) expect(c.value, ws.name).toMatch(/^AGT-0001 /) }) })
+  }
+  console.log(`[evidence-agent] ${info.project.name}: PDF and Excel for AGT-0001 only`)
+})

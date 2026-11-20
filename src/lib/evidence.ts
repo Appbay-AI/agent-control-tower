@@ -7,6 +7,8 @@ type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-expl
 export interface EvidenceList { total: number; rows: Row[] }
 export interface EvidencePack {
   period: { from: string; to: string; timezone: string }
+  /** 20 Nov: the one agent the pack covers; null (or missing, before then) for every agent. */
+  agent?: { id: string; code: string; name: string } | null
   generated: { at: string; by: string | null; email: string | null; job_title: string | null; roles: string[] }
   cap: number
   inventory: EvidenceList
@@ -39,6 +41,9 @@ const words = (s: string | null | undefined) => (s ? s.charAt(0).toUpperCase() +
 const txt = (v: unknown): string => (v == null ? '' : String(v))
 const num = (v: unknown) => Number(v ?? 0).toLocaleString('en-GB')
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`
+
+/** "AGT-0001 Payment Release Assistant" for a pack about one agent; null for the pack about every agent. */
+export const packAgent = (p: Pick<EvidencePack, 'agent'>) => (p.agent ? `${p.agent.code} ${p.agent.name}` : null)
 
 /** The sections, in order: title, what it shows, and the list behind it. */
 export const SECTIONS = [
@@ -104,7 +109,7 @@ export interface EvidenceTable {
   sheet: string
   /** Sub-heading in the PDF, when a section has more than one table. */
   heading?: string
-  none: string
+  none: string | ((p: EvidencePack) => string)
   list: (p: EvidencePack) => EvidenceList
   cols: Col[]
   /** A sentence printed under the table (and above it in Excel). */
@@ -254,7 +259,7 @@ export const TABLES: EvidenceSection[] = [
   { key: 'sync', title: 'Sync history', count: (p) => plural(p.sync.platforms.length, 'platform'),
     about: "How often each platform's agent list was fetched and checked, and every fetch or check that failed or found a change.",
     tables: [
-      { id: 'platforms', sheet: '9a Sync by platform', none: 'No agent platforms are connected.', list: (p) => ({ total: p.sync.platforms.length, rows: p.sync.platforms }), cols: [
+      { id: 'platforms', sheet: '9a Sync by platform', none: (p) => (p.agent ? 'This agent is not on a connected agent platform.' : 'No agent platforms are connected.'), list: (p) => ({ total: p.sync.platforms.length, rows: p.sync.platforms }), cols: [
         { head: 'Platform', pdf: '*', xl: 40, cell: (r) => t(r.name) },
         { head: 'Every', pdf: 70, xl: 12, cell: (r) => t(r.every_minutes ? `${r.every_minutes} minutes` : 'Off') },
         { head: 'Fetches', pdf: 60, xl: 10, cell: (r) => n(r.syncs) },
@@ -274,6 +279,9 @@ export const TABLES: EvidenceSection[] = [
     ] },
 ]
 
+/** What a table says when it is empty. */
+export const noneText = (tb: EvidenceTable, p: EvidencePack) => (typeof tb.none === 'function' ? tb.none(p) : tb.none)
+
 /** "Showing the first 2,000 of 3,001 …" when a list was cut. */
 export function cutNote(list: EvidenceList, cap: number): string | null {
   return list.total > list.rows.length
@@ -290,6 +298,7 @@ export function producedBy(p: EvidencePack): string {
 /** The attestation, shared by the PDF and the Excel file. */
 export function attestation(p: EvidencePack): { intro: string; rule: string; result: string; broken: boolean; facts: [string, string][]; sign: string[] } {
   const a = p.attestation
+  const only = p.agent ? ` for ${p.agent.code}` : ''
   return {
     intro: `This pack was produced from the Agent Control Tower's records on ${when(p.generated.at)} UTC by ${producedBy(p)}, and is recorded in the audit trail as entry #${a.pack_seq}.`,
     rule: 'The audit trail is insert-only: the database refuses any change or deletion. Each entry is hash-chained: its SHA-256 hash covers the entry and the hash of the entry before it, so altering or removing any past entry breaks every hash after it.',
@@ -298,9 +307,9 @@ export function attestation(p: EvidencePack): { intro: string; rule: string; res
       : `When this pack was produced, the chain was recomputed and found BROKEN at entry #${a.chain_broken_at}: the records from there on cannot be relied on without investigation.`,
     broken: !a.chain_intact,
     facts: [
-      ['Audit entries in the period', a.period_events.toLocaleString('en-GB')],
-      ['First entry in the period', a.period_first ? `#${a.period_first.seq} · ${when(a.period_first.at)}\n${a.period_first.hash}` : 'None'],
-      ['Last entry in the period', a.period_last ? `#${a.period_last.seq} · ${when(a.period_last.at)}\n${a.period_last.hash}` : 'None'],
+      [`Audit entries${only} in the period`, a.period_events.toLocaleString('en-GB')],
+      [`First entry${only} in the period`, a.period_first ? `#${a.period_first.seq} · ${when(a.period_first.at)}\n${a.period_first.hash}` : 'None'],
+      [`Last entry${only} in the period`, a.period_last ? `#${a.period_last.seq} · ${when(a.period_last.at)}\n${a.period_last.hash}` : 'None'],
       ['Chain checked', a.chain_intact ? `Intact, ${a.chain_length.toLocaleString('en-GB')} entries` : `Broken at entry #${a.chain_broken_at}`],
       ['Latest hash when produced', txt(a.latest_hash)],
       ["Digest of this pack's data (SHA-256)", `${a.digest}\nAlso stored with audit entry #${a.pack_seq}.`],
@@ -326,7 +335,7 @@ export const fixedWidth = (cols: Col[]) => cols.reduce((n, c) => n + (c.pdf === 
 function pdfTable(tb: EvidenceTable, p: EvidencePack): Content[] {
   const list = tb.list(p)
   const out: Content[] = tb.heading ? [{ text: tb.heading, style: 'h2' }] : []
-  if (list.total === 0) out.push({ text: tb.none, style: 'none' })
+  if (list.total === 0) out.push({ text: noneText(tb, p), style: 'none' })
   else {
     const cell = (c: Cell): TableCell => ({ text: c.text, ...(c.red ? { color: '#b91c1c' } : {}), ...(c.bold ? { bold: true } : {}) })
     out.push({
@@ -344,6 +353,7 @@ function pdfTable(tb: EvidenceTable, p: EvidencePack): Content[] {
 /** The PDF, as a pdfmake document definition. */
 export function buildEvidenceDoc(p: EvidencePack): TDocumentDefinitions {
   const range = `${day(p.period.from)} to ${day(p.period.to)}`
+  const agent = packAgent(p)
   const counts = sectionCounts(p)
   const a = p.attestation
   const at = attestation(p)
@@ -352,6 +362,7 @@ export function buildEvidenceDoc(p: EvidencePack): TDocumentDefinitions {
     { text: 'Agent Control Tower', style: 'brand' },
     { text: 'Evidence pack', style: 'title' },
     { text: range, style: 'subtitle' },
+    ...(agent ? [{ text: `Agent: ${agent}`, style: 'subtitle' }, { text: 'This pack covers this one agent only: every list below holds only its records.', style: 'about' }] : []),
     { text: `All dates and times are UTC. Produced ${when(p.generated.at)} UTC by ${producedBy(p)}. Recorded in the audit trail as entry #${a.pack_seq}.`, style: 'about' },
     {
       table: {
@@ -396,11 +407,11 @@ export function buildEvidenceDoc(p: EvidencePack): TDocumentDefinitions {
 
   return {
     pageSize: 'A4', pageOrientation: 'landscape', pageMargins: [36, 40, 36, 40],
-    info: { title: `Evidence pack ${p.period.from} to ${p.period.to}`, author: 'Agent Control Tower', subject: 'Evidence pack' },
+    info: { title: `Evidence pack ${agent ? `${agent} ` : ''}${p.period.from} to ${p.period.to}`, author: 'Agent Control Tower', subject: 'Evidence pack' },
     content,
     footer: (page, pages) => ({
       columns: [
-        { text: `Agent Control Tower · Evidence pack ${range} · audit entry #${a.pack_seq}`, style: 'foot' },
+        { text: `Agent Control Tower · Evidence pack ${agent ? `${p.agent!.code} · ` : ''}${range} · audit entry #${a.pack_seq}`, style: 'foot' },
         { text: `Page ${page} of ${pages}`, alignment: 'right', style: 'foot' },
       ], margin: [36, 12, 36, 0],
     }),
@@ -426,7 +437,7 @@ export function buildEvidenceDoc(p: EvidencePack): TDocumentDefinitions {
   }
 }
 
-export const evidenceFileName = (p: Pick<EvidencePack, 'period'>) => `evidence-pack-${p.period.from}-to-${p.period.to}.pdf`
+export const evidenceFileName = (p: Pick<EvidencePack, 'period' | 'agent'>) => `evidence-pack-${p.agent ? `${p.agent.code}-` : ''}${p.period.from}-to-${p.period.to}.pdf`
 
 /** Makes the PDF in the browser and saves it. pdfmake and its fonts load only when someone asks for a pack. */
 export async function downloadEvidencePdf(p: EvidencePack): Promise<void> {

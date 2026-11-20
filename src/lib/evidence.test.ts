@@ -55,6 +55,16 @@ describe('evidence pack PDF (task 6.1)', () => {
     expect(text).toContain('No changes outside the Control Tower were detected in this period.')
   }, 30_000)
 
+  // 20 Nov: a pack for one agent names it on the cover, in the attestation and in the file name.
+  it('a pack for one agent says which agent, on the cover and in the file name', async () => {
+    const one: EvidencePack = { ...SAMPLE, agent: { id: 'a1', code: 'AGT-0001', name: 'Payment Release Assistant' }, sync: { ...SAMPLE.sync, platforms: [] } }
+    expect(evidenceFileName(one)).toBe('evidence-pack-AGT-0001-2026-08-19-to-2026-11-17.pdf')
+    const { text } = await pdfText(one)
+    for (const s of ['Agent: AGT-0001 Payment Release Assistant', 'This pack covers this one agent only', 'Audit entries for AGT-0001 in the period',
+      'This agent is not on a connected agent platform.']) expect(text).toContain(s)
+    expect((await pdfText(SAMPLE)).text).not.toContain('This pack covers this one agent only')
+  }, 30_000)
+
   it('every table fits the page, leaving its stretchy column room', () => {
     for (const sec of TABLES) for (const tb of sec.tables) {
       expect(fixedWidth(tb.cols) + (tb.cols.some((c) => c.pdf === '*') ? 60 : 0), tb.sheet).toBeLessThanOrEqual(PAGE_WIDTH)

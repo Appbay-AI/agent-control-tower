@@ -328,8 +328,12 @@ export const api = {
   /** Task 6.3: every figure on the executive dashboard, in one call (admins, executives, auditors). */
   executiveDashboard: async () => check(await db().rpc('executive_dashboard')) as ExecutiveDashboard,
   /** Task 6.1: everything the evidence pack prints, for whole days in UTC (admins, executives, auditors). */
-  evidencePack: async (from: string, to: string) =>
-    check(await db().rpc('evidence_pack', { p_from: from, p_to: to })) as EvidencePack,
+  /** The pack for every agent, or (20 Nov) for one agent only. */
+  evidencePack: async (from: string, to: string, agentId?: string | null) =>
+    check(await db().rpc('evidence_pack', { p_from: from, p_to: to, p_agent: agentId || null })) as EvidencePack,
+  /** The agents the signed-in person can see, for the agent filters on the audit trail and the evidence pack. */
+  agentChoices: async () =>
+    check(await db().from('agents').select('id, agent_code, name').order('agent_code')) as { id: string; agent_code: string; name: string }[],
   previewRouting: async (agentId: string, amount: number | null, currency: string | null) =>
     check(await db().rpc('preview_routing', { p_agent_id: agentId, p_amount: amount, p_currency: currency })) as RoutingPreview,
   reroutePending: async () => check(await db().rpc('reroute_pending_requests')) as number,

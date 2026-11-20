@@ -15,8 +15,8 @@ describe('evidence pack (task 6.1)', () => {
   const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
 
   type Pack = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
-  const pack = (who: string, from = days(-30), to = today) =>
-    asUser(db, who, async (tx) => (await tx.query<{ p: Pack }>(`select public.evidence_pack($1::date, $2::date) p`, [from, to])).rows[0].p)
+  const pack = (who: string, from = days(-30), to = today, agentId: string | null = null) =>
+    asUser(db, who, async (tx) => (await tx.query<{ p: Pack }>(`select public.evidence_pack($1::date, $2::date, $3::uuid) p`, [from, to, agentId])).rows[0].p)
 
   beforeAll(async () => {
     db = await createDb()
@@ -113,5 +113,46 @@ describe('evidence pack (task 6.1)', () => {
     await expect(pack(u.ravi)).rejects.toThrow(/Only admins, executives and auditors/)
     await expect(pack(u.auditor, today, days(-1))).rejects.toThrow(/start date on or before the end date/)
     await expect(pack(u.auditor, days(-400), today)).rejects.toThrow(/at most a year/)
+  })
+
+  // 20 Nov: the pack for one agent holds only that agent's records, says which agent it is, and the audit entry says so.
+  it('for one agent: only that agent, everywhere', async () => {
+    const other = await proposeAgent(db, u.james, { name: 'FX Router', department_id: payments })
+    const reg = await asUser(db, u.james, async (tx) => (await tx.query<{ id: string }>(`select public.submit_agent_for_approval($1) id`, [other])).rows[0].id)
+    await asUser(db, u.ravi, (tx) => tx.query(`select public.decide_registration($1, 'approve', 'FX limits fine')`, [reg]))
+    await asUser(db, u.ravi, (tx) => tx.query(`select public.record_review($1, 'no_change', 'FX check')`, [other]))
+    await db.query(`insert into public.platform_agents (connection_id, external_id, name, status, details, agent_id)
+                    values ($1, 'NAP-009', 'Payment Release Assistant', 'blocked', '{}', $2)`, [conn, agent])
+
+    const all = await pack(u.auditor)
+    expect(all.agent).toBeNull()
+    expect(all.inventory.total).toBe(2)
+    expect(all.reviews.total).toBe(2)
+
+    const one = await pack(u.auditor, days(-30), today, agent)
+    expect(one.agent).toEqual({ id: agent, code, name: 'Payment Release Assistant' })
+    expect(one.inventory.rows.map((r: { code: string }) => r.code)).toEqual([code])
+    expect(one.reviews.rows).toEqual([expect.objectContaining({ notes: 'Quarterly check' })])
+    expect(one.requests).toMatchObject({ total: 1, expired: 1 })
+    expect(one.incidents.total).toBe(1)
+    expect(one.sync.platforms).toEqual([expect.objectContaining({ name: 'Northbridge Agent Platform (simulated)', syncs: 3 })])
+    expect(one.sync.total).toBe(2)
+    expect(one.attestation.period_events).toBeLessThan(all.attestation.period_events)
+    const ev = (await db.query<{ summary: string; after: { agent_code: string } }>(
+      `select summary, after from public.audit_events where seq = $1`, [one.attestation.pack_seq])).rows[0]
+    expect(ev.summary).toContain(`for ${code} Payment Release Assistant`)
+    expect(ev.after.agent_code).toBe(code)
+
+    const fx = await pack(u.auditor, days(-30), today, other)
+    expect(fx.inventory.rows).toEqual([expect.objectContaining({ name: 'FX Router' })])
+    expect(fx.reviews.rows).toEqual([expect.objectContaining({ notes: 'FX check' })])
+    expect(fx.registrations.rows).toEqual([expect.objectContaining({ reason: 'FX limits fine' })])
+    for (const k of ['requests', 'incidents', 'autonomy', 'suspensions', 'drift', 'requarantine', 'enforcement']) {
+      expect(fx[k].total, k).toBe(0)
+    }
+    expect(fx.requests).toMatchObject({ expired: 0, refused: 0 })
+    expect(fx.sync).toMatchObject({ platforms: [], total: 0, rows: [] })
+
+    await expect(pack(u.auditor, days(-30), today, '00000000-0000-0000-0000-000000000000')).rejects.toThrow(/Agent not found/)
   })
 })

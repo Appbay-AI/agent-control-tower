@@ -2,7 +2,7 @@
 // evidence.ts), so every row and value matches; dates and numbers are real Excel dates and numbers, shown with the
 // same formatting as the PDF, and every table has filters and a frozen header.
 import type { Workbook, Worksheet } from 'exceljs'
-import { attestation, cutNote, day, producedBy, SECTIONS, sectionCounts, TABLES, when, type Cell, type EvidencePack } from '@/lib/evidence'
+import { attestation, cutNote, day, noneText, packAgent, producedBy, SECTIONS, sectionCounts, TABLES, when, type Cell, type EvidencePack } from '@/lib/evidence'
 
 type ExcelModule = { Workbook: new () => Workbook }
 
@@ -12,7 +12,7 @@ const HEAD_FILL = { type: 'pattern' as const, pattern: 'solid' as const, fgColor
 /** The row each table's header sits on, on every sheet (title, count, about, note above it). */
 export const HEADER_ROW = 5
 
-export const evidenceExcelName = (p: Pick<EvidencePack, 'period'>) => `evidence-pack-${p.period.from}-to-${p.period.to}.xlsx`
+export const evidenceExcelName = (p: Pick<EvidencePack, 'period' | 'agent'>) => `evidence-pack-${p.agent ? `${p.agent.code}-` : ''}${p.period.from}-to-${p.period.to}.xlsx`
 
 function title(ws: Worksheet, text: string, sub: string, about: string, note: string | null) {
   ws.getCell('A1').value = text
@@ -39,7 +39,7 @@ function put(ws: Worksheet, row: number, col: number, c: Cell) {
 export function buildEvidenceWorkbook(p: EvidencePack, Excel: ExcelModule): Workbook {
   const wb = new Excel.Workbook()
   wb.creator = 'Agent Control Tower'
-  wb.title = `Evidence pack ${p.period.from} to ${p.period.to}`
+  wb.title = `Evidence pack ${p.agent ? `${p.agent.code} ` : ''}${p.period.from} to ${p.period.to}`
   wb.created = new Date(p.generated.at)
   const a = p.attestation
   const range = `${day(p.period.from)} to ${day(p.period.to)}`
@@ -50,7 +50,7 @@ export function buildEvidenceWorkbook(p: EvidencePack, Excel: ExcelModule): Work
   cover.columns = [{ width: 6 }, { width: 30 }, { width: 14 }, { width: 70 }]
   cover.getCell('A1').value = 'Agent Control Tower: Evidence pack'
   cover.getCell('A1').font = { bold: true, size: 18 }
-  cover.getCell('A2').value = range
+  cover.getCell('A2').value = packAgent(p) ? `${range} · Agent ${packAgent(p)} only` : range
   cover.getCell('A2').font = { size: 13 }
   cover.getCell('A3').value = `All dates and times are UTC. Produced ${when(p.generated.at)} UTC by ${producedBy(p)}. Recorded in the audit trail as entry #${a.pack_seq}.`
   cover.getCell('A3').font = { color: { argb: GREY } }
@@ -75,7 +75,7 @@ export function buildEvidenceWorkbook(p: EvidencePack, Excel: ExcelModule): Work
       const list = tb.list(p)
       const ws = wb.addWorksheet(tb.sheet, { views: [{ state: 'frozen', ySplit: HEADER_ROW }] })
       ws.columns = tb.cols.map((c) => ({ width: c.xl }))
-      const notes = [cutNote(list, p.cap), tb.note?.(p) ?? null, list.total === 0 ? tb.none : null].filter(Boolean).join(' ')
+      const notes = [cutNote(list, p.cap), tb.note?.(p) ?? null, list.total === 0 ? noneText(tb, p) : null].filter(Boolean).join(' ')
       title(ws, `${i + 1}. ${s.title}${tb.heading ? `: ${tb.heading}` : ''}`, s.count(p), s.about, notes || null)
       const h = ws.getRow(HEADER_ROW)
       h.values = tb.cols.map((c) => c.head)

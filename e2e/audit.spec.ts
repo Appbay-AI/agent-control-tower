@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test'
 
 // Task 6.8: the audit view. Done when: any event can be found and exported. Mei Lin (auditor) opens it from Reports,
 // finds an entry by its number and by its own words, narrows to one kind of record, exports what she found as CSV,
-// and the file holds exactly those entries; the export itself is then found in the trail.
+// and the file holds exactly those entries; the export itself is then found in the trail. Then (20 Nov) one agent's
+// entries only, exported as JSON.
 
 const PASSWORD = process.env.DEMO_USER_PASSWORD ?? ''
 
@@ -63,5 +64,24 @@ test('any audit entry can be found and exported', async ({ page }, info) => {
   await page.getByLabel('Words').fill(`#${exportSeq}`)
   await page.getByRole('button', { name: 'Search' }).click()
   await expect(page.getByTestId('audit-row')).toContainText('Audit trail exported as CSV')
-  console.log(`[audit] entry #${seq} found by number and by its words; ${found} routing-rule entries exported (${lines.length} lines); export recorded as #${exportSeq}`)
+
+  // 20 Nov: one agent's entries only, on screen and in the JSON export.
+  const PRA = 'AGT-0001 Payment Release Assistant'
+  await page.getByLabel('Words').fill('')
+  await page.getByLabel('Agent', { exact: true }).selectOption({ label: PRA })
+  await page.getByRole('button', { name: 'Search' }).click()
+  await expect(page.getByTestId('audit-row').first().locator('td').nth(6)).toHaveText(PRA)
+  for (const cell of await page.getByTestId('audit-row').locator('td:nth-child(7)').allTextContents()) expect(cell).toBe(PRA)
+  const agentFound = await count()
+  const [jd] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export JSON' }).click()])
+  expect(jd.suggestedFilename()).toMatch(/^audit-trail-AGT-0001-\d{4}-\d{2}-\d{2}-\d+\.json$/)
+  const jp = info.outputPath('audit-agent.json')
+  await jd.saveAs(jp)
+  const json = JSON.parse(await readFile(jp, 'utf8')) as { agent: { code: string; name: string }; entries: { agent: string }[] }
+  expect(json.agent).toMatchObject({ code: 'AGT-0001', name: 'Payment Release Assistant' })
+  expect(json.entries.length).toBeGreaterThanOrEqual(Math.min(agentFound, 10000))
+  expect(json.entries.every((e) => e.agent === PRA)).toBe(true)
+  await expect(page.getByTestId('audit-exported')).toContainText('audit-trail-AGT-0001-')
+
+  console.log(`[audit] entry #${seq} found by number and by its words; ${found} routing-rule entries exported (${lines.length} lines); export recorded as #${exportSeq}; ${json.entries.length} entries for AGT-0001 exported as JSON`)
 })

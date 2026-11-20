@@ -1,6 +1,7 @@
 // Task 6.8: the audit view. Search the whole audit trail (what the signed-in person may see), open any entry to see
 // what changed and its hashes, and export what was found as CSV or JSON (each export is itself recorded). Done when:
 // any event can be found and exported.
+// 20 Nov: an Agent filter. With an agent chosen, the list and both exports hold only that agent's entries.
 import { ChevronDown, ChevronRight, Download, Search } from 'lucide-react'
 import { Fragment, useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -17,6 +18,7 @@ const SELECT = 'border-input bg-background h-9 rounded-md border px-2 text-sm'
 
 export function AuditPage() {
   const facets = useAsync(() => api.auditFacets())
+  const agents = useAsync(() => api.agentChoices())
   const [draft, setDraft] = useState<AuditFilters>({})
   const [filters, setFilters] = useState<AuditFilters>({})
   const [rows, setRows] = useState<AuditEntry[]>([])
@@ -49,9 +51,12 @@ export function AuditPage() {
     setBusy(true); setError(null); setExported(null)
     try {
       const all = await api.auditSearch(filters, null, true)
-      const body = format === 'csv' ? auditCsv(all.rows) : JSON.stringify({ exported_at: new Date().toISOString(), filters, total: all.total, entries: all.rows }, null, 2)
+      const ag = filters.agent ? agents.data?.find((x) => x.id === filters.agent) : undefined
+      const agent = ag ? { id: ag.id, code: ag.agent_code, name: ag.name } : undefined
+      const body = format === 'csv' ? auditCsv(all.rows)
+        : JSON.stringify({ exported_at: new Date().toISOString(), filters, ...(agent ? { agent } : {}), total: all.total, entries: all.rows }, null, 2)
       const seq = await api.auditRecordExport(filters, all.rows.length, format)
-      const name = `audit-trail-${new Date().toISOString().slice(0, 10)}-${all.rows.length}.${format}`
+      const name = `audit-trail-${agent ? `${agent.code}-` : ''}${new Date().toISOString().slice(0, 10)}-${all.rows.length}.${format}`
       const url = URL.createObjectURL(new Blob([body], { type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json' }))
       const a = Object.assign(document.createElement('a'), { href: url, download: name })
       document.body.appendChild(a); a.click(); a.remove()
@@ -65,13 +70,20 @@ export function AuditPage() {
       <PageHeader title="Audit trail"
         subtitle="Every recorded change, newest first: who did what, when and why. Entries cannot be changed or deleted, and each is chained to the one before by its hash. You see the entries for the agents you can see." />
 
-      <form onSubmit={submit} className="bg-card grid gap-3 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end" aria-label="Search the audit trail">
+      <form onSubmit={submit} className="bg-card grid gap-3 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end" aria-label="Search the audit trail">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="a-q">Words</Label>
           <Input id="a-q" placeholder="Words, AGT-0001, a name, or #1234" value={draft.query ?? ''} onChange={(e) => setDraft({ ...draft, query: e.target.value })} />
         </div>
         <div className="space-y-1.5"><Label htmlFor="a-from">From</Label><Input id="a-from" type="date" value={draft.from ?? ''} onChange={(e) => setDraft({ ...draft, from: e.target.value || undefined })} /></div>
         <div className="space-y-1.5"><Label htmlFor="a-to">To (including)</Label><Input id="a-to" type="date" value={draft.to ?? ''} onChange={(e) => setDraft({ ...draft, to: e.target.value || undefined })} /></div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="a-agent">Agent</Label>
+          <select id="a-agent" className={SELECT + ' w-full'} value={draft.agent ?? ''} onChange={(e) => setDraft({ ...draft, agent: e.target.value || undefined })}>
+            <option value="">Any agent</option>
+            {(agents.data ?? []).map((a) => <option key={a.id} value={a.id}>{a.agent_code} {a.name}</option>)}
+          </select>
+        </div>
         <div className="space-y-1.5">
           <Label htmlFor="a-who">Who</Label>
           <select id="a-who" className={SELECT + ' w-full'} value={draft.actorType ?? ''} onChange={(e) => setDraft({ ...draft, actorType: e.target.value || undefined })}>
@@ -86,7 +98,7 @@ export function AuditPage() {
             {(facets.data?.entities ?? []).map((t) => [t, entityLabel(t)] as const).sort((a, b) => a[1].localeCompare(b[1])).map(([t, l]) => <option key={t} value={t}>{l}</option>)}
           </select>
         </div>
-        <div className="flex gap-2 sm:col-span-2 lg:col-span-6">
+        <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
           <Button type="submit" disabled={busy}><Search /> Search</Button>
           <Button type="button" variant="ghost" onClick={() => { setDraft({}); setFilters({}); setOpen(null); setExported(null) }}>Clear</Button>
         </div>

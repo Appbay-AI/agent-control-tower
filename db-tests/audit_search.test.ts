@@ -75,4 +75,15 @@ describe('audit search (task 6.8)', () => {
     expect((await db.query(`select * from public.audit_verify_chain()`)).rows).toEqual([])
     await expect(asUser(db, u.auditor, (tx) => tx.query(`select public.audit_record_export('{}', 1, 'pdf')`))).rejects.toThrow(/Unknown format/)
   })
+
+  // 20 Nov: exporting one agent's entries holds only that agent's, and the record names the agent.
+  it('exports one agent\'s entries only, and says which agent', async () => {
+    const one = await search(u.auditor, { p_agent: ag.james, p_full: true, p_limit: 10000 })
+    expect(one.total).toBeGreaterThan(0)
+    expect(one.rows.every((r: R) => r.agent_id === ag.james)).toBe(true)
+    const seq = await asUser(db, u.auditor, async (tx) =>
+      (await tx.query<{ s: number }>(`select public.audit_record_export($1, $2, 'json') s`, [{ agent: ag.james }, one.total])).rows[0].s)
+    const rec = (await search(u.auditor, { p_query: `#${seq}` })).rows[0]
+    expect(rec.summary).toMatch(new RegExp(`^Audit trail exported as JSON: ${one.total} entries for AGT-\\d+ Payment Release Assistant$`))
+  })
 })

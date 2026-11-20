@@ -71,6 +71,15 @@ describe('evidence pack as Excel (task 6.2)', () => {
     }
   }, 30_000)
 
+  // 20 Nov: a pack for one agent.
+  it('a pack for one agent names it on the contents sheet and in the file name', async () => {
+    const one: EvidencePack = { ...SAMPLE, agent: { id: 'a1', code: 'AGT-0001', name: 'Payment Release Assistant' }, sync: { ...SAMPLE.sync, platforms: [] } }
+    expect(evidenceExcelName(one)).toBe('evidence-pack-AGT-0001-2026-08-19-to-2026-11-17.xlsx')
+    const { wb } = await roundTrip(one)
+    expect(wb.getWorksheet('Contents')!.getCell('A2').value).toBe('19 Aug 2026 to 17 Nov 2026 · Agent AGT-0001 Payment Release Assistant only')
+    expect(wb.getWorksheet('9a Sync by platform')!.getCell('A4').value).toBe('This agent is not on a connected agent platform.')
+  })
+
   it('says so when the audit trail is broken, and when a table is empty', async () => {
     const broken: EvidencePack = { ...SAMPLE, drift: { total: 0, rows: [] }, attestation: { ...SAMPLE.attestation, chain_intact: false, chain_broken_at: 512 } }
     const { wb } = await roundTrip(broken)
