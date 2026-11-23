@@ -1,7 +1,7 @@
 name: Deck screens
 
 # 23 Nov: pictures for the user-journey deck, from the client demo site. Opens pages and dialogs only (never saves,
-# approves or suspends). Saves them to the branch review/deck-screens. Delete that branch when the deck is done.
+# approves or suspends). Saves them to the branch review/deck-guide (step-by-step guide pictures, with where each button is). Delete that branch when the deck is done.
 on:
   push:
     branches: [claude/deck-screens]
@@ -24,7 +24,7 @@ jobs:
       ACT_URL: ${{ github.event.inputs.url || 'https://agent-control-tower-56p.pages.dev' }}
       DEMO_USER_PASSWORD: ${{ secrets.DEMO_USER_PASSWORD }}
       DECK_SCREENS: '1'
-      SCREENS_DIR: deck-screens
+      SCREENS_DIR: deck-guide
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -34,13 +34,13 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Pictures
-        run: npx playwright test e2e/deck-screens.spec.ts --project desktop --retries 0 --workers 1 2>&1 | tee out.log; grep -oE '\[deck\].*' out.log | while read -r l; do echo "::notice title=Deck::$l"; done
-      - name: Save the pictures to review/deck-screens
+        run: npx playwright test e2e/deck-guide.spec.ts --project desktop --retries 0 --workers 1 2>&1 | tee out.log; grep -oE '\[deck(-guide)?\].*' out.log | while read -r l; do echo "::notice title=Deck::$l"; done
+      - name: Save the pictures to review/deck-guide
         if: always()
         run: |
-          [ -d deck-screens ] || exit 0
-          cd deck-screens
-          git init -q && git checkout -q -b review/deck-screens
+          [ -d deck-guide ] || exit 0
+          cd deck-guide
+          git init -q && git checkout -q -b review/deck-guide
           git config user.name 'github-actions' && git config user.email 'github-actions@users.noreply.github.com'
           git add -A && git commit -qm "Deck screens of ${ACT_URL} (run ${{ github.run_id }})"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" review/deck-screens
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" review/deck-guide
