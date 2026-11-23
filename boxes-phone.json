@@ -1,0 +1,63 @@
+{
+ "q01-approvals": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Approvals tab",
+    "x": 206,
+    "y": 785,
+    "w": 103,
+    "h": 54
+   },
+   {
+    "n": 2,
+    "label": "The request",
+    "x": 16,
+    "y": 366,
+    "w": 380,
+    "h": 246
+   }
+  ],
+  "missing": [],
+  "vw": 412,
+  "vh": 839
+ },
+ "q02-request": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Approve",
+    "x": 61,
+    "y": 402,
+    "w": 84,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 412,
+  "vh": 839
+ },
+ "q03-approve": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Note",
+    "x": 74,
+    "y": 326,
+    "w": 222,
+    "h": 64
+   },
+   {
+    "n": 2,
+    "label": "Confirm approval",
+    "x": 74,
+    "y": 402,
+    "w": 139,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 412,
+  "vh": 839
+ }
+}

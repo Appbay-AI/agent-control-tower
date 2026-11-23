@@ -1,0 +1,1660 @@
+{
+ "g01-login": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Email",
+    "x": 552,
+    "y": 388,
+    "w": 336,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Password",
+    "x": 552,
+    "y": 460,
+    "w": 336,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Sign in",
+    "x": 552,
+    "y": 512,
+    "w": 336,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g02-nav": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Agents",
+    "x": 255,
+    "y": 14,
+    "w": 64,
+    "h": 32
+   },
+   {
+    "n": 2,
+    "label": "My work",
+    "x": 348,
+    "y": 14,
+    "w": 72,
+    "h": 32
+   },
+   {
+    "n": 3,
+    "label": "Approvals",
+    "x": 450,
+    "y": 13,
+    "w": 108,
+    "h": 34
+   },
+   {
+    "n": 4,
+    "label": "Incidents",
+    "x": 587,
+    "y": 14,
+    "w": 76,
+    "h": 32
+   },
+   {
+    "n": 5,
+    "label": "Reports",
+    "x": 693,
+    "y": 14,
+    "w": 69,
+    "h": 32
+   },
+   {
+    "n": 6,
+    "label": "Integrations",
+    "x": 791,
+    "y": 14,
+    "w": 93,
+    "h": 32
+   },
+   {
+    "n": 7,
+    "label": "Routing",
+    "x": 914,
+    "y": 14,
+    "w": 68,
+    "h": 32
+   },
+   {
+    "n": 8,
+    "label": "Alerts",
+    "x": 1012,
+    "y": 14,
+    "w": 56,
+    "h": 32
+   },
+   {
+    "n": 9,
+    "label": "Users",
+    "x": 1097,
+    "y": 14,
+    "w": 57,
+    "h": 32
+   },
+   {
+    "n": 10,
+    "label": "Notifications",
+    "x": 1170,
+    "y": 12,
+    "w": 36,
+    "h": 36
+   },
+   {
+    "n": 11,
+    "label": "Change password",
+    "x": 1275,
+    "y": 14,
+    "w": 36,
+    "h": 32
+   },
+   {
+    "n": 12,
+    "label": "Sign out",
+    "x": 1323,
+    "y": 14,
+    "w": 93,
+    "h": 32
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g03-password": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Current password",
+    "x": 160,
+    "y": 184,
+    "w": 448,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "New password",
+    "x": 160,
+    "y": 278,
+    "w": 448,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Save",
+    "x": 160,
+    "y": 330,
+    "w": 157,
+    "h": 36
+   }
+  ],
+  "missing": [
+   "3 Repeat"
+  ],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g04-registry": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "No owner tile",
+    "x": 349,
+    "y": 160,
+    "w": 177,
+    "h": 74
+   },
+   {
+    "n": 2,
+    "label": "Search",
+    "x": 160,
+    "y": 254,
+    "w": 632,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Status",
+    "x": 800,
+    "y": 254,
+    "w": 160,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Risk",
+    "x": 968,
+    "y": 254,
+    "w": 144,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Source",
+    "x": 1120,
+    "y": 254,
+    "w": 160,
+    "h": 36
+   },
+   {
+    "n": 6,
+    "label": "Register agent",
+    "x": 1141,
+    "y": 104,
+    "w": 139,
+    "h": 36
+   },
+   {
+    "n": 7,
+    "label": "An agent",
+    "x": 173,
+    "y": 372,
+    "w": 170,
+    "h": 16
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g05-agent": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Record review",
+    "x": 816,
+    "y": 128,
+    "w": 123,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Suspend",
+    "x": 947,
+    "y": 128,
+    "w": 103,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Report incident",
+    "x": 1058,
+    "y": 128,
+    "w": 144,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Retire",
+    "x": 1211,
+    "y": 128,
+    "w": 69,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Ownership",
+    "x": 934,
+    "y": 319,
+    "w": 329,
+    "h": 24
+   },
+   {
+    "n": 6,
+    "label": "People with access",
+    "x": 177,
+    "y": 557,
+    "w": 707,
+    "h": 24
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g06-agent-keys": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "API keys",
+    "x": 934,
+    "y": 438,
+    "w": 329,
+    "h": 24
+   },
+   {
+    "n": 2,
+    "label": "New key",
+    "x": 934,
+    "y": 898,
+    "w": 98,
+    "h": 32
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g07-review": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Notes",
+    "x": 489,
+    "y": 481,
+    "w": 462,
+    "h": 64
+   },
+   {
+    "n": 2,
+    "label": "Save review",
+    "x": 843,
+    "y": 561,
+    "w": 108,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g08-report": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Title",
+    "x": 489,
+    "y": 371,
+    "w": 462,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Severity",
+    "x": 489,
+    "y": 443,
+    "w": 462,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "What happened",
+    "x": 489,
+    "y": 515,
+    "w": 462,
+    "h": 64
+   },
+   {
+    "n": 4,
+    "label": "Report incident",
+    "x": 825,
+    "y": 595,
+    "w": 126,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g09-form-top": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Name",
+    "x": 357,
+    "y": 289,
+    "w": 726,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Description",
+    "x": 357,
+    "y": 361,
+    "w": 726,
+    "h": 64
+   },
+   {
+    "n": 3,
+    "label": "Built by",
+    "x": 357,
+    "y": 461,
+    "w": 231,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Business owner",
+    "x": 357,
+    "y": 639,
+    "w": 355,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Department",
+    "x": 357,
+    "y": 711,
+    "w": 355,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g10-form-purpose": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Purpose statement",
+    "x": 357,
+    "y": 418,
+    "w": 726,
+    "h": 64
+   },
+   {
+    "n": 2,
+    "label": "Allowed actions",
+    "x": 357,
+    "y": 518,
+    "w": 355,
+    "h": 64
+   },
+   {
+    "n": 3,
+    "label": "Forbidden actions",
+    "x": 728,
+    "y": 518,
+    "w": 355,
+    "h": 64
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g11-form-bottom": {
+  "marks": [
+   {
+    "n": 2,
+    "label": "Risk tier",
+    "x": 357,
+    "y": 573,
+    "w": 192,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Save as Proposed",
+    "x": 336,
+    "y": 840,
+    "w": 146,
+    "h": 36
+   }
+  ],
+  "missing": [
+   "1 Autonomy"
+  ],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g12-discovered": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Edit",
+    "x": 799,
+    "y": 128,
+    "w": 74,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Submit for approval",
+    "x": 881,
+    "y": 128,
+    "w": 169,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Not registered notice",
+    "x": 177,
+    "y": 289,
+    "w": 1086,
+    "h": 40
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g13-integrations": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Test connection",
+    "x": 1144,
+    "y": 249,
+    "w": 123,
+    "h": 32
+   },
+   {
+    "n": 2,
+    "label": "Sync now",
+    "x": 1164,
+    "y": 361,
+    "w": 103,
+    "h": 32
+   },
+   {
+    "n": 3,
+    "label": "How often",
+    "x": 173,
+    "y": 431,
+    "w": 1028,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Check now",
+    "x": 1154,
+    "y": 516,
+    "w": 113,
+    "h": 32
+   },
+   {
+    "n": 5,
+    "label": "Agent console",
+    "x": 1093,
+    "y": 104,
+    "w": 187,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g14-suspend": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Reason",
+    "x": 489,
+    "y": 433,
+    "w": 462,
+    "h": 64
+   },
+   {
+    "n": 2,
+    "label": "Suspend now",
+    "x": 834,
+    "y": 513,
+    "w": 117,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g15-incidents": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Open",
+    "x": 160,
+    "y": 160,
+    "w": 271,
+    "h": 74
+   },
+   {
+    "n": 2,
+    "label": "Overdue",
+    "x": 443,
+    "y": 160,
+    "w": 271,
+    "h": 74
+   },
+   {
+    "n": 3,
+    "label": "An incident",
+    "x": 173,
+    "y": 291,
+    "w": 1094,
+    "h": 24
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g16-incident": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Mark contained",
+    "x": 177,
+    "y": 309,
+    "w": 128,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Mark resolved",
+    "x": 313,
+    "y": 309,
+    "w": 120,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Change severity",
+    "x": 441,
+    "y": 309,
+    "w": 135,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Hand over",
+    "x": 584,
+    "y": 309,
+    "w": 99,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Impact",
+    "x": 177,
+    "y": 427,
+    "w": 518,
+    "h": 20
+   },
+   {
+    "n": 6,
+    "label": "Containment",
+    "x": 745,
+    "y": 427,
+    "w": 518,
+    "h": 20
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g17-incident-save": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Root cause",
+    "x": 177,
+    "y": 531,
+    "w": 518,
+    "h": 20
+   },
+   {
+    "n": 2,
+    "label": "Remediation",
+    "x": 745,
+    "y": 531,
+    "w": 518,
+    "h": 20
+   },
+   {
+    "n": 3,
+    "label": "Save case",
+    "x": 616,
+    "y": 720,
+    "w": 97,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g18-routing": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Add rule",
+    "x": 374,
+    "y": 172,
+    "w": 100,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Apply to waiting requests",
+    "x": 160,
+    "y": 172,
+    "w": 206,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Move or edit a rule",
+    "x": 1111,
+    "y": 245,
+    "w": 36,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Save time limits",
+    "x": 177,
+    "y": 723,
+    "w": 132,
+    "h": 36
+   }
+  ],
+  "missing": [
+   "4 Time to decide"
+  ],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g19-routing-add": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Rule form",
+    "x": 177,
+    "y": 637,
+    "w": 1086,
+    "h": 122
+   },
+   {
+    "n": 2,
+    "label": "Save",
+    "x": 860,
+    "y": 767,
+    "w": 91,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g20-alert-routing": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Add route",
+    "x": 160,
+    "y": 172,
+    "w": 109,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Default route: edit",
+    "x": 1231,
+    "y": 303,
+    "w": 36,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Choose an agent",
+    "x": 177,
+    "y": 459,
+    "w": 497,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Choose an alert",
+    "x": 682,
+    "y": 459,
+    "w": 497,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Test",
+    "x": 1187,
+    "y": 459,
+    "w": 76,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g21-alert-test": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Test",
+    "x": 1187,
+    "y": 459,
+    "w": 76,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g22-users": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Add person",
+    "x": 1160,
+    "y": 104,
+    "w": 120,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Search",
+    "x": 160,
+    "y": 160,
+    "w": 720,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Role",
+    "x": 888,
+    "y": 160,
+    "w": 192,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "A person",
+    "x": 1160,
+    "y": 104,
+    "w": 120,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g23-user-new": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Name",
+    "x": 177,
+    "y": 285,
+    "w": 379,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Email",
+    "x": 572,
+    "y": 285,
+    "w": 379,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Roles",
+    "x": 190,
+    "y": 542,
+    "w": 16,
+    "h": 16
+   },
+   {
+    "n": 4,
+    "label": "Save",
+    "x": 160,
+    "y": 800,
+    "w": 104,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g24-console": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Amount",
+    "x": 177,
+    "y": 241,
+    "w": 535,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Supplier",
+    "x": 728,
+    "y": 241,
+    "w": 535,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Why",
+    "x": 177,
+    "y": 313,
+    "w": 1086,
+    "h": 64
+   },
+   {
+    "n": 4,
+    "label": "Ask the Control Tower",
+    "x": 177,
+    "y": 393,
+    "w": 185,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g25-bell": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Notifications",
+    "x": 1170,
+    "y": 12,
+    "w": 36,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Latest alert",
+    "x": 855,
+    "y": 94,
+    "w": 350,
+    "h": 88
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g30-approvals": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Approvals",
+    "x": 399,
+    "y": 13,
+    "w": 108,
+    "h": 34
+   },
+   {
+    "n": 2,
+    "label": "An incident to close",
+    "x": 173,
+    "y": 311,
+    "w": 394,
+    "h": 20
+   },
+   {
+    "n": 3,
+    "label": "The £2m request",
+    "x": 160,
+    "y": 448,
+    "w": 1120,
+    "h": 126
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g31-new-agents": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "New agents",
+    "x": 160,
+    "y": 432,
+    "w": 1120,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "An agent to approve",
+    "x": 177,
+    "y": 509,
+    "w": 214,
+    "h": 20
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g32-request": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Why it needs a person",
+    "x": 205,
+    "y": 399,
+    "w": 1058,
+    "h": 20
+   },
+   {
+    "n": 2,
+    "label": "Approve",
+    "x": 205,
+    "y": 576,
+    "w": 84,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Reject",
+    "x": 297,
+    "y": 576,
+    "w": 74,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Escalate",
+    "x": 379,
+    "y": 576,
+    "w": 88,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g33-approve": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Note",
+    "x": 218,
+    "y": 607,
+    "w": 222,
+    "h": 64
+   },
+   {
+    "n": 2,
+    "label": "Confirm approval",
+    "x": 218,
+    "y": 683,
+    "w": 139,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g34-reject": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Reason",
+    "x": 218,
+    "y": 607,
+    "w": 221,
+    "h": 64
+   },
+   {
+    "n": 2,
+    "label": "Confirm",
+    "x": 218,
+    "y": 683,
+    "w": 138,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g35-escalate": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Escalate to",
+    "x": 218,
+    "y": 607,
+    "w": 300,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Confirm",
+    "x": 218,
+    "y": 749,
+    "w": 86,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g36-fx": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Approve",
+    "x": 177,
+    "y": 345,
+    "w": 84,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Send back",
+    "x": 269,
+    "y": 345,
+    "w": 100,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Reject",
+    "x": 377,
+    "y": 345,
+    "w": 74,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g37-close-incident": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Approve and close",
+    "x": 177,
+    "y": 475,
+    "w": 148,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Turn down",
+    "x": 333,
+    "y": 475,
+    "w": 100,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g38-my-work": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Past due",
+    "x": 173,
+    "y": 209,
+    "w": 339,
+    "h": 20
+   },
+   {
+    "n": 2,
+    "label": "Waiting for my decision",
+    "x": 550,
+    "y": 209,
+    "w": 339,
+    "h": 20
+   },
+   {
+    "n": 3,
+    "label": "A decision",
+    "x": 177,
+    "y": 491,
+    "w": 980,
+    "h": 24
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g39-bulk": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Select all low-risk",
+    "x": 172,
+    "y": 322,
+    "w": 16,
+    "h": 16
+   },
+   {
+    "n": 2,
+    "label": "Or one by one",
+    "x": 164,
+    "y": 411,
+    "w": 16,
+    "h": 16
+   },
+   {
+    "n": 3,
+    "label": "Approve selected",
+    "x": 417,
+    "y": 314,
+    "w": 171,
+    "h": 32
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g40-reports": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Executive dashboard",
+    "x": 160,
+    "y": 164,
+    "w": 554,
+    "h": 106
+   },
+   {
+    "n": 2,
+    "label": "Risk dashboard",
+    "x": 726,
+    "y": 164,
+    "w": 554,
+    "h": 106
+   },
+   {
+    "n": 3,
+    "label": "Drift and sync",
+    "x": 160,
+    "y": 282,
+    "w": 554,
+    "h": 106
+   },
+   {
+    "n": 4,
+    "label": "Data access mismatches",
+    "x": 726,
+    "y": 282,
+    "w": 554,
+    "h": 106
+   },
+   {
+    "n": 5,
+    "label": "Audit trail",
+    "x": 160,
+    "y": 400,
+    "w": 554,
+    "h": 106
+   },
+   {
+    "n": 6,
+    "label": "Evidence pack",
+    "x": 726,
+    "y": 400,
+    "w": 554,
+    "h": 106
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g41-dashboard": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Refresh",
+    "x": 1181,
+    "y": 104,
+    "w": 99,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Without an owner",
+    "x": 362,
+    "y": 209,
+    "w": 151,
+    "h": 20
+   },
+   {
+    "n": 3,
+    "label": "Figures as a table",
+    "x": 177,
+    "y": 629,
+    "w": 518,
+    "h": 16
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g42-risk": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Refresh",
+    "x": 1181,
+    "y": 104,
+    "w": 99,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Heat map",
+    "x": 177,
+    "y": 181,
+    "w": 1086,
+    "h": 24
+   },
+   {
+    "n": 3,
+    "label": "Breaches",
+    "x": 177,
+    "y": 654,
+    "w": 518,
+    "h": 24
+   },
+   {
+    "n": 4,
+    "label": "Most incidents",
+    "x": 745,
+    "y": 654,
+    "w": 518,
+    "h": 24
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g43-drift": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Drift report tab",
+    "x": 160,
+    "y": 164,
+    "w": 90,
+    "h": 38
+   },
+   {
+    "n": 2,
+    "label": "Sync health tab",
+    "x": 254,
+    "y": 164,
+    "w": 97,
+    "h": 38
+   },
+   {
+    "n": 3,
+    "label": "From",
+    "x": 177,
+    "y": 263,
+    "w": 134,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Show",
+    "x": 485,
+    "y": 263,
+    "w": 69,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "What changed",
+    "x": 177,
+    "y": 527,
+    "w": 289,
+    "h": 36
+   },
+   {
+    "n": 6,
+    "label": "Agent",
+    "x": 714,
+    "y": 527,
+    "w": 207,
+    "h": 36
+   },
+   {
+    "n": 7,
+    "label": "CSV",
+    "x": 933,
+    "y": 527,
+    "w": 100,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g44-data-access": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Refresh",
+    "x": 160,
+    "y": 172,
+    "w": 99,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Personal data",
+    "x": 160,
+    "y": 232,
+    "w": 110,
+    "h": 32
+   },
+   {
+    "n": 3,
+    "label": "All sensitive data",
+    "x": 278,
+    "y": 232,
+    "w": 131,
+    "h": 32
+   },
+   {
+    "n": 4,
+    "label": "CSV",
+    "x": 417,
+    "y": 232,
+    "w": 92,
+    "h": 32
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g45-audit": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Words",
+    "x": 177,
+    "y": 221,
+    "w": 537,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "From",
+    "x": 726,
+    "y": 221,
+    "w": 263,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "To",
+    "x": 1001,
+    "y": 221,
+    "w": 263,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Agent",
+    "x": 177,
+    "y": 289,
+    "w": 537,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Who",
+    "x": 726,
+    "y": 289,
+    "w": 263,
+    "h": 36
+   },
+   {
+    "n": 6,
+    "label": "Record",
+    "x": 1001,
+    "y": 289,
+    "w": 263,
+    "h": 36
+   },
+   {
+    "n": 7,
+    "label": "Search",
+    "x": 177,
+    "y": 337,
+    "w": 92,
+    "h": 36
+   },
+   {
+    "n": 8,
+    "label": "Export CSV",
+    "x": 1029,
+    "y": 414,
+    "w": 117,
+    "h": 32
+   },
+   {
+    "n": 9,
+    "label": "Export JSON",
+    "x": 1154,
+    "y": 414,
+    "w": 126,
+    "h": 32
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g46-audit-row": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Agent",
+    "x": 177,
+    "y": 289,
+    "w": 537,
+    "h": 36
+   },
+   {
+    "n": 2,
+    "label": "Search",
+    "x": 177,
+    "y": 337,
+    "w": 92,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Open an entry",
+    "x": 161,
+    "y": 504,
+    "w": 1118,
+    "h": 57
+   },
+   {
+    "n": 4,
+    "label": "Export JSON",
+    "x": 1154,
+    "y": 414,
+    "w": 126,
+    "h": 32
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g47-evidence": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "A preset",
+    "x": 290,
+    "y": 201,
+    "w": 103,
+    "h": 32
+   },
+   {
+    "n": 2,
+    "label": "Or dates",
+    "x": 177,
+    "y": 269,
+    "w": 192,
+    "h": 36
+   },
+   {
+    "n": 3,
+    "label": "Agent",
+    "x": 585,
+    "y": 269,
+    "w": 320,
+    "h": 36
+   },
+   {
+    "n": 4,
+    "label": "Download PDF",
+    "x": 917,
+    "y": 269,
+    "w": 163,
+    "h": 36
+   },
+   {
+    "n": 5,
+    "label": "Download Excel",
+    "x": 1092,
+    "y": 269,
+    "w": 171,
+    "h": 36
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ },
+ "g48-owner-my-work": {
+  "marks": [
+   {
+    "n": 1,
+    "label": "Past due",
+    "x": 173,
+    "y": 209,
+    "w": 339,
+    "h": 20
+   },
+   {
+    "n": 2,
+    "label": "The overdue review",
+    "x": 205,
+    "y": 342,
+    "w": 346,
+    "h": 17
+   },
+   {
+    "n": 3,
+    "label": "My agents",
+    "x": 928,
+    "y": 209,
+    "w": 339,
+    "h": 20
+   }
+  ],
+  "missing": [],
+  "vw": 1440,
+  "vh": 900
+ }
+}
